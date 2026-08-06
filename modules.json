@@ -1,0 +1,20 @@
+{
+    "name": "dholab/baits",
+    "homePage": "https://github.com/dholab/baits",
+    "repos": {
+        "https://github.com/nf-core/modules.git": {
+            "modules": {
+                "nf-core": {}
+            },
+            "subworkflows": {
+                "nf-core": {
+                    "utils_nfschema_plugin": {
+                        "branch": "master",
+                        "git_sha": "a7b27fd25bfa8dcc07d299e88bd790585901a436d",
+                        "installed_by": ["subworkflows"]
+                    }
+                }
+            }
+        }
+    }
+}

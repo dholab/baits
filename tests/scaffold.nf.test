@@ -1,0 +1,29 @@
+nextflow_pipeline {
+    name "Test the project scaffold"
+    script "../main.nf"
+    tag "scaffold"
+
+    test("shows help") {
+        when {
+            params {
+                help = true
+            }
+        }
+
+        then {
+            assert workflow.success
+        }
+    }
+
+    test("shows the version") {
+        when {
+            params {
+                version = true
+            }
+        }
+
+        then {
+            assert workflow.success
+        }
+    }
+}

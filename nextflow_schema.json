@@ -1,0 +1,32 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "https://raw.githubusercontent.com/dholab/baits/main/nextflow_schema.json",
+    "title": "dholab/baits pipeline parameters",
+    "description": "Build auditable Bait Sets of Clean K-mers for biological targets",
+    "type": "object",
+    "properties": {
+        "help": {
+            "type": ["boolean", "string"],
+            "description": "Display the help message."
+        },
+        "help_full": {
+            "type": "boolean",
+            "description": "Display the full help message."
+        },
+        "show_hidden": {
+            "type": "boolean",
+            "description": "Display hidden parameters in the help message."
+        },
+        "validate_params": {
+            "type": "boolean",
+            "default": true,
+            "description": "Validate parameters against the pipeline schema.",
+            "hidden": true
+        },
+        "version": {
+            "type": "boolean",
+            "description": "Display the pipeline version.",
+            "hidden": true
+        }
+    }
+}

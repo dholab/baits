@@ -1,0 +1,25 @@
+*
+
+# Project control files
+!/.gitignore
+!/LICENSE
+!/README.md
+!/main.nf
+!/modules.json
+!/nextflow.config
+!/nextflow_schema.json
+!/nf-test.config
+!/pyproject.toml
+!/pixi.lock
+!/uv.lock
+
+# Initial source and test layout
+!/subworkflows/
+!/subworkflows/nf-core/
+!/subworkflows/nf-core/utils_nfschema_plugin/
+!/subworkflows/nf-core/utils_nfschema_plugin/*.nf
+!/subworkflows/nf-core/utils_nfschema_plugin/*.yml
+
+!/tests/
+!/tests/*.config
+!/tests/*.nf.test

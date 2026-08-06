@@ -1,0 +1,28 @@
+[project]
+name = "baits"
+version = "0.1.0.dev0"
+description = "Build auditable Bait Sets of Clean K-mers for biological targets"
+requires-python = ">=3.12,<3.13"
+dependencies = []
+
+[dependency-groups]
+dev = [
+  "nf-core==4.1.0",
+]
+
+[tool.pixi.workspace]
+channels = ["conda-forge", "bioconda"]
+platforms = ["osx-arm64", "linux-64", "linux-aarch64"]
+requires-pixi = ">=0.74.0,<0.77"
+
+[tool.pixi.dependencies]
+python = "3.12.*"
+nextflow = "==26.04.6"
+
+[tool.pixi.feature.dev.dependencies]
+nf-test = "==0.9.5"
+uv = "==0.11.32"
+
+[tool.pixi.environments]
+default = { features = [], solve-group = "default" }
+dev = { features = ["dev"], solve-group = "default" }
