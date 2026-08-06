@@ -14,6 +14,10 @@
 !/uv.lock
 
 # Initial source and test layout
+!/assets/
+!/assets/*.json
+!/assets/*.tsv
+
 !/subworkflows/
 !/subworkflows/nf-core/
 !/subworkflows/nf-core/utils_nfschema_plugin/
@@ -23,3 +27,6 @@
 !/tests/
 !/tests/*.config
 !/tests/*.nf.test
+!/tests/data/
+!/tests/data/*.fasta
+!/tests/data/*.tsv

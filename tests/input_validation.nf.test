@@ -1,0 +1,91 @@
+nextflow_pipeline {
+    name "Validate Target Sequence parameters"
+    script "../main.nf"
+    tag "input"
+
+    test("rejects direct Curated Target Sequences without a Target Taxon") {
+        when {
+            params {
+                target_sequences = "$baseDir/tests/data/curated_target_sequences.fasta"
+                interference_background = "$baseDir/tests/data/interference_background.fasta"
+            }
+        }
+
+        then {
+            assert workflow.failed
+        }
+    }
+
+    test("accepts one direct curated execution") {
+        when {
+            params {
+                id = "cyclospora"
+                target_sequences = "$baseDir/tests/data/curated_target_sequences.fasta"
+                target_taxid = "88456"
+                interference_background = "$baseDir/tests/data/interference_background.fasta"
+            }
+        }
+
+        then {
+            assert workflow.success
+        }
+    }
+
+    test("accepts curated and query-guided samplesheet rows") {
+        setup {
+            new File("$outputDir/valid_input.csv").text = """\
+id,target_taxid,curated_target_sequences,representative_queries,query_rules,target_assembly,interference_background
+curated,88456,$baseDir/tests/data/curated_target_sequences.fasta,,,,$baseDir/tests/data/interference_background.fasta
+discovery,88456,,$baseDir/tests/data/representative_queries.fasta,$baseDir/tests/data/query_rules.tsv,$baseDir/tests/data/target_assembly.fasta,$baseDir/tests/data/interference_background.fasta
+"""
+        }
+
+        when {
+            params {
+                input = "$outputDir/valid_input.csv"
+            }
+        }
+
+        then {
+            assert workflow.success
+        }
+    }
+
+    test("rejects a row that mixes curated and query-guided inputs") {
+        setup {
+            new File("$outputDir/mixed_input.csv").text = """\
+id,target_taxid,curated_target_sequences,representative_queries,query_rules,target_assembly,interference_background
+mixed,88456,$baseDir/tests/data/curated_target_sequences.fasta,$baseDir/tests/data/representative_queries.fasta,$baseDir/tests/data/query_rules.tsv,$baseDir/tests/data/target_assembly.fasta,$baseDir/tests/data/interference_background.fasta
+"""
+        }
+
+        when {
+            params {
+                input = "$outputDir/mixed_input.csv"
+            }
+        }
+
+        then {
+            assert workflow.failed
+        }
+    }
+
+    test("rejects query rules without a Query Group") {
+        setup {
+            new File("$outputDir/invalid_rules_input.csv").text = """\
+id,target_taxid,curated_target_sequences,representative_queries,query_rules,target_assembly,interference_background
+discovery,88456,,$baseDir/tests/data/representative_queries.fasta,$baseDir/tests/data/invalid_query_rules.tsv,$baseDir/tests/data/target_assembly.fasta,$baseDir/tests/data/interference_background.fasta
+"""
+        }
+
+        when {
+            params {
+                input = "$outputDir/invalid_rules_input.csv"
+            }
+        }
+
+        then {
+            assert workflow.failed
+        }
+    }
+}

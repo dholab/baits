@@ -1,0 +1,57 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "https://raw.githubusercontent.com/dholab/cleankmer/main/assets/schema_query_rules.json",
+    "title": "dholab/cleankmer query rules",
+    "description": "Rules for representative queries used to derive Provisional Target Sequences.",
+    "type": "array",
+    "minItems": 1,
+    "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+            "query_id": {
+                "type": "string",
+                "pattern": "^\\S+$",
+                "errorMessage": "query_id must be provided and cannot contain spaces"
+            },
+            "query_group": {
+                "type": "string",
+                "minLength": 1,
+                "errorMessage": "query_group must be provided"
+            },
+            "query_start": {
+                "type": "integer",
+                "minimum": 1,
+                "errorMessage": "query_start must be a 1-based positive integer"
+            },
+            "query_end": {
+                "type": "integer",
+                "minimum": 0,
+                "errorMessage": "query_end must be 0 or a 1-based positive integer"
+            },
+            "min_identity": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 100,
+                "errorMessage": "min_identity must be a percentage from 0 through 100"
+            },
+            "min_query_coverage": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 100,
+                "errorMessage": "min_query_coverage must be a percentage from 0 through 100"
+            }
+        },
+        "required": [
+            "query_id",
+            "query_group",
+            "query_start",
+            "query_end",
+            "min_identity",
+            "min_query_coverage"
+        ]
+    },
+    "allOf": [
+        {"uniqueEntries": ["query_id"]}
+    ]
+}

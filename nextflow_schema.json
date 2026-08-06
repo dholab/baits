@@ -4,29 +4,96 @@
     "title": "dholab/baits pipeline parameters",
     "description": "Build auditable Bait Sets of Clean K-mers for biological targets",
     "type": "object",
-    "properties": {
-        "help": {
-            "type": ["boolean", "string"],
-            "description": "Display the help message."
+    "$defs": {
+        "target_sequence_options": {
+            "title": "Target Sequence options",
+            "type": "object",
+            "description": "Supply a main samplesheet or one Curated Target Sequence FASTA.",
+            "properties": {
+                "input": {
+                    "type": "string",
+                    "format": "file-path",
+                    "exists": true,
+                    "schema": "assets/schema_input.json",
+                    "mimetype": "text/csv",
+                    "pattern": "^\\S+\\.csv$",
+                    "description": "Path to the main samplesheet."
+                },
+                "id": {
+                    "type": "string",
+                    "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$",
+                    "description": "Optional identifier for one direct curated execution. The Target Sequence FASTA name is used when this parameter is absent."
+                },
+                "target_sequences": {
+                    "type": "string",
+                    "format": "file-path",
+                    "exists": true,
+                    "pattern": "^\\S+\\.(fa|fasta|fna)(\\.gz)?$",
+                    "description": "Path to one Curated Target Sequence FASTA."
+                },
+                "target_taxid": {
+                    "type": "string",
+                    "pattern": "^[1-9][0-9]*$",
+                    "description": "NCBI Taxonomy identifier for the Target Taxon."
+                },
+                "interference_background": {
+                    "type": "string",
+                    "format": "file-path",
+                    "exists": true,
+                    "pattern": "^\\S+\\.(fa|fasta|fna)(\\.gz)?$",
+                    "description": "Path to the Interference Background FASTA."
+                }
+            },
+            "oneOf": [
+                {
+                    "required": ["input"],
+                    "not": {
+                        "anyOf": [
+                            {"required": ["id"]},
+                            {"required": ["target_sequences"]},
+                            {"required": ["target_taxid"]},
+                            {"required": ["interference_background"]}
+                        ]
+                    }
+                },
+                {
+                    "required": ["target_sequences", "target_taxid", "interference_background"],
+                    "not": {"required": ["input"]}
+                }
+            ]
         },
-        "help_full": {
-            "type": "boolean",
-            "description": "Display the full help message."
-        },
-        "show_hidden": {
-            "type": "boolean",
-            "description": "Display hidden parameters in the help message."
-        },
-        "validate_params": {
-            "type": "boolean",
-            "default": true,
-            "description": "Validate parameters against the pipeline schema.",
-            "hidden": true
-        },
-        "version": {
-            "type": "boolean",
-            "description": "Display the pipeline version.",
-            "hidden": true
+        "generic_options": {
+            "title": "Generic options",
+            "type": "object",
+            "properties": {
+                "help": {
+                    "type": ["boolean", "string"],
+                    "description": "Display the help message."
+                },
+                "help_full": {
+                    "type": "boolean",
+                    "description": "Display the full help message."
+                },
+                "show_hidden": {
+                    "type": "boolean",
+                    "description": "Display hidden parameters in the help message."
+                },
+                "validate_params": {
+                    "type": "boolean",
+                    "default": true,
+                    "description": "Validate parameters against the pipeline schema.",
+                    "hidden": true
+                },
+                "version": {
+                    "type": "boolean",
+                    "description": "Display the pipeline version.",
+                    "hidden": true
+                }
+            }
         }
-    }
+    },
+    "allOf": [
+        {"$ref": "#/$defs/target_sequence_options"},
+        {"$ref": "#/$defs/generic_options"}
+    ]
 }

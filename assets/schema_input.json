@@ -1,0 +1,88 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "https://raw.githubusercontent.com/dholab/cleankmer/main/assets/schema_input.json",
+    "title": "dholab/cleankmer main samplesheet",
+    "description": "One row for each independent Clean K-mer Design execution.",
+    "type": "array",
+    "minItems": 1,
+    "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+            "id": {
+                "type": "string",
+                "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$",
+                "errorMessage": "id must start with a letter or number and contain only letters, numbers, dots, underscores, or hyphens",
+                "meta": ["id"]
+            },
+            "target_taxid": {
+                "oneOf": [
+                    {"type": "integer", "minimum": 1},
+                    {"type": "string", "pattern": "^[1-9][0-9]*$"}
+                ],
+                "errorMessage": "target_taxid must be a positive NCBI Taxonomy identifier",
+                "meta": ["target_taxid"]
+            },
+            "curated_target_sequences": {
+                "type": "string",
+                "format": "file-path",
+                "exists": true,
+                "pattern": "^\\S+\\.(fa|fasta|fna)(\\.gz)?$",
+                "errorMessage": "curated_target_sequences must be an existing FASTA or compressed FASTA file"
+            },
+            "representative_queries": {
+                "type": "string",
+                "format": "file-path",
+                "exists": true,
+                "pattern": "^\\S+\\.(fa|fasta|fna)(\\.gz)?$",
+                "errorMessage": "representative_queries must be an existing FASTA or compressed FASTA file"
+            },
+            "query_rules": {
+                "type": "string",
+                "format": "file-path",
+                "exists": true,
+                "schema": "assets/schema_query_rules.json",
+                "pattern": "^\\S+\\.tsv$",
+                "errorMessage": "query_rules must be an existing TSV file"
+            },
+            "target_assembly": {
+                "type": "string",
+                "format": "file-path",
+                "exists": true,
+                "pattern": "^\\S+\\.(fa|fasta|fna)(\\.gz)?$",
+                "errorMessage": "target_assembly must be an existing FASTA or compressed FASTA file"
+            },
+            "interference_background": {
+                "type": "string",
+                "format": "file-path",
+                "exists": true,
+                "pattern": "^\\S+\\.(fa|fasta|fna)(\\.gz)?$",
+                "errorMessage": "interference_background must be an existing FASTA or compressed FASTA file"
+            }
+        },
+        "required": ["id", "target_taxid", "interference_background"],
+        "oneOf": [
+            {
+                "required": ["curated_target_sequences"],
+                "properties": {
+                    "curated_target_sequences": {"minLength": 1},
+                    "representative_queries": {"maxLength": 0},
+                    "query_rules": {"maxLength": 0},
+                    "target_assembly": {"maxLength": 0}
+                }
+            },
+            {
+                "required": ["representative_queries", "query_rules", "target_assembly"],
+                "properties": {
+                    "curated_target_sequences": {"maxLength": 0},
+                    "representative_queries": {"minLength": 1},
+                    "query_rules": {"minLength": 1},
+                    "target_assembly": {"minLength": 1}
+                }
+            }
+        ]
+    },
+    "allOf": [
+        {"uniqueEntries": ["id"]}
+    ]
+}

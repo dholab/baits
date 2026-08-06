@@ -16,12 +16,12 @@ workflow {
         params.help_full,
         params.show_hidden,
         '',
-        'This scaffold does not yet contain analysis components.',
+        '',
         'nextflow run dholab/baits --help',
         false,
     )
 
     if (!params.help && !params.help_full) {
-        error 'No analysis workflow is available yet.'
+        log.info 'Input validation completed. No analysis workflow is available yet.'
     }
 }
