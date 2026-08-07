@@ -1,7 +1,7 @@
 {
     "$schema": "https://json-schema.org/draft/2020-12/schema",
-    "$id": "https://raw.githubusercontent.com/dholab/cleankmer/main/assets/schema_input.json",
-    "title": "dholab/cleankmer main samplesheet",
+    "$id": "https://raw.githubusercontent.com/dholab/baits/main/assets/schema_input.json",
+    "title": "dholab/baits main samplesheet",
     "description": "One row for each independent Clean K-mer Design execution.",
     "type": "array",
     "minItems": 1,
@@ -23,12 +23,12 @@
                 "errorMessage": "target_taxid must be a positive NCBI Taxonomy identifier",
                 "meta": ["target_taxid"]
             },
-            "curated_target_sequences": {
+            "curated_source_sequences": {
                 "type": "string",
                 "format": "file-path",
                 "exists": true,
                 "pattern": "^\\S+\\.(fa|fasta|fna)(\\.gz)?$",
-                "errorMessage": "curated_target_sequences must be an existing FASTA or compressed FASTA file"
+                "errorMessage": "curated_source_sequences must be an existing FASTA or compressed FASTA file"
             },
             "representative_queries": {
                 "type": "string",
@@ -63,9 +63,9 @@
         "required": ["id", "target_taxid", "interference_background"],
         "oneOf": [
             {
-                "required": ["curated_target_sequences"],
+                "required": ["curated_source_sequences"],
                 "properties": {
-                    "curated_target_sequences": {"minLength": 1},
+                    "curated_source_sequences": {"minLength": 1},
                     "representative_queries": {"maxLength": 0},
                     "query_rules": {"maxLength": 0},
                     "target_assembly": {"maxLength": 0}
@@ -74,7 +74,7 @@
             {
                 "required": ["representative_queries", "query_rules", "target_assembly"],
                 "properties": {
-                    "curated_target_sequences": {"maxLength": 0},
+                    "curated_source_sequences": {"maxLength": 0},
                     "representative_queries": {"minLength": 1},
                     "query_rules": {"minLength": 1},
                     "target_assembly": {"minLength": 1}

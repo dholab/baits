@@ -4,7 +4,7 @@ include { UTILS_NFSCHEMA_PLUGIN } from './subworkflows/nf-core/utils_nfschema_pl
 
 workflow {
     if (params.version) {
-        log.info "${workflow.manifest.name} v${workflow.manifest.version}"
+        println "${workflow.manifest.name} v${workflow.manifest.version}"
         exit 0
     }
 

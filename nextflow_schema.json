@@ -5,10 +5,10 @@
     "description": "Build auditable Bait Sets of Clean K-mers for biological targets",
     "type": "object",
     "$defs": {
-        "target_sequence_options": {
-            "title": "Target Sequence options",
+        "source_sequence_options": {
+            "title": "Source Sequence options",
             "type": "object",
-            "description": "Supply a main samplesheet or one Curated Target Sequence FASTA.",
+            "description": "Supply a main samplesheet or one Curated Source Sequence FASTA.",
             "properties": {
                 "input": {
                     "type": "string",
@@ -22,14 +22,14 @@
                 "id": {
                     "type": "string",
                     "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$",
-                    "description": "Optional identifier for one direct curated execution. The Target Sequence FASTA name is used when this parameter is absent."
+                    "description": "Optional identifier for one direct curated execution. The Source Sequence FASTA name is used when this parameter is absent."
                 },
-                "target_sequences": {
+                "source_sequences": {
                     "type": "string",
                     "format": "file-path",
                     "exists": true,
                     "pattern": "^\\S+\\.(fa|fasta|fna)(\\.gz)?$",
-                    "description": "Path to one Curated Target Sequence FASTA."
+                    "description": "Path to one Curated Source Sequence FASTA."
                 },
                 "target_taxid": {
                     "type": "string",
@@ -50,14 +50,14 @@
                     "not": {
                         "anyOf": [
                             {"required": ["id"]},
-                            {"required": ["target_sequences"]},
+                            {"required": ["source_sequences"]},
                             {"required": ["target_taxid"]},
                             {"required": ["interference_background"]}
                         ]
                     }
                 },
                 {
-                    "required": ["target_sequences", "target_taxid", "interference_background"],
+                    "required": ["source_sequences", "target_taxid", "interference_background"],
                     "not": {"required": ["input"]}
                 }
             ]
@@ -93,7 +93,7 @@
         }
     },
     "allOf": [
-        {"$ref": "#/$defs/target_sequence_options"},
+        {"$ref": "#/$defs/source_sequence_options"},
         {"$ref": "#/$defs/generic_options"}
     ]
 }

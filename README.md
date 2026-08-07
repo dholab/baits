@@ -1,14 +1,14 @@
 # dholab/baits
 
-`dholab/baits` will build auditable Bait Sets of Clean K-mers for biological targets. It will remove Candidate K-mers that have exact matches in configured Interference Backgrounds. It will then apply Global Exact-Match Validation. The name refers to the CLEAN algorithm from radio astronomy.
+`dholab/baits` will build auditable Bait Sets of Clean K-mers for biological targets. It will remove Candidate K-mers that have exact matches in configured Interference Backgrounds. When a Taxonomic Reference Database is supplied, it will then apply Taxonomic Exact-Match Screening.
 
-This repository validates Target Sequence inputs but does not yet contain an analysis workflow.
+This repository validates Source Sequence inputs but does not yet contain an analysis workflow.
 
-For one curated execution, supply a Curated Target Sequence FASTA, the Target Taxon, and one Interference Background FASTA:
+For one curated execution, supply a Curated Source Sequence FASTA, the Target Taxon, and one Interference Background FASTA:
 
 ```bash
 nextflow run dholab/baits \
-    --target_sequences targets.fasta \
+    --source_sequences sources.fasta \
     --target_taxid 88456 \
     --interference_background interference.fasta
 ```

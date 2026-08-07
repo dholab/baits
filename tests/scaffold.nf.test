@@ -5,9 +5,7 @@ nextflow_pipeline {
 
     test("shows help") {
         when {
-            params {
-                help = true
-            }
+            options '--help'
         }
 
         then {
@@ -17,13 +15,12 @@ nextflow_pipeline {
 
     test("shows the version") {
         when {
-            params {
-                version = true
-            }
+            options '--version'
         }
 
         then {
             assert workflow.success
+            assert workflow.stdout.join('\n').contains('dholab/baits v0.1.0.dev0')
         }
     }
 }
