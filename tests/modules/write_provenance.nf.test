@@ -1,0 +1,26 @@
+nextflow_process {
+    name "Write Provenance process"
+    script "../../modules/local/write_provenance/main.nf"
+    process "WRITE_PROVENANCE"
+
+    test("stages declared inputs and emits all provenance tables and Python version") {
+        when {
+            process {
+                """
+                input[0] = [[id: 'design'], [[input_role: 'design', input_id: 'design', attribute: 'source_sequence_origin', value: "curator's input"], [input_role: 'target_taxon', input_id: 'design', attribute: 'target_taxid', value: '88456']], ['interference background', 'curated_source_sequences'], ['interference background', 'curated_source_sequences'], ['file', 'file'], [file(\"\$baseDir/tests/data/interference_background.fasta\"), file(\"\$baseDir/tests/data/curated_source_sequences.fasta\")], [[parameter: 'target_taxid', value: '88456']], [[component: 'biopython', version: '1.87']]]
+                """
+            }
+        }
+
+
+        then {
+            assert process.success
+            assert process.out.provenance.size() == 1
+            assert file(process.out.provenance[0][1]).text ==~ /input_role\tinput_id\tattribute\tvalue\ncurated_source_sequences\tcurated_source_sequences\tfilename\tcurated_source_sequences.fasta\ncurated_source_sequences\tcurated_source_sequences\tsha256\t[0-9a-f]{64}\ndesign\tdesign\tsource_sequence_origin\tcurator's input\ninterference background\tinterference background\tfilename\tinterference_background.fasta\ninterference background\tinterference background\tsha256\t[0-9a-f]{64}\ntarget_taxon\tdesign\ttarget_taxid\t88456\n/
+            assert file(process.out.provenance[0][2]).text.readLines() == ['parameter\tvalue', 'target_taxid\t88456']
+            assert file(process.out.provenance[0][3]).text ==~ /component\tversion\nbiopython\t1.87\npython\t[0-9.]+\n/
+            assert process.out.versions_python[0][0] == 'WRITE_PROVENANCE'
+            assert process.out.versions_python[0][1] == 'python'
+        }
+    }
+}

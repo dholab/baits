@@ -1,0 +1,26 @@
+nextflow_process {
+    name "BLASTN Source Sequences process"
+    script "../../modules/local/blastn_source_sequences/main.nf"
+    process "BLASTN_SOURCE_SEQUENCES"
+
+    test("stages the paired database input and declares hits and BLAST version") {
+        when {
+            options '-stub-run'
+            process {
+                """
+                input[0] = [[id: 'design', source_sequence_origin: 'query_guided_discovery'], file(\"\$baseDir/tests/data/representative_queries.fasta\"), file(\"\$baseDir/tests/data\")]
+                """
+            }
+        }
+
+
+        then {
+            assert process.success
+            assert process.out.txt.size() == 1
+            assert file(process.out.txt[0][1]).exists()
+            assert process.out.versions_blast[0][0] == 'BLASTN_SOURCE_SEQUENCES'
+            assert process.out.reported_blast[0][0].id == 'design'
+            assert process.out.reported_blast[0][1] == 'blast'
+        }
+    }
+}

@@ -1,0 +1,25 @@
+nextflow_process {
+    name "Prepare Queries process"
+    script "../../modules/local/prepare_queries/main.nf"
+    process "PREPARE_QUERIES"
+
+    test("stages query inputs and emits prepared FASTA and Biopython version") {
+        when {
+            process {
+                """
+                input[0] = [[id: 'design', source_sequence_origin: 'query_guided_discovery'], file(\"\$baseDir/tests/data/representative_queries.fasta\"), file(\"\$baseDir/tests/data/query_rules.tsv\")]
+                """
+            }
+        }
+
+
+        then {
+            assert process.success
+            assert process.out.fasta.size() == 1
+            assert file(process.out.fasta[0][1]).text.contains('>query_18s')
+            assert process.out.versions_biopython[0][0] == 'PREPARE_QUERIES'
+            assert process.out.versions_biopython[0][1] == 'biopython'
+            assert process.out.versions_biopython[0][2] ==~ /\d+\.\d+/
+        }
+    }
+}

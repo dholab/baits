@@ -1,0 +1,67 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/nf-core/modules/master/modules/meta-schema.json
+name: blastn_source_sequences
+description: Align prepared query FASTA records to the matching target assembly BLAST database.
+keywords:
+  - blast
+  - blastn
+  - source sequences
+tools:
+  - blast:
+      description: NCBI BLAST sequence similarity search tools.
+      homepage: https://blast.ncbi.nlm.nih.gov/
+      licence:
+        - "US-Government-Work"
+input:
+  - - meta:
+        type: map
+        description: Design metadata.
+    - fasta:
+        type: file
+        description: Prepared query FASTA.
+        ontologies: []
+    - db:
+        type: directory
+        description: Matching BLAST nucleotide database directory from BLAST_MAKEBLASTDB.
+output:
+  txt:
+    - - meta:
+          type: map
+          description: Design metadata.
+      - query_blast_hits.txt:
+          type: file
+          description: BLAST tabular hits.
+          pattern: "query_blast_hits.txt"
+          ontologies: []
+  reported_blast:
+    - - meta:
+          type: map
+          description: Design metadata.
+      - blast:
+          type: string
+          description: Component name.
+      - 'blastn -version 2>&1 | sed "s/^.*blastn: //; s/ .*$//; s/+.*$//"':
+          type: eval
+          description: Runtime BLAST version.
+  versions_blast:
+    - - ${task.process}:
+          type: string
+          description: Process name.
+      - blast:
+          type: string
+          description: Component name.
+      - 'blastn -version 2>&1 | sed "s/^.*blastn: //; s/ .*$//; s/+.*$//"':
+          type: eval
+          description: Runtime BLAST version.
+topics:
+  versions:
+    - - ${task.process}:
+          type: string
+          description: Process name.
+      - blast:
+          type: string
+          description: Component name.
+      - 'blastn -version 2>&1 | sed "s/^.*blastn: //; s/ .*$//; s/+.*$//"':
+          type: eval
+          description: Runtime BLAST version.
+authors:
+  - dholab/baits

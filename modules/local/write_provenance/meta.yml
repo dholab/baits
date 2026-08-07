@@ -1,0 +1,85 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/nf-core/modules/master/modules/meta-schema.json
+name: write_provenance
+description: Write deterministic final per-design provenance tables.
+keywords:
+  - provenance
+  - design provenance
+  - tsv
+tools:
+  - python:
+      description: Python programming language.
+      homepage: https://www.python.org/
+      licence:
+        - "Python-2.0"
+input:
+  - - meta:
+        type: map
+        description: Design metadata.
+    - input_facts:
+        type: list
+        description: Complete non-file input provenance rows.
+    - input_file_roles:
+        type: string
+        description: Ordered roles for staged file and directory inputs.
+    - input_file_ids:
+        type: string
+        description: Ordered identifiers for staged file and directory inputs.
+    - input_file_kinds:
+        type: string
+        description: Ordered file or directory kinds for staged inputs.
+    - input_files:
+        type: file
+        description: Staged input files and directories.
+        ontologies: []
+    - parameters:
+        type: list
+        description: Complete parameter provenance rows.
+    - software_versions:
+        type: list
+        description: Complete software component/version rows.
+output:
+  provenance:
+    - - meta:
+          type: map
+          description: Design metadata.
+      - inputs.tsv:
+          type: file
+          description: Input provenance table.
+          pattern: "inputs.tsv"
+          ontologies:
+            - edam: http://edamontology.org/format_3475 # TSV
+      - parameters.tsv:
+          type: file
+          description: Parameter provenance table.
+          pattern: "parameters.tsv"
+          ontologies:
+            - edam: http://edamontology.org/format_3475 # TSV
+      - software_versions.tsv:
+          type: file
+          description: Scientific software version table.
+          pattern: "software_versions.tsv"
+          ontologies:
+            - edam: http://edamontology.org/format_3475 # TSV
+  versions_python:
+    - - ${task.process}:
+          type: string
+          description: Process name.
+      - python:
+          type: string
+          description: Component name.
+      - python --version | sed 's/Python //':
+          type: eval
+          description: Runtime Python version.
+topics:
+  versions:
+    - - ${task.process}:
+          type: string
+          description: Process name.
+      - python:
+          type: string
+          description: Component name.
+      - python --version | sed 's/Python //':
+          type: eval
+          description: Runtime Python version.
+authors:
+  - dholab/baits

@@ -1,0 +1,71 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/nf-core/modules/master/modules/meta-schema.json
+name: normalize_curated_source_sequences
+description: Normalize curated source sequences and write their query groups.
+keywords:
+  - fasta
+  - source sequences
+  - curated
+tools:
+  - biopython:
+      description: Python tools for biological computation.
+      homepage: https://biopython.org/
+      licence:
+        - "BSD-3-Clause"
+      identifier: biotools:biopython
+input:
+  - - meta:
+        type: map
+        description: Design metadata.
+    - source_sequences:
+        type: file
+        description: Curated source sequence FASTA.
+        ontologies: []
+output:
+  source_sequences:
+    - - meta:
+          type: map
+          description: Design metadata.
+      - source_sequences.fasta:
+          type: file
+          description: Normalized source sequence FASTA.
+          pattern: "source_sequences.fasta"
+          ontologies: []
+      - source_sequence_query_groups.tsv:
+          type: file
+          description: Blank query group for each curated source sequence.
+          pattern: "source_sequence_query_groups.tsv"
+          ontologies:
+            - edam: http://edamontology.org/format_3475 # TSV
+  reported_biopython:
+    - - meta:
+          type: map
+          description: Design metadata.
+      - biopython:
+          type: string
+          description: Component name.
+      - python -c 'import Bio; print(Bio.__version__)':
+          type: eval
+          description: Runtime Biopython version.
+  versions_biopython:
+    - - ${task.process}:
+          type: string
+          description: Process name.
+      - biopython:
+          type: string
+          description: Component name.
+      - python -c 'import Bio; print(Bio.__version__)':
+          type: eval
+          description: Runtime Biopython version.
+topics:
+  versions:
+    - - ${task.process}:
+          type: string
+          description: Process name.
+      - biopython:
+          type: string
+          description: Component name.
+      - python -c 'import Bio; print(Bio.__version__)':
+          type: eval
+          description: Runtime Biopython version.
+authors:
+  - dholab/baits

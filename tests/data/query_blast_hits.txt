@@ -1,0 +1,1 @@
+query_18s	40	1	40	assembly_record	5	44	40	100

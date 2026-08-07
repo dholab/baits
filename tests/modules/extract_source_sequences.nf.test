@@ -1,0 +1,44 @@
+nextflow_process {
+    name "Extract Source Sequences process"
+    script "../../modules/local/extract_source_sequences/main.nf"
+    process "EXTRACT_SOURCE_SEQUENCES"
+
+    test("emits Provisional Source Sequences, Candidate Loci, and Query Group status") {
+        when {
+            process {
+                """
+                input[0] = [[id: 'design', source_sequence_origin: 'query_guided_discovery'], file(\"\$baseDir/tests/data/representative_queries.fasta\"), file(\"\$baseDir/tests/data/target_assembly.fasta\"), file(\"\$baseDir/tests/data/query_rules.tsv\"), file(\"\$baseDir/tests/data/query_blast_hits.txt\")]
+                """
+            }
+        }
+
+
+        then {
+            assert process.success
+            assert process.out.source_sequences.size() == 1
+            assert file(process.out.source_sequences[0][1]).text.contains('>source_sequence_000001')
+            assert file(process.out.candidate_loci[0][1]).text.readLines()[0].startsWith('candidate_locus_id')
+            assert file(process.out.discovery_status[0][1]).text.contains('18S\tPASS\t1')
+            assert process.out.versions_biopython[0][0] == 'EXTRACT_SOURCE_SEQUENCES'
+            assert process.out.reported_biopython[0][0].id == 'design'
+        }
+    }
+
+    test("emits Candidate Loci and status but no Provisional Source Sequence for a missing Query Group") {
+        when {
+            process {
+                """
+                input[0] = [[id: 'design', source_sequence_origin: 'query_guided_discovery'], file(\"\$baseDir/tests/data/representative_queries.fasta\"), file(\"\$baseDir/tests/data/target_assembly.fasta\"), file(\"\$baseDir/tests/data/query_rules.tsv\"), file(\"\$baseDir/tests/data/empty_blast_hits.txt\")]
+                """
+            }
+        }
+
+
+        then {
+            assert process.success
+            assert process.out.source_sequences.size() == 0
+            assert process.out.candidate_loci.size() == 1
+            assert file(process.out.discovery_status[0][1]).text.contains('18S\tNO_CANDIDATE_LOCUS\t0')
+        }
+    }
+}

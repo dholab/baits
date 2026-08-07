@@ -1,0 +1,59 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/nf-core/modules/master/modules/meta-schema.json
+name: prepare_queries
+description: Prepare trimmed query FASTA records from representative queries and query rules.
+keywords:
+  - fasta
+  - query
+  - source sequences
+tools:
+  - biopython:
+      description: Python tools for biological computation.
+      homepage: https://biopython.org/
+      licence:
+        - "BSD-3-Clause"
+      identifier: biotools:biopython
+input:
+  - - meta:
+        type: map
+        description: Design metadata.
+    - representative_queries:
+        type: file
+        description: Representative query FASTA.
+        ontologies: []
+    - query_rules:
+        type: file
+        description: Query rules TSV.
+        ontologies: []
+output:
+  fasta:
+    - - meta:
+          type: map
+          description: Design metadata.
+      - prepared_queries.fasta:
+          type: file
+          description: Prepared query FASTA.
+          pattern: "prepared_queries.fasta"
+          ontologies: []
+  versions_biopython:
+    - - ${task.process}:
+          type: string
+          description: Process name.
+      - biopython:
+          type: string
+          description: Component name.
+      - python -c 'import Bio; print(Bio.__version__)':
+          type: eval
+          description: Runtime Biopython version.
+topics:
+  versions:
+    - - ${task.process}:
+          type: string
+          description: Process name.
+      - biopython:
+          type: string
+          description: Component name.
+      - python -c 'import Bio; print(Bio.__version__)':
+          type: eval
+          description: Runtime Biopython version.
+authors:
+  - dholab/baits

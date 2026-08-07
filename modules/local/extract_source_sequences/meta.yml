@@ -1,0 +1,103 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/nf-core/modules/master/modules/meta-schema.json
+name: extract_source_sequences
+description: Construct candidate loci and provisional source sequences from BLAST hits.
+keywords:
+  - fasta
+  - blast
+  - source sequences
+tools:
+  - biopython:
+      description: Python tools for biological computation.
+      homepage: https://biopython.org/
+      licence:
+        - "BSD-3-Clause"
+      identifier: biotools:biopython
+input:
+  - - meta:
+        type: map
+        description: Design metadata.
+    - prepared_queries:
+        type: file
+        description: Prepared query FASTA.
+        ontologies: []
+    - target_assembly:
+        type: file
+        description: Target assembly FASTA.
+        ontologies: []
+    - query_rules:
+        type: file
+        description: Query rules TSV.
+        ontologies: []
+    - blast_hits:
+        type: file
+        description: Query BLAST hits.
+        ontologies: []
+output:
+  source_sequences:
+    - - meta:
+          type: map
+          description: Design metadata.
+      - source_sequences.fasta:
+          type: file
+          description: Optional provisional source sequence FASTA.
+          pattern: "source_sequences.fasta"
+          ontologies: []
+      - source_sequence_query_groups.tsv:
+          type: file
+          description: Query group for each provisional source sequence.
+          pattern: "source_sequence_query_groups.tsv"
+          ontologies:
+            - edam: http://edamontology.org/format_3475 # TSV
+  candidate_loci:
+    - - meta:
+          type: map
+          description: Design metadata.
+      - candidate_loci.tsv:
+          type: file
+          description: Candidate loci TSV.
+          pattern: "candidate_loci.tsv"
+          ontologies:
+            - edam: http://edamontology.org/format_3475 # TSV
+  discovery_status:
+    - - meta:
+          type: map
+          description: Design metadata.
+      - discovery_status.tsv:
+          type: file
+          description: Discovery status TSV.
+          pattern: "discovery_status.tsv"
+          ontologies:
+            - edam: http://edamontology.org/format_3475 # TSV
+  reported_biopython:
+    - - meta:
+          type: map
+          description: Design metadata.
+      - biopython:
+          type: string
+          description: Component name.
+      - python -c 'import Bio; print(Bio.__version__)':
+          type: eval
+          description: Runtime Biopython version.
+  versions_biopython:
+    - - ${task.process}:
+          type: string
+          description: Process name.
+      - biopython:
+          type: string
+          description: Component name.
+      - python -c 'import Bio; print(Bio.__version__)':
+          type: eval
+          description: Runtime Biopython version.
+topics:
+  versions:
+    - - ${task.process}:
+          type: string
+          description: Process name.
+      - biopython:
+          type: string
+          description: Component name.
+      - python -c 'import Bio; print(Bio.__version__)':
+          type: eval
+          description: Runtime Biopython version.
+authors:
+  - dholab/baits

@@ -2,6 +2,7 @@
 
 # Project control files
 !/.gitignore
+!/.nf-core.yml
 !/LICENSE
 !/README.md
 !/main.nf
@@ -13,12 +14,46 @@
 !/pixi.lock
 !/uv.lock
 
-# Initial source and test layout
+# Bounded source and test layouts
 !/assets/
 !/assets/*.json
 !/assets/*.tsv
 
+!/bin/
+!/bin/*.py
+
+!/modules/
+!/modules/local/
+!/modules/local/blastn_source_sequences/
+!/modules/local/blastn_source_sequences/*.nf
+!/modules/local/blastn_source_sequences/*.yml
+!/modules/local/extract_source_sequences/
+!/modules/local/extract_source_sequences/*.nf
+!/modules/local/extract_source_sequences/*.yml
+!/modules/local/normalize_curated_source_sequences/
+!/modules/local/normalize_curated_source_sequences/*.nf
+!/modules/local/normalize_curated_source_sequences/*.yml
+!/modules/local/prepare_queries/
+!/modules/local/prepare_queries/*.nf
+!/modules/local/prepare_queries/*.yml
+!/modules/local/write_provenance/
+!/modules/local/write_provenance/*.nf
+!/modules/local/write_provenance/*.yml
+!/modules/nf-core/
+!/modules/nf-core/blast/
+!/modules/nf-core/blast/makeblastdb/
+!/modules/nf-core/blast/makeblastdb/*.nf
+!/modules/nf-core/blast/makeblastdb/*.yml
+!/modules/nf-core/blast/makeblastdb/tests/
+!/modules/nf-core/blast/makeblastdb/tests/*.config
+!/modules/nf-core/blast/makeblastdb/tests/*.nf.test
+!/modules/nf-core/blast/makeblastdb/tests/*.snap
+
 !/subworkflows/
+!/subworkflows/local/
+!/subworkflows/local/discover_source_sequences/
+!/subworkflows/local/discover_source_sequences/*.nf
+!/subworkflows/local/discover_source_sequences/*.yml
 !/subworkflows/nf-core/
 !/subworkflows/nf-core/utils_nfschema_plugin/
 !/subworkflows/nf-core/utils_nfschema_plugin/*.nf
@@ -30,3 +65,11 @@
 !/tests/data/
 !/tests/data/*.fasta
 !/tests/data/*.tsv
+!/tests/data/*.txt
+!/tests/modules/
+!/tests/modules/*.nf.test
+!/tests/python/
+!/tests/python/*.py
+
+!/workflows/
+!/workflows/*.nf

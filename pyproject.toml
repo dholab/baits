@@ -3,11 +3,17 @@ name = "baits"
 version = "0.1.0.dev0"
 description = "Build auditable Bait Sets of Clean K-mers for biological targets"
 requires-python = ">=3.12,<3.13"
-dependencies = []
+dependencies = [
+  "biopython==1.87",
+  "polars==1.43.2",
+]
 
 [dependency-groups]
 dev = [
   "nf-core==4.1.0",
+  "pytest==8.4.2",
+  "ruff==0.16.2",
+  "ty==0.0.70",
 ]
 
 [tool.pixi.workspace]
@@ -18,6 +24,7 @@ requires-pixi = ">=0.74.0,<0.77"
 [tool.pixi.dependencies]
 python = "3.12.*"
 nextflow = "==26.04.6"
+blast = "==2.16.0"
 
 [tool.pixi.feature.dev.dependencies]
 nf-test = "==0.9.5"
@@ -26,3 +33,18 @@ uv = "==0.11.32"
 [tool.pixi.environments]
 default = { features = [], solve-group = "default" }
 dev = { features = ["dev"], solve-group = "default" }
+
+[tool.pixi.feature.dev.tasks]
+lint-python = "uv run ruff check bin tests/python"
+test-python = "uv run pytest tests/python"
+typecheck-python = "uv run ty check bin"
+
+[tool.ruff.lint]
+select = ["ALL"]
+ignore = ["CPY001", "D", "E501", "INP001", "PTH", "TD003", "TRY300"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/python/*.py" = ["PLR2004", "S101", "S603"]
+
+[tool.pytest.ini_options]
+pythonpath = ["bin"]

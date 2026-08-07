@@ -1,0 +1,26 @@
+nextflow_process {
+    name "Normalize Curated Source Sequences process"
+    script "../../modules/local/normalize_curated_source_sequences/main.nf"
+    process "NORMALIZE_CURATED_SOURCE_SEQUENCES"
+
+    test("emits normalized Curated Source Sequences and their blank Query Groups") {
+        when {
+            process {
+                """
+                input[0] = [[id: 'design', source_sequence_origin: 'curated_input'], file(\"\$baseDir/tests/data/curated_source_sequences.fasta\")]
+                """
+            }
+        }
+
+
+        then {
+            assert process.success
+            assert process.out.source_sequences.size() == 1
+            assert file(process.out.source_sequences[0][1]).text.contains('>curated_source')
+            assert file(process.out.source_sequences[0][2]).text.readLines()[0] == 'source_sequence_id\tquery_group'
+            assert process.out.versions_biopython[0][0] == 'NORMALIZE_CURATED_SOURCE_SEQUENCES'
+            assert process.out.reported_biopython[0][0].id == 'design'
+            assert process.out.reported_biopython[0][1] == 'biopython'
+        }
+    }
+}

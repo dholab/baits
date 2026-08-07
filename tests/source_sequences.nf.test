@@ -1,0 +1,132 @@
+nextflow_pipeline {
+    name "Acquire Source Sequences"
+    script "../main.nf"
+    tag "source_sequences"
+
+    test("publishes Curated Source Sequences without the internal Query Group table") {
+        when {
+            params {
+                id = "curated_design"
+                source_sequences = "$baseDir/tests/data/curated_source_sequences.fasta"
+                target_taxid = "88456"
+                interference_background = "$baseDir/tests/data/interference_background.fasta"
+            }
+        }
+
+
+        then {
+            assert workflow.success
+            def runDir = new File(outputDir).parent
+            assert new File("$runDir/results/curated_design/01_source_sequences/source_sequences.fasta").exists()
+            assert !new File("$runDir/results/curated_design/01_source_sequences/source_sequence_query_groups.tsv").exists()
+            assert !new File("$runDir/results/curated_design/01_source_sequences/candidate_loci.tsv").exists()
+            assert new File("$runDir/results/curated_design/07_provenance/inputs.tsv").exists()
+            assert new File("$runDir/results/curated_design/07_provenance/software_versions.tsv").readLines().collect { it.split('\t')[0] } == ['component', 'biopython', 'python']
+        }
+    }
+
+    test("publishes Candidate Loci and Query Group status from real BLAST composition") {
+        setup {
+            new File("$outputDir/discovery_input.csv").text = """\
+id,target_taxid,curated_source_sequences,representative_queries,query_rules,target_assembly,interference_background
+discovery_design,88456,,$baseDir/tests/data/representative_queries.fasta,$baseDir/tests/data/query_rules.tsv,$baseDir/tests/data/target_assembly.fasta,$baseDir/tests/data/interference_background.fasta
+"""
+        }
+
+
+        when {
+            params {
+                input = "$outputDir/discovery_input.csv"
+            }
+        }
+
+
+        then {
+            assert workflow.success
+            def runDir = new File(outputDir).parent
+            def stage = new File("$runDir/results/discovery_design/01_source_sequences")
+            assert new File(stage, "source_sequences.fasta").text.contains(">source_sequence_000001")
+            assert new File(stage, "candidate_loci.tsv").readLines()[0] == "candidate_locus_id\tsource_sequence_id\tquery_id\tquery_group\tassembly_sequence_id\tassembly_start\tassembly_end\tstrand\tpercent_identity\tquery_coverage"
+            assert new File(stage, "query_blast_hits.tsv").exists()
+            assert new File(stage, "discovery_status.tsv").text.contains("18S\tPASS\t1")
+        }
+    }
+
+    test("missing Query Group publishes Candidate Loci and status but no Provisional Source Sequences") {
+        setup {
+            new File("$outputDir/rules.tsv").text = """\
+query_id	query_group	query_start	query_end	min_identity	min_query_coverage
+query_18s	18S	1	0	98	90
+missing_query	5S	1	0	98	90
+"""
+            new File("$outputDir/queries.fasta").text = """\
+>query_18s
+ATGCGTACGTTAGCCATGACCTGATCGTACGATTCGGAAC
+>missing_query
+TTTTTTTTTTTT
+"""
+            new File("$outputDir/input.csv").text = """\
+id,target_taxid,curated_source_sequences,representative_queries,query_rules,target_assembly,interference_background
+negative_design,88456,,$outputDir/queries.fasta,$outputDir/rules.tsv,$baseDir/tests/data/target_assembly.fasta,$baseDir/tests/data/interference_background.fasta
+"""
+        }
+
+
+        when {
+            params {
+                input = "$outputDir/input.csv"
+            }
+        }
+
+
+        then {
+            assert workflow.success
+            def runDir = new File(outputDir).parent
+            def stage = new File("$runDir/results/negative_design/01_source_sequences")
+            assert !new File(stage, "source_sequences.fasta").exists()
+            assert new File(stage, "candidate_loci.tsv").exists()
+            assert new File(stage, "query_blast_hits.tsv").exists()
+            assert new File(stage, "discovery_status.tsv").text.contains("5S\tNO_CANDIDATE_LOCUS\t0")
+            def provenance = new File("$runDir/results/negative_design/07_provenance")
+            assert new File(provenance, "inputs.tsv").readLines()[0] == "input_role\tinput_id\tattribute\tvalue"
+            assert new File(provenance, "inputs.tsv").text.contains("source_sequence_origin\tquery_guided_discovery")
+            assert new File(provenance, "parameters.tsv").readLines() == ["parameter\tvalue", "target_taxid\t88456"]
+            assert new File(provenance, "software_versions.tsv").readLines()[0] == "component\tversion"
+            assert new File(provenance, "software_versions.tsv").text.contains("blast\t2.16.0")
+            assert new File(provenance, "software_versions.tsv").readLines().collect { it.split('\t')[0] } == ['component', 'biopython', 'blast', 'python']
+        }
+    }
+
+    test("multi-design discovery joins each prepared Query FASTA to its matching database") {
+        setup {
+            new File("$outputDir/queries_a.fasta").text = ">qa\nATGCGTACGTTAGCCATGACCTGATCGTACGATTCGGAAC\n"
+            new File("$outputDir/rules_a.tsv").text = "query_id\tquery_group\tquery_start\tquery_end\tmin_identity\tmin_query_coverage\nqa\tA\t1\t0\t100\t100\n"
+            new File("$outputDir/assembly_a.fasta").text = ">contig_a\nGGGATGCGTACGTTAGCCATGACCTGATCGTACGATTCGGAACTTT\n"
+            new File("$outputDir/queries_b.fasta").text = ">qb\nCGTTAACCGGATCTAGGCTAACGATTCGATGGCATACGTA\n"
+            new File("$outputDir/rules_b.tsv").text = "query_id\tquery_group\tquery_start\tquery_end\tmin_identity\tmin_query_coverage\nqb\tB\t1\t0\t100\t100\n"
+            new File("$outputDir/assembly_b.fasta").text = ">contig_b\nCCCCGTTAACCGGATCTAGGCTAACGATTCGATGGCATACGTAAAA\n"
+            new File("$outputDir/multi.csv").text = """\
+id,target_taxid,curated_source_sequences,representative_queries,query_rules,target_assembly,interference_background
+design_a,88456,,$outputDir/queries_a.fasta,$outputDir/rules_a.tsv,$outputDir/assembly_a.fasta,$baseDir/tests/data/interference_background.fasta
+design_b,88456,,$outputDir/queries_b.fasta,$outputDir/rules_b.tsv,$outputDir/assembly_b.fasta,$baseDir/tests/data/interference_background.fasta
+"""
+        }
+
+
+        when {
+            params {
+                input = "$outputDir/multi.csv"
+            }
+        }
+
+
+        then {
+            assert workflow.success
+            def runDir = new File(outputDir).parent
+            assert new File("$runDir/results/design_a/01_source_sequences/discovery_status.tsv").text.contains("A\tPASS\t1")
+            assert new File("$runDir/results/design_b/01_source_sequences/discovery_status.tsv").text.contains("B\tPASS\t1")
+            assert new File("$runDir/results/design_a/01_source_sequences/candidate_loci.tsv").text.contains("contig_a")
+            assert new File("$runDir/results/design_b/01_source_sequences/candidate_loci.tsv").text.contains("contig_b")
+        }
+    }
+}
