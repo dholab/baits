@@ -1,0 +1,156 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/nf-core/modules/master/modules/meta-schema.json
+name: apply_taxonomic_screening
+description: Apply exact taxonomic BLAST evidence to locally filtered baits.
+keywords:
+  - taxonomy
+  - blast
+  - k-mer
+tools:
+  - biopython:
+      description: Python tools for biological computation.
+      homepage: https://biopython.org/
+      documentation: https://biopython.org/wiki/Documentation
+      tool_dev_url: https://github.com/biopython/biopython
+      licence:
+        - BSD-3-Clause
+      identifier: biotools:biopython
+  - polars:
+      description: DataFrame library for typed rectangular transformations.
+      homepage: https://pola.rs/
+      documentation: https://docs.pola.rs/
+      tool_dev_url: https://github.com/pola-rs/polars
+      licence:
+        - MIT
+input:
+  - - meta:
+        type: map
+        description: Design metadata.
+    - locally_filtered_baits:
+        type: file
+        description: Locally filtered bait FASTA.
+        ontologies: []
+    - blast_hits:
+        type: file
+        description: Headered exact-match taxonomic BLAST results.
+        ontologies:
+          - edam: http://edamontology.org/format_3475 # TSV
+    - candidate_kmer_manifest:
+        type: file
+        description: Candidate k-mer manifest before taxonomic screening.
+        ontologies:
+          - edam: http://edamontology.org/format_3475 # TSV
+    - bait_set_status:
+        type: file
+        description: Locally filtered bait set status draft.
+        ontologies:
+          - edam: http://edamontology.org/format_3475 # TSV
+    - target_taxid:
+        type: string
+        description: Target NCBI taxonomy identifier.
+    - kmer_size:
+        type: integer
+        description: Exact bait k-mer length.
+output:
+  manifest:
+    - - meta:
+          type: map
+          description: Design metadata.
+      - candidate_kmers.tsv:
+          type: file
+          description: Regenerated candidate k-mer manifest.
+          pattern: candidate_kmers.tsv
+          ontologies:
+            - edam: http://edamontology.org/format_3475 # TSV
+  decisions:
+    - - meta:
+          type: map
+          description: Design metadata.
+      - screening_decisions.tsv:
+          type: file
+          description: Per-bait exact-match taxonomic decisions.
+          pattern: screening_decisions.tsv
+          ontologies:
+            - edam: http://edamontology.org/format_3475 # TSV
+  screening_status:
+    - - meta:
+          type: map
+          description: Design metadata.
+      - screening_status.tsv:
+          type: file
+          description: Aggregate taxonomic-screening status.
+          pattern: screening_status.tsv
+          ontologies:
+            - edam: http://edamontology.org/format_3475 # TSV
+  bait_set_status:
+    - - meta:
+          type: map
+          description: Design metadata.
+      - bait_set_status.tsv:
+          type: file
+          description: Updated bait set status draft.
+          pattern: bait_set_status.tsv
+          ontologies:
+            - edam: http://edamontology.org/format_3475 # TSV
+  baits:
+    - - meta:
+          type: map
+          description: Design metadata.
+      - taxonomically_screened_baits.fasta:
+          type: file
+          description: Optional taxonomically screened bait FASTA.
+          pattern: taxonomically_screened_baits.fasta
+          ontologies: []
+      - candidate_kmers.tsv:
+          type: file
+          description: Regenerated candidate k-mer manifest.
+          pattern: candidate_kmers.tsv
+          ontologies:
+            - edam: http://edamontology.org/format_3475 # TSV
+      - bait_set_status.tsv:
+          type: file
+          description: Updated bait set status draft.
+          pattern: bait_set_status.tsv
+          ontologies:
+            - edam: http://edamontology.org/format_3475 # TSV
+  versions_biopython:
+    - - ${task.process}:
+          type: string
+          description: Process name.
+      - biopython:
+          type: string
+          description: Tool name.
+      - python -c 'import Bio; print(Bio.__version__)':
+          type: eval
+          description: Runtime Biopython version.
+  versions_polars:
+    - - ${task.process}:
+          type: string
+          description: Process name.
+      - polars:
+          type: string
+          description: Tool name.
+      - python -c 'import polars; print(polars.__version__)':
+          type: eval
+          description: Runtime Polars version.
+topics:
+  versions:
+    - - ${task.process}:
+          type: string
+          description: Process name.
+      - biopython:
+          type: string
+          description: Tool name.
+      - python -c 'import Bio; print(Bio.__version__)':
+          type: eval
+          description: Runtime Biopython version.
+    - - ${task.process}:
+          type: string
+          description: Process name.
+      - polars:
+          type: string
+          description: Tool name.
+      - python -c 'import polars; print(polars.__version__)':
+          type: eval
+          description: Runtime Polars version.
+authors:
+  - dholab/baits

@@ -27,9 +27,15 @@
 !/modules/local/apply_complexity_filter/
 !/modules/local/apply_complexity_filter/*.nf
 !/modules/local/apply_complexity_filter/*.yml
+!/modules/local/apply_taxonomic_screening/
+!/modules/local/apply_taxonomic_screening/*.nf
+!/modules/local/apply_taxonomic_screening/*.yml
 !/modules/local/blastn_source_sequences/
 !/modules/local/blastn_source_sequences/*.nf
 !/modules/local/blastn_source_sequences/*.yml
+!/modules/local/blastn_taxonomic_screening/
+!/modules/local/blastn_taxonomic_screening/*.nf
+!/modules/local/blastn_taxonomic_screening/*.yml
 !/modules/local/build_candidate_tables/
 !/modules/local/build_candidate_tables/*.nf
 !/modules/local/build_candidate_tables/*.yml
@@ -83,6 +89,9 @@
 !/subworkflows/local/filter_candidate_kmers/
 !/subworkflows/local/filter_candidate_kmers/*.nf
 !/subworkflows/local/filter_candidate_kmers/*.yml
+!/subworkflows/local/taxonomic_exact_match_screening/
+!/subworkflows/local/taxonomic_exact_match_screening/*.nf
+!/subworkflows/local/taxonomic_exact_match_screening/*.yml
 !/subworkflows/nf-core/
 !/subworkflows/nf-core/utils_nfschema_plugin/
 !/subworkflows/nf-core/utils_nfschema_plugin/*.nf

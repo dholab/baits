@@ -255,8 +255,12 @@ def test_complexity_command_writes_terminal_status_and_no_fasta_when_no_baits(tm
     pl.DataFrame(valid_manifest_rows()[:1], schema=complexity.MANIFEST_SCHEMA).write_csv(input_path, separator="\t")
     passing = tmp_path / "passing.fasta"
     passing.write_text("")
-    output, baits, status = (tmp_path / name for name in ("out.tsv", "baits.fasta", "status.tsv"))
-    complexity.main(["--design-id", "design", "--source-sequence-origin", "curated_input", "--manifest-in", str(input_path), "--passing-kmers", str(passing), "--manifest-out", str(output), "--baits-out", str(baits), "--filtering-status-out", str(status), "--bait-set-status-out", str(tmp_path / "bait-status.tsv")])
+    output, baits, status, terminal_manifest = (
+        tmp_path / name
+        for name in ("out.tsv", "baits.fasta", "status.tsv", "terminal_candidate_kmers.tsv")
+    )
+    complexity.main(["--design-id", "design", "--source-sequence-origin", "curated_input", "--manifest-in", str(input_path), "--passing-kmers", str(passing), "--manifest-out", str(output), "--baits-out", str(baits), "--filtering-status-out", str(status), "--bait-set-status-out", str(tmp_path / "bait-status.tsv"), "--terminal-manifest-out", str(terminal_manifest)])
     assert not baits.exists()
     assert pl.read_csv(status, separator="\t").filter(pl.col("metric") == "terminal_stage").item(0, "value") == "low_complexity_filtering"
     assert pl.read_csv(output, separator="\t").item(0, "status") == "REJECT_LOW_COMPLEXITY"
+    assert terminal_manifest.read_text() == output.read_text()

@@ -157,4 +157,42 @@ design_b,88456,$baseDir/tests/data/filter_low_complexity_source.fasta,,,,$baseDi
             assert !new File("$runDir/results/design_b/04_bait_sets/locally_filtered_baits.fasta").exists()
         }
     }
+    test("screens nonterminal designs and retains terminal filtering evidence with a shared database") {
+        setup {
+            new File("$outputDir/taxonomic_reference_db").mkdirs()
+            new File("$outputDir/taxonomic_reference.fasta").text = new File("$baseDir/tests/data/filter_source_sequences.fasta").text
+            assert ["pixi", "run", "--environment", "dev", "makeblastdb", "-dbtype", "nucl", "-parse_seqids", "-taxid", "88456", "-in", "$outputDir/taxonomic_reference.fasta", "-out", "$outputDir/taxonomic_reference_db/taxonomic"].execute().waitFor() == 0
+            new File("$outputDir/taxonomic_multi.csv").text = """id,target_taxid,curated_source_sequences,representative_queries,query_rules,target_assembly,interference_background
+design_a,88456,$baseDir/tests/data/filter_source_sequences.fasta,,,,$baseDir/tests/data/interference_background.fasta
+design_b,88456,$baseDir/tests/data/filter_low_complexity_source.fasta,,,,$baseDir/tests/data/interference_background.fasta
+"""
+        }
+        when {
+            params {
+                input = "$outputDir/taxonomic_multi.csv"
+                taxonomic_reference_db = "$outputDir/taxonomic_reference_db"
+            }
+        }
+        then {
+            assert workflow.success
+            def runDir = new File(outputDir).parent
+            def screened = new File("$runDir/results/design_a")
+            def terminal = new File("$runDir/results/design_b")
+            assert new File(screened, '03_taxonomic_screening/blast_hits.tsv').exists()
+            assert new File(screened, '03_taxonomic_screening/screening_decisions.tsv').exists()
+            assert new File(screened, '03_taxonomic_screening/screening_status.tsv').exists()
+            assert new File(screened, '04_bait_sets/taxonomically_screened_baits.fasta').exists()
+            assert new File(screened, '07_provenance/taxonomic_reference_database.txt').text.contains('BLASTDB Version:')
+            assert new File(screened, '07_provenance/inputs.tsv').text.contains('taxonomic_reference_database\ttaxonomic_reference_database\tdirectory\ttaxonomic_reference_db')
+            assert new File(screened, '07_provenance/software_versions.tsv').text.contains('blast\t2.16.0')
+            def screenedManifest = new File(screened, '02_candidate_kmers/candidate_kmers.tsv')
+            assert screenedManifest.text.contains('\tPASS\tnone\tPASS\t')
+            assert !screenedManifest.text.contains('\tNOT_RUN\t')
+            assert new File(terminal, '02_candidate_kmers/candidate_kmers.tsv').exists()
+            assert new File(terminal, '07_provenance/inputs.tsv').text.contains('taxonomic_reference_database\ttaxonomic_reference_database\tdirectory\ttaxonomic_reference_db')
+            assert !new File(terminal, '07_provenance/software_versions.tsv').text.contains('blast\t')
+            assert !new File(terminal, '03_taxonomic_screening/blast_hits.tsv').exists()
+            assert !new File(terminal, '07_provenance/taxonomic_reference_database.txt').exists()
+        }
+    }
 }

@@ -1,0 +1,9 @@
+metric	value
+design_id	design_a
+source_sequence_origin	curated_input
+candidate_kmer_count	2
+locally_filtered_bait_count	2
+taxonomic_screening_status	NOT_RUN
+taxonomically_screened_bait_count	
+deepest_bait_set	locally_filtered
+deacon_index_source	

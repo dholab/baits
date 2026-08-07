@@ -1,0 +1,80 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/nf-core/modules/master/modules/meta-schema.json
+name: blastn_taxonomic_screening
+description: Screen locally filtered baits for exact taxonomic BLAST matches.
+keywords:
+  - blast
+  - blastn
+  - taxonomy
+tools:
+  - blast:
+      description: NCBI BLAST sequence similarity search tools.
+      homepage: https://blast.ncbi.nlm.nih.gov/
+      licence:
+        - US-Government-Work
+input:
+  - - meta:
+        type: map
+        description: Design metadata.
+    - baits:
+        type: file
+        description: Locally filtered bait FASTA.
+        ontologies: []
+    - taxonomic_reference_db:
+        type: directory
+        description: Taxonomy-aware BLAST nucleotide database directory.
+    - kmer_size:
+        type: integer
+        description: Exact bait k-mer length.
+output:
+  hits:
+    - - meta:
+          type: map
+          description: Design metadata.
+      - taxonomic_blast_hits.tsv:
+          type: file
+          description: Headered exact-match taxonomic BLAST results.
+          pattern: taxonomic_blast_hits.tsv
+          ontologies:
+            - edam: http://edamontology.org/format_3475 # TSV
+  reference_database_report:
+    - - meta:
+          type: map
+          description: Design metadata.
+      - taxonomic_reference_database.txt:
+          type: file
+          description: Unparsed taxonomic reference database self-report from blastdbcmd.
+          pattern: taxonomic_reference_database.txt
+          ontologies: []
+  reported_blast:
+    - - meta:
+          type: map
+          description: Design metadata.
+      - blast:
+          type: string
+          description: Component name.
+      - 'blastn -version 2>&1 | sed "s/^.*blastn: //; s/ .*$//; s/+.*$//"':
+          type: eval
+          description: Runtime BLAST version.
+  versions_blast:
+    - - ${task.process}:
+          type: string
+          description: Process name.
+      - blast:
+          type: string
+          description: Component name.
+      - 'blastn -version 2>&1 | sed "s/^.*blastn: //; s/ .*$//; s/+.*$//"':
+          type: eval
+          description: Runtime BLAST version.
+topics:
+  versions:
+    - - ${task.process}:
+          type: string
+          description: Process name.
+      - blast:
+          type: string
+          description: Component name.
+      - 'blastn -version 2>&1 | sed "s/^.*blastn: //; s/ .*$//; s/+.*$//"':
+          type: eval
+          description: Runtime BLAST version.
+authors:
+  - dholab/baits

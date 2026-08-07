@@ -54,6 +54,12 @@ workflow {
     ch_kmer_size = Channel.value(params.kmer_size)
     ch_deacon_window = Channel.value(params.deacon_window)
     ch_entropy_threshold = Channel.value(params.entropy_threshold)
+    ch_taxonomic_reference_db = params.taxonomic_reference_db
+        ? Channel.value(file(params.taxonomic_reference_db))
+        : Channel.empty()
+    ch_taxonomic_screening_not_run = params.taxonomic_reference_db
+        ? Channel.empty()
+        : Channel.value(true)
 
     // Shared design context: [metadata, target taxid, interference background].
     ch_design_context = ch_normalized_rows.map { meta, row ->
@@ -104,6 +110,8 @@ workflow {
         ch_kmer_size,
         ch_deacon_window,
         ch_entropy_threshold,
+        ch_taxonomic_reference_db,
+        ch_taxonomic_screening_not_run,
     )
 
     // Publication
@@ -117,6 +125,11 @@ workflow {
     candidate_kmer_occurrences = BAITS_MAIN.out.candidate_kmer_occurrences
     filtering_status = BAITS_MAIN.out.filtering_status
     locally_filtered_baits = BAITS_MAIN.out.locally_filtered_baits
+    taxonomic_blast_hits = BAITS_MAIN.out.taxonomic_blast_hits
+    screening_decisions = BAITS_MAIN.out.screening_decisions
+    screening_status = BAITS_MAIN.out.screening_status
+    taxonomically_screened_baits = BAITS_MAIN.out.taxonomically_screened_baits
+    taxonomic_reference_database = BAITS_MAIN.out.taxonomic_reference_database
 }
 
 output {
@@ -159,5 +172,25 @@ output {
     locally_filtered_baits {
         mode 'copy'
         path { record -> record[1] >> "${record[0].id}/04_bait_sets/locally_filtered_baits.fasta" }
+    }
+    taxonomic_blast_hits {
+        mode 'copy'
+        path { record -> record[1] >> "${record[0].id}/03_taxonomic_screening/blast_hits.tsv" }
+    }
+    screening_decisions {
+        mode 'copy'
+        path { record -> record[1] >> "${record[0].id}/03_taxonomic_screening/screening_decisions.tsv" }
+    }
+    screening_status {
+        mode 'copy'
+        path { record -> record[1] >> "${record[0].id}/03_taxonomic_screening/screening_status.tsv" }
+    }
+    taxonomically_screened_baits {
+        mode 'copy'
+        path { record -> record[1] >> "${record[0].id}/04_bait_sets/taxonomically_screened_baits.fasta" }
+    }
+    taxonomic_reference_database {
+        mode 'copy'
+        path { record -> record[1] >> "${record[0].id}/07_provenance/taxonomic_reference_database.txt" }
     }
 }

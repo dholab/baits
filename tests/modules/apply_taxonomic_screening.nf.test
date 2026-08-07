@@ -1,0 +1,43 @@
+nextflow_process {
+    name "Apply taxonomic screening process"
+    script "../../modules/local/apply_taxonomic_screening/main.nf"
+    process "APPLY_TAXONOMIC_SCREENING"
+
+    test("retains on-target Baits and records off-target exact-match decisions") {
+        when {
+            process {
+                """input[0] = [[id: 'design', source_sequence_origin: 'curated_input'], file(\"\$baseDir/tests/data/taxonomic_locally_filtered_baits.fasta\"), file(\"\$baseDir/tests/data/taxonomic_blast_hits.tsv\"), file(\"\$baseDir/tests/data/taxonomic_candidate_kmers.tsv\"), file(\"\$baseDir/tests/data/taxonomic_bait_set_status.tsv\"), '88456', 31]"""
+            }
+        }
+
+        then {
+            assert process.success
+            assert process.out.manifest.size() == 1
+            assert process.out.decisions.size() == 1
+            assert process.out.screening_status.size() == 1
+            assert process.out.bait_set_status.size() == 1
+            assert process.out.baits.size() == 1
+            assert file(process.out.decisions[0][1]).text.contains('bait_000002\tREJECT_OFF_TARGET_HIT\t0\t1')
+            assert file(process.out.manifest[0][1]).text.contains('REJECT_OFF_TARGET_HIT\toff_target_exact_match')
+            assert file(process.out.screening_status[0][1]).text.contains('taxonomic_screening_status\tPASS')
+            assert file(process.out.baits[0][1]).text == '>bait_000001\nACGTTGCATGTCAGTACGATCGTAGCTAGCA\n'
+            assert process.out.versions_biopython[0][0] == 'APPLY_TAXONOMIC_SCREENING'
+            assert process.out.versions_polars[0][0] == 'APPLY_TAXONOMIC_SCREENING'
+        }
+    }
+
+    test("preserves all-rejected evidence without a Bait Set continuation") {
+        when {
+            process {
+                """input[0] = [[id: 'design', source_sequence_origin: 'curated_input'], file(\"\$baseDir/tests/data/taxonomic_locally_filtered_baits.fasta\"), file(\"\$baseDir/tests/data/taxonomic_all_rejected_blast_hits.tsv\"), file(\"\$baseDir/tests/data/taxonomic_candidate_kmers.tsv\"), file(\"\$baseDir/tests/data/taxonomic_bait_set_status.tsv\"), '88456', 31]"""
+            }
+        }
+
+        then {
+            assert process.success
+            assert process.out.baits.size() == 0
+            assert file(process.out.screening_status[0][1]).text.contains('taxonomic_screening_status\tNO_BAITS')
+            assert file(process.out.manifest[0][1]).text.count('REJECT_OFF_TARGET_HIT') == 4
+        }
+    }
+}

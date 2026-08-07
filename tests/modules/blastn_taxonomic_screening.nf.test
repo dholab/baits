@@ -1,0 +1,44 @@
+nextflow_process {
+    name "BLASTN taxonomic screening process"
+    script "../../modules/local/blastn_taxonomic_screening/main.nf"
+    process "BLASTN_TAXONOMIC_SCREENING"
+
+    test("writes the interpreter BLAST schema header in stub mode") {
+        when {
+            options '-stub-run'
+            process {
+                """input[0] = [[id: 'design'], file(\"\$baseDir/tests/data/taxonomic_locally_filtered_baits.fasta\"), file(\"\$baseDir/tests/data/taxonomic_reference_db\"), 31]"""
+            }
+        }
+
+        then {
+            assert process.success
+            assert process.out.hits.size() == 1
+            assert file(process.out.hits[0][1]).text == 'qseqid\tsaccver\tstaxids\tsscinames\tpident\tlength\tmismatch\tgapopen\tqstart\tqend\tsstart\tsend\tstitle\n'
+            assert process.out.reference_database_report.size() == 1
+            assert file(process.out.reference_database_report[0][1]).text
+            assert process.out.versions_blast[0][0] == 'BLASTN_TAXONOMIC_SCREENING'
+            assert process.out.reported_blast[0][0].id == 'design'
+            assert process.out.reported_blast[0][1] == 'blast'
+        }
+    }
+
+    test("isolates a database directory whose name matches an output") {
+        setup {
+            new File("$outputDir/taxonomic_reference_database.txt").mkdirs()
+            new File("$outputDir/taxonomic_reference_database.txt/database.nin").text = ""
+        }
+
+        when {
+            options '-stub-run'
+            process {
+                """input[0] = [[id: 'design'], file(\"\$baseDir/tests/data/taxonomic_locally_filtered_baits.fasta\"), file(\"$outputDir/taxonomic_reference_database.txt\"), 31]"""
+            }
+        }
+
+        then {
+            assert process.success
+            assert file(process.out.reference_database_report[0][1]).isFile()
+        }
+    }
+}

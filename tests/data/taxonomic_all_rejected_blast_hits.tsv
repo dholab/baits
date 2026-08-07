@@ -1,0 +1,3 @@
+qseqid	saccver	staxids	sscinames	pident	length	mismatch	gapopen	qstart	qend	sstart	send	stitle
+bait_000001	OFF_TARGET_A.1	99998	Other organism A	100	31	0	0	1	31	1	31	off-target record A
+bait_000002	OFF_TARGET_B.1	99999	Other organism B	100	31	0	0	1	31	1	31	off-target record B

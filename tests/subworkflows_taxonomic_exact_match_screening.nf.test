@@ -1,0 +1,55 @@
+nextflow_workflow {
+    name "Taxonomic exact-match screening subworkflow"
+    script "../subworkflows/local/taxonomic_exact_match_screening/main.nf"
+    workflow "TAXONOMIC_EXACT_MATCH_SCREENING"
+
+    test("broadcasts one shared database to two designs and preserves approved statuses") {
+        when {
+            options '-stub-run'
+            workflow {
+                """
+                input[0] = Channel.of(
+                    [[id: 'design_a', source_sequence_origin: 'curated_input'], file(\"\$baseDir/tests/data/taxonomic_locally_filtered_baits.fasta\"), file(\"\$baseDir/tests/data/taxonomic_candidate_kmers.tsv\"), file(\"\$baseDir/tests/data/taxonomic_bait_set_status_design_a.tsv\"), '88456'],
+                    [[id: 'design_b', source_sequence_origin: 'curated_input'], file(\"\$baseDir/tests/data/taxonomic_locally_filtered_baits.fasta\"), file(\"\$baseDir/tests/data/taxonomic_candidate_kmers.tsv\"), file(\"\$baseDir/tests/data/taxonomic_bait_set_status_design_b.tsv\"), '88456']
+                )
+                input[1] = Channel.value(file(\"\$baseDir/tests/data/taxonomic_reference_db\"))
+                input[2] = Channel.value(31)
+                """
+            }
+        }
+
+        then {
+            assert workflow.success
+            assert workflow.out.hits.size() == 2
+            assert workflow.out.decisions.size() == 2
+            assert workflow.out.manifest.size() == 2
+            assert workflow.out.screening_status.size() == 2
+            assert workflow.out.bait_set_status.size() == 2
+            assert workflow.out.baits.size() == 2
+            assert workflow.out.reference_database_report.size() == 2
+            assert workflow.out.screening_status.collect { file(it[1]).text }.every { it.contains('taxonomic_screening_status\tPASS') }
+        }
+    }
+
+    test("suppresses all tasks when the shared database channel is empty") {
+        when {
+            workflow {
+                """
+                input[0] = Channel.of([[id: 'design', source_sequence_origin: 'curated_input'], file(\"\$baseDir/tests/data/taxonomic_locally_filtered_baits.fasta\"), file(\"\$baseDir/tests/data/taxonomic_candidate_kmers.tsv\"), file(\"\$baseDir/tests/data/taxonomic_bait_set_status.tsv\"), '88456'])
+                input[1] = Channel.empty()
+                input[2] = Channel.value(31)
+                """
+            }
+        }
+
+        then {
+            assert workflow.success
+            assert workflow.out.hits.size() == 0
+            assert workflow.out.decisions.size() == 0
+            assert workflow.out.manifest.size() == 0
+            assert workflow.out.screening_status.size() == 0
+            assert workflow.out.bait_set_status.size() == 0
+            assert workflow.out.baits.size() == 0
+        }
+    }
+}

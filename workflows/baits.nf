@@ -2,6 +2,7 @@ include { NORMALIZE_CURATED_SOURCE_SEQUENCES } from '../modules/local/normalize_
 include { WRITE_PROVENANCE } from '../modules/local/write_provenance/main'
 include { DISCOVER_SOURCE_SEQUENCES } from '../subworkflows/local/discover_source_sequences/main'
 include { FILTER_CANDIDATE_KMERS } from '../subworkflows/local/filter_candidate_kmers/main'
+include { TAXONOMIC_EXACT_MATCH_SCREENING } from '../subworkflows/local/taxonomic_exact_match_screening/main'
 
 workflow BAITS_MAIN {
     take:
@@ -13,6 +14,8 @@ workflow BAITS_MAIN {
     ch_kmer_size
     ch_deacon_window
     ch_entropy_threshold
+    ch_taxonomic_reference_db
+    ch_taxonomic_screening_not_run
 
     main:
 
@@ -31,6 +34,14 @@ workflow BAITS_MAIN {
             tuple(meta, source_sequences, source_sequence_query_groups, interference_background)
         }
     FILTER_CANDIDATE_KMERS(ch_filtering_inputs, ch_kmer_size, ch_deacon_window, ch_entropy_threshold)
+
+    // Screen the Locally Filtered Bait Set when a Taxonomic Reference Database is supplied
+    ch_screening_inputs = FILTER_CANDIDATE_KMERS.out.baits
+        .join(ch_design_context)
+        .map { meta, locally_filtered_baits, candidate_kmer_manifest, bait_set_status, target_taxid, interference_background ->
+            tuple(meta, locally_filtered_baits, candidate_kmer_manifest, bait_set_status, target_taxid)
+        }
+    TAXONOMIC_EXACT_MATCH_SCREENING(ch_screening_inputs, ch_taxonomic_reference_db, ch_kmer_size)
 
     // Construct immutable source-input and design provenance facts
     ch_curated_provenance_facts = ch_design_context
@@ -150,10 +161,70 @@ workflow BAITS_MAIN {
             )
         }
 
+    // Finalize designs according to whether Taxonomic Exact-Match Screening ran
+    ch_filtering_terminal_provenance_facts = ch_without_deacon_provenance_facts
+        .mix(
+            ch_with_deacon_provenance_facts
+                .join(FILTER_CANDIDATE_KMERS.out.terminal_manifest)
+                .map { meta, input_facts, input_file_roles, input_file_ids, input_file_kinds, input_files, parameters, software_versions, manifest ->
+                    tuple(meta, input_facts, input_file_roles, input_file_ids, input_file_kinds, input_files, parameters, software_versions)
+                },
+        )
+    ch_filtering_continuation_provenance_facts = ch_with_deacon_provenance_facts
+        .join(FILTER_CANDIDATE_KMERS.out.baits)
+        .map { meta, input_facts, input_file_roles, input_file_ids, input_file_kinds, input_files, parameters, software_versions, baits, manifest, bait_set_status ->
+            tuple(meta, input_facts, input_file_roles, input_file_ids, input_file_kinds, input_files, parameters, software_versions)
+        }
+
+    ch_screening_not_requested_provenance_facts = ch_filtering_terminal_provenance_facts
+        .mix(ch_filtering_continuation_provenance_facts)
+        .combine(ch_taxonomic_screening_not_run)
+        .map { meta, input_facts, input_file_roles, input_file_ids, input_file_kinds, input_files, parameters, software_versions, not_run ->
+            tuple(meta, input_facts, input_file_roles, input_file_ids, input_file_kinds, input_files, parameters, software_versions)
+        }
+    ch_filtering_terminal_with_reference_facts = ch_filtering_terminal_provenance_facts
+        .combine(ch_taxonomic_reference_db)
+        .map { meta, input_facts, input_file_roles, input_file_ids, input_file_kinds, input_files, parameters, software_versions, taxonomic_reference_db ->
+            tuple(
+                meta,
+                input_facts,
+                input_file_roles + ['taxonomic_reference_database'],
+                input_file_ids + ['taxonomic_reference_database'],
+                input_file_kinds + ['directory'],
+                input_files + [taxonomic_reference_db],
+                parameters,
+                software_versions,
+            )
+        }
+
+    ch_screened_provenance_facts = ch_filtering_continuation_provenance_facts
+        .join(TAXONOMIC_EXACT_MATCH_SCREENING.out.screening_status)
+        .join(TAXONOMIC_EXACT_MATCH_SCREENING.out.reported_blast)
+        .join(TAXONOMIC_EXACT_MATCH_SCREENING.out.reported_biopython)
+        .join(TAXONOMIC_EXACT_MATCH_SCREENING.out.reported_polars)
+        .combine(ch_taxonomic_reference_db)
+        .map { meta, input_facts, input_file_roles, input_file_ids, input_file_kinds, input_files, parameters, software_versions, screening_status, blast_component, blast_version, biopython_component, biopython_version, polars_component, polars_version, taxonomic_reference_db ->
+            tuple(
+                meta,
+                input_facts,
+                input_file_roles + ['taxonomic_reference_database'],
+                input_file_ids + ['taxonomic_reference_database'],
+                input_file_kinds + ['directory'],
+                input_files + [taxonomic_reference_db],
+                parameters,
+                software_versions + [
+                    [component: blast_component, version: blast_version],
+                    [component: biopython_component, version: biopython_version],
+                    [component: polars_component, version: polars_version],
+                ],
+            )
+        }
+
     WRITE_PROVENANCE(
         ch_discovery_terminal_provenance_facts
-            .mix(ch_without_deacon_provenance_facts)
-            .mix(ch_with_deacon_provenance_facts),
+            .mix(ch_screening_not_requested_provenance_facts)
+            .mix(ch_filtering_terminal_with_reference_facts)
+            .mix(ch_screened_provenance_facts),
     )
 
     emit:
@@ -163,11 +234,21 @@ workflow BAITS_MAIN {
     discovery_status = DISCOVER_SOURCE_SEQUENCES.out.discovery_status
     provenance = WRITE_PROVENANCE.out.provenance
     candidate_kmers = FILTER_CANDIDATE_KMERS.out.manifest
+        .combine(ch_taxonomic_screening_not_run)
+        .map { meta, manifest, not_run -> tuple(meta, manifest) }
+        .mix(FILTER_CANDIDATE_KMERS.out.terminal_manifest.combine(ch_taxonomic_reference_db).map { meta, manifest, taxonomic_reference_db -> tuple(meta, manifest) })
+        .mix(TAXONOMIC_EXACT_MATCH_SCREENING.out.manifest)
     candidate_kmer_occurrences = FILTER_CANDIDATE_KMERS.out.occurrences
     filtering_status = FILTER_CANDIDATE_KMERS.out.filtering_status
     locally_filtered_baits = FILTER_CANDIDATE_KMERS.out.baits
+    taxonomic_blast_hits = TAXONOMIC_EXACT_MATCH_SCREENING.out.hits
+    screening_decisions = TAXONOMIC_EXACT_MATCH_SCREENING.out.decisions
+    screening_status = TAXONOMIC_EXACT_MATCH_SCREENING.out.screening_status
+    taxonomically_screened_baits = TAXONOMIC_EXACT_MATCH_SCREENING.out.baits
+    taxonomic_reference_database = TAXONOMIC_EXACT_MATCH_SCREENING.out.reference_database_report
     versions = NORMALIZE_CURATED_SOURCE_SEQUENCES.out.versions_biopython
         .mix(DISCOVER_SOURCE_SEQUENCES.out.versions)
         .mix(WRITE_PROVENANCE.out.versions_python)
         .mix(FILTER_CANDIDATE_KMERS.out.versions)
+        .mix(TAXONOMIC_EXACT_MATCH_SCREENING.out.versions)
 }

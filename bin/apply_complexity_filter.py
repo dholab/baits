@@ -57,6 +57,7 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--baits-out", type=Path, required=True)
     parser.add_argument("--filtering-status-out", type=Path, required=True)
     parser.add_argument("--bait-set-status-out", type=Path, required=True)
+    parser.add_argument("--terminal-manifest-out", type=Path)
     return parser.parse_args(argv)
 
 
@@ -265,6 +266,8 @@ def main(argv: Sequence[str] | None = None) -> None:
         ],
     )
     manifest_output.write_csv(args.manifest_out, separator="\t", quote_style="never")
+    if survivors.is_empty() and args.terminal_manifest_out:
+        manifest_output.write_csv(args.terminal_manifest_out, separator="\t", quote_style="never")
 
     counts = manifest_output.select(
         pl.len().alias("candidate_kmer_count"),

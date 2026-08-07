@@ -81,6 +81,18 @@
                 }
             ]
         },
+        "taxonomic_screening_options": {
+            "title": "Taxonomic Exact-Match Screening options",
+            "type": "object",
+            "properties": {
+                "taxonomic_reference_db": {
+                    "type": "string",
+                    "format": "directory-path",
+                    "exists": true,
+                    "description": "Optional Taxonomic Reference Database directory."
+                }
+            }
+        },
         "generic_options": {
             "title": "Generic options",
             "type": "object",
@@ -113,6 +125,7 @@
     },
     "allOf": [
         {"$ref": "#/$defs/source_sequence_options"},
+        {"$ref": "#/$defs/taxonomic_screening_options"},
         {"$ref": "#/$defs/generic_options"}
     ]
 }

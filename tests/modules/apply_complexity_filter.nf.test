@@ -15,7 +15,6 @@ nextflow_process {
             assert file(process.out.baits[0][1]).text.contains('>bait_000001')
         }
     }
-
     test("publishes filtering evidence without Baits when Deacon retains no Candidate K-mer") {
         setup {
             new File("$outputDir/empty.fasta").text = ''
@@ -30,6 +29,20 @@ nextflow_process {
             assert process.out.baits.size() == 0
             assert file(process.out.evidence[0][1]).text.contains('REJECT_LOW_COMPLEXITY')
             assert file(process.out.evidence[0][2]).text.endsWith('low_complexity_filtering\n')
+        }
+    }
+
+    test("emits the terminal Candidate K-mer manifest when no Baits remain") {
+        when {
+            process {
+                """input[0] = [[id: 'design'], 'curated_input', file(\"\$baseDir/tests/data/filter_manifest.tsv\"), file(\"\$baseDir/tests/data/filter_empty_passing_kmers.fasta\")]"""
+            }
+        }
+        then {
+            assert process.success
+            assert process.out.terminal_manifest.size() == 1
+            assert file(process.out.terminal_manifest[0][1]).text.contains('REJECT_LOW_COMPLEXITY')
+            assert process.out.baits.size() == 0
         }
     }
 }

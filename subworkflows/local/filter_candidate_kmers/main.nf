@@ -65,6 +65,8 @@ workflow FILTER_CANDIDATE_KMERS {
     baits = APPLY_COMPLEXITY_FILTER.out.baits
     manifest = BUILD_CANDIDATE_TABLES.out.terminal_manifest
         .mix(APPLY_COMPLEXITY_FILTER.out.evidence.map { meta, manifest, filtering_status -> tuple(meta, manifest) })
+    terminal_manifest = BUILD_CANDIDATE_TABLES.out.terminal_manifest
+        .mix(APPLY_COMPLEXITY_FILTER.out.terminal_manifest)
     occurrences = BUILD_CANDIDATE_TABLES.out.tables.map { meta, manifest, occurrences -> tuple(meta, occurrences) }
     filtering_status = BUILD_CANDIDATE_TABLES.out.terminal_status
         .mix(APPLY_COMPLEXITY_FILTER.out.evidence.map { meta, manifest, filtering_status -> tuple(meta, filtering_status) })

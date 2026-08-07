@@ -51,7 +51,7 @@ output:
           description: Design metadata.
       - locally_filtered_baits.fasta:
           type: file
-          description: Optional locally filtered Bait FASTA.
+          description: Optional locally filtered bait FASTA.
           pattern: locally_filtered_baits.fasta
           ontologies: []
       - candidate_kmers.tsv:
@@ -62,8 +62,18 @@ output:
             - edam: http://edamontology.org/format_3475 # TSV
       - bait_set_status.tsv:
           type: file
-          description: Internal Bait Set status draft.
+          description: Internal bait set status draft.
           pattern: bait_set_status.tsv
+          ontologies:
+            - edam: http://edamontology.org/format_3475 # TSV
+  terminal_manifest:
+    - - meta:
+          type: map
+          description: Design metadata.
+      - terminal_candidate_kmers.tsv:
+          type: file
+          description: Optional candidate k-mer manifest for a low-complexity terminal result.
+          pattern: terminal_candidate_kmers.tsv
           ontologies:
             - edam: http://edamontology.org/format_3475 # TSV
   versions_biopython:

@@ -1,0 +1,3 @@
+candidate_kmer_id	bait_id	kmer	source_copy_count	background_occurrences	status	rejection_reason	taxonomic_screening_status	on_target_hits	off_target_hits
+candidate_kmer_000001	bait_000001	ACGTTGCATGTCAGTACGATCGTAGCTAGCA	1	0	PASS	none	NOT_RUN		
+candidate_kmer_000002	bait_000002	CGTACGTACGTACGTACGTACGTACGTACGA	1	0	PASS	none	NOT_RUN		
