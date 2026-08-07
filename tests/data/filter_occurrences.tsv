@@ -1,0 +1,5 @@
+candidate_kmer_id	source_sequence_id	start	query_group
+candidate_kmer_000001	source_b	0	beta
+candidate_kmer_000002	source_a	0	alpha
+candidate_kmer_000003	source_c	0	alpha
+candidate_kmer_000004	source_d	0	beta

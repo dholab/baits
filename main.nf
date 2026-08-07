@@ -51,6 +51,10 @@ workflow {
         )
     }
 
+    ch_kmer_size = Channel.value(params.kmer_size)
+    ch_deacon_window = Channel.value(params.deacon_window)
+    ch_entropy_threshold = Channel.value(params.entropy_threshold)
+
     // Shared design context: [metadata, target taxid, interference background].
     ch_design_context = ch_normalized_rows.map { meta, row ->
         tuple(meta, row.target_taxid as String, file(row.interference_background))
@@ -97,6 +101,9 @@ workflow {
         ch_discovery_inputs,
         ch_curated_provenance_source_inputs,
         ch_discovery_provenance_source_inputs,
+        ch_kmer_size,
+        ch_deacon_window,
+        ch_entropy_threshold,
     )
 
     // Publication
@@ -106,6 +113,10 @@ workflow {
     query_blast_hits = BAITS_MAIN.out.query_blast_hits
     discovery_status = BAITS_MAIN.out.discovery_status
     provenance = BAITS_MAIN.out.provenance
+    candidate_kmers = BAITS_MAIN.out.candidate_kmers
+    candidate_kmer_occurrences = BAITS_MAIN.out.candidate_kmer_occurrences
+    filtering_status = BAITS_MAIN.out.filtering_status
+    locally_filtered_baits = BAITS_MAIN.out.locally_filtered_baits
 }
 
 output {
@@ -132,5 +143,21 @@ output {
             record[2] >> "${record[0].id}/07_provenance/parameters.tsv"
             record[3] >> "${record[0].id}/07_provenance/software_versions.tsv"
         }
+    }
+    candidate_kmers {
+        mode 'copy'
+        path { record -> record[1] >> "${record[0].id}/02_candidate_kmers/candidate_kmers.tsv" }
+    }
+    candidate_kmer_occurrences {
+        mode 'copy'
+        path { record -> record[1] >> "${record[0].id}/02_candidate_kmers/candidate_kmer_occurrences.tsv" }
+    }
+    filtering_status {
+        mode 'copy'
+        path { record -> record[1] >> "${record[0].id}/02_candidate_kmers/filtering_status.tsv" }
+    }
+    locally_filtered_baits {
+        mode 'copy'
+        path { record -> record[1] >> "${record[0].id}/04_bait_sets/locally_filtered_baits.fasta" }
     }
 }

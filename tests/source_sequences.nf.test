@@ -21,7 +21,7 @@ nextflow_pipeline {
             assert !new File("$runDir/results/curated_design/01_source_sequences/source_sequence_query_groups.tsv").exists()
             assert !new File("$runDir/results/curated_design/01_source_sequences/candidate_loci.tsv").exists()
             assert new File("$runDir/results/curated_design/07_provenance/inputs.tsv").exists()
-            assert new File("$runDir/results/curated_design/07_provenance/software_versions.tsv").readLines().collect { it.split('\t')[0] } == ['component', 'biopython', 'python']
+            assert new File("$runDir/results/curated_design/07_provenance/software_versions.tsv").readLines().collect { it.split('\t')[0] } == ['component', 'biopython', 'deacon', 'meryl', 'polars', 'python']
         }
     }
 

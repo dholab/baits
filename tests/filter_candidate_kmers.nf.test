@@ -1,0 +1,160 @@
+nextflow_pipeline {
+    name "Filter Candidate K-mers"
+    script "../main.nf"
+    tag "filter_candidate_kmers"
+    test("publishes only canonical evidence and nonempty locally filtered Baits") {
+        when {
+            params {
+                id = "positive"
+                source_sequences = "$baseDir/tests/data/filter_source_sequences.fasta"
+                target_taxid = "88456"
+                interference_background = "$baseDir/tests/data/interference_background.fasta"
+            }
+        }
+        then {
+            assert workflow.success
+            def runDir = new File(outputDir).parent
+            def candidate = new File("$runDir/results/positive/02_candidate_kmers")
+            assert new File(candidate, 'candidate_kmers.tsv').text.contains('REJECT_LOW_COMPLEXITY')
+            assert new File(candidate, 'candidate_kmer_occurrences.tsv').exists()
+            assert new File(candidate, 'filtering_status.tsv').exists()
+            assert new File("$runDir/results/positive/04_bait_sets/locally_filtered_baits.fasta").exists()
+            assert !new File("$runDir/results/positive/04_bait_sets/bait_set_status.tsv").exists()
+            assert new File("$runDir/results/positive/07_provenance/parameters.tsv").text.contains('kmer_size\t31')
+            assert new File("$runDir/results/positive/07_provenance/software_versions.tsv").text.contains('deacon\t0.15.0')
+            assert new File("$runDir/results/positive/07_provenance/software_versions.tsv").text.contains('polars\t1.43.2')
+        }
+    }
+    test("all-background cancellation publishes evidence without a continuation") {
+        when {
+            params {
+                id = "background_terminal"
+                source_sequences = "$baseDir/tests/data/filter_source_sequences.fasta"
+                target_taxid = "88456"
+                interference_background = "$baseDir/tests/data/filter_source_sequences.fasta"
+            }
+        }
+        then {
+            assert workflow.success
+            def runDir = new File(outputDir).parent
+            assert new File("$runDir/results/background_terminal/02_candidate_kmers/filtering_status.tsv").text.endsWith('explicit_background_cancellation\n')
+            assert !new File("$runDir/results/background_terminal/04_bait_sets/locally_filtered_baits.fasta").exists()
+            def provenance = new File("$runDir/results/background_terminal/07_provenance")
+            assert provenance.list().sort() == ['inputs.tsv', 'parameters.tsv', 'software_versions.tsv']
+            assert new File(provenance, 'parameters.tsv').readLines() == [
+                'parameter\tvalue',
+                'deacon_window\t1',
+                'entropy_threshold\t0.6',
+                'kmer_size\t31',
+                'target_taxid\t88456',
+            ]
+            assert new File(provenance, 'software_versions.tsv').readLines().collect { it.split('\t')[0] } == [
+                'component', 'biopython', 'meryl', 'polars', 'python',
+            ]
+        }
+    }
+    test("reports Meryl Background positional multiplicity") {
+        when {
+            params {
+                id = "background_multiplicity"
+                source_sequences = "$baseDir/tests/data/filter_source_sequences.fasta"
+                target_taxid = "88456"
+                interference_background = "$baseDir/tests/data/filter_three_background.fasta"
+            }
+        }
+        then {
+            assert workflow.success
+            def runDir = new File(outputDir).parent
+            assert new File("$runDir/results/background_multiplicity/02_candidate_kmers/candidate_kmers.tsv").text.contains('ACGTACGTACGTACGTACGTACGTACGTACG\t1\t3\tREJECT_INTERFERENCE_BACKGROUND')
+        }
+    }
+    test("stages same-basename Source and Background files without database collision") {
+        setup {
+            new File("$outputDir/source").mkdirs()
+            new File("$outputDir/background").mkdirs()
+            new File("$outputDir/source/shared.fasta").text = new File("$baseDir/tests/data/filter_source_sequences.fasta").text
+            new File("$outputDir/background/shared.fasta").text = new File("$baseDir/tests/data/interference_background.fasta").text
+        }
+        when {
+            params {
+                id = "same_basename"
+                source_sequences = "$outputDir/source/shared.fasta"
+                target_taxid = "88456"
+                interference_background = "$outputDir/background/shared.fasta"
+            }
+        }
+        then {
+            assert workflow.success
+            def runDir = new File(outputDir).parent
+            assert new File("$runDir/results/same_basename/02_candidate_kmers/candidate_kmers.tsv").exists()
+            assert new File("$runDir/results/same_basename/04_bait_sets/locally_filtered_baits.fasta").exists()
+        }
+    }
+    test("short Source Sequences publish candidate enumeration evidence without Baits") {
+        when {
+            params {
+                id = "short_terminal"
+                source_sequences = "$baseDir/tests/data/filter_short_source.fasta"
+                target_taxid = "88456"
+                interference_background = "$baseDir/tests/data/interference_background.fasta"
+            }
+        }
+        then {
+            assert workflow.success
+            def runDir = new File(outputDir).parent
+            def stage = new File("$runDir/results/short_terminal/02_candidate_kmers")
+            assert new File(stage, 'candidate_kmers.tsv').exists()
+            assert new File(stage, 'candidate_kmer_occurrences.tsv').exists()
+            assert new File(stage, 'filtering_status.tsv').text.endsWith('candidate_kmer_enumeration\n')
+            assert !new File("$runDir/results/short_terminal/04_bait_sets/locally_filtered_baits.fasta").exists()
+            def provenance = new File("$runDir/results/short_terminal/07_provenance")
+            assert provenance.list().sort() == ['inputs.tsv', 'parameters.tsv', 'software_versions.tsv']
+            assert new File(provenance, 'parameters.tsv').readLines() == [
+                'parameter\tvalue',
+                'deacon_window\t1',
+                'entropy_threshold\t0.6',
+                'kmer_size\t31',
+                'target_taxid\t88456',
+            ]
+            assert new File(provenance, 'software_versions.tsv').readLines().collect { it.split('\t')[0] } == [
+                'component', 'biopython', 'meryl', 'polars', 'python',
+            ]
+        }
+    }
+    test("all low-complexity Candidates publish evidence without Baits") {
+        when {
+            params {
+                id = "complexity_terminal"
+                source_sequences = "$baseDir/tests/data/filter_low_complexity_source.fasta"
+                target_taxid = "88456"
+                interference_background = "$baseDir/tests/data/interference_background.fasta"
+            }
+        }
+        then {
+            assert workflow.success
+            def runDir = new File(outputDir).parent
+            def stage = new File("$runDir/results/complexity_terminal/02_candidate_kmers")
+            assert new File(stage, 'candidate_kmers.tsv').text.contains('REJECT_LOW_COMPLEXITY')
+            assert new File(stage, 'filtering_status.tsv').text.endsWith('low_complexity_filtering\n')
+            assert !new File("$runDir/results/complexity_terminal/04_bait_sets/locally_filtered_baits.fasta").exists()
+        }
+    }
+    test("pairs independent designs with their own Source Sequences") {
+        setup {
+            new File("$outputDir/multi.csv").text = """id,target_taxid,curated_source_sequences,representative_queries,query_rules,target_assembly,interference_background
+design_a,88456,$baseDir/tests/data/filter_source_sequences.fasta,,,,$baseDir/tests/data/interference_background.fasta
+design_b,88456,$baseDir/tests/data/filter_low_complexity_source.fasta,,,,$baseDir/tests/data/interference_background.fasta
+"""
+        }
+        when {
+            params { input = "$outputDir/multi.csv" }
+        }
+        then {
+            assert workflow.success
+            def runDir = new File(outputDir).parent
+            assert new File("$runDir/results/design_a/04_bait_sets/locally_filtered_baits.fasta").exists()
+            assert new File("$runDir/results/design_b/02_candidate_kmers/filtering_status.tsv").text.endsWith('low_complexity_filtering\n')
+            assert !new File("$runDir/results/design_b/04_bait_sets/locally_filtered_baits.fasta").exists()
+        }
+    }
+}

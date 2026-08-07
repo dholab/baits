@@ -1,0 +1,110 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/nf-core/modules/master/modules/meta-schema.json
+name: apply_complexity_filter
+description: Apply Deacon entropy results to candidate k-mers and emit local-filtering evidence.
+keywords:
+  - k-mer
+  - entropy
+  - provenance
+tools:
+  - python:
+      description: Python programming language.
+      homepage: https://www.python.org/
+      documentation: https://docs.python.org/3/
+      tool_dev_url: https://github.com/python/cpython
+      licence:
+        - PSF-2.0
+input:
+  - - meta:
+        type: map
+        description: Design metadata.
+    - source_sequence_origin:
+        type: string
+        description: Stable curated or provisional source sequence origin.
+    - manifest:
+        type: file
+        description: Candidate k-mer manifest before low-complexity filtering.
+        ontologies: []
+    - passing_kmers:
+        type: file
+        description: Deacon-dumped entropy-passing k-mers.
+        ontologies: []
+output:
+  evidence:
+    - - meta:
+          type: map
+          description: Design metadata.
+      - candidate_kmers.tsv:
+          type: file
+          description: Complete manifest after low-complexity filtering.
+          pattern: candidate_kmers.tsv
+          ontologies:
+            - edam: http://edamontology.org/format_3475 # TSV
+      - filtering_status.tsv:
+          type: file
+          description: Deterministic local-filtering status.
+          pattern: filtering_status.tsv
+          ontologies:
+            - edam: http://edamontology.org/format_3475 # TSV
+  baits:
+    - - meta:
+          type: map
+          description: Design metadata.
+      - locally_filtered_baits.fasta:
+          type: file
+          description: Optional locally filtered Bait FASTA.
+          pattern: locally_filtered_baits.fasta
+          ontologies: []
+      - candidate_kmers.tsv:
+          type: file
+          description: Complete manifest after low-complexity filtering.
+          pattern: candidate_kmers.tsv
+          ontologies:
+            - edam: http://edamontology.org/format_3475 # TSV
+      - bait_set_status.tsv:
+          type: file
+          description: Internal Bait Set status draft.
+          pattern: bait_set_status.tsv
+          ontologies:
+            - edam: http://edamontology.org/format_3475 # TSV
+  versions_biopython:
+    - - ${task.process}:
+          type: string
+          description: Process name.
+      - biopython:
+          type: string
+          description: Tool name.
+      - python -c 'import Bio; print(Bio.__version__)':
+          type: eval
+          description: Runtime Biopython version.
+  versions_polars:
+    - - ${task.process}:
+          type: string
+          description: Process name.
+      - polars:
+          type: string
+          description: Tool name.
+      - python -c 'import polars; print(polars.__version__)':
+          type: eval
+          description: Runtime Polars version.
+topics:
+  versions:
+    - - ${task.process}:
+          type: string
+          description: Process name.
+      - biopython:
+          type: string
+          description: Tool name.
+      - python -c 'import Bio; print(Bio.__version__)':
+          type: eval
+          description: Runtime Biopython version.
+    - - ${task.process}:
+          type: string
+          description: Process name.
+      - polars:
+          type: string
+          description: Tool name.
+      - python -c 'import polars; print(polars.__version__)':
+          type: eval
+          description: Runtime Polars version.
+authors:
+  - dholab/baits

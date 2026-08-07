@@ -1,0 +1,20 @@
+nextflow_process {
+    name "Build Candidate K-mer tables process"
+    script "../../modules/local/build_candidate_tables/main.nf"
+    process "BUILD_CANDIDATE_TABLES"
+    test("builds complete source-faithful candidate evidence") {
+        when {
+            process {
+                """input[0] = [[id: 'design'], file(\"\$baseDir/tests/data/filter_source_sequences.fasta\"), file(\"\$baseDir/tests/data/filter_source_query_groups.tsv\"), file(\"\$baseDir/tests/data/filter_source_counts.tsv\"), file(\"\$baseDir/tests/data/filter_background_counts.tsv\"), 31]"""
+            }
+        }
+        then {
+            assert process.success
+            assert file(process.out.tables[0][1]).readLines()[0].startsWith('candidate_kmer_id')
+            assert file(process.out.tables[0][2]).readLines().size() == 5
+            assert file(process.out.tables[0][1]).text.contains('ACGTACGTACGTACGTACGTACGTACGTACG\t1\t3\tREJECT_INTERFERENCE_BACKGROUND')
+            assert process.out.complexity_candidates.size() == 1
+            assert process.out.terminal_status.size() == 0
+        }
+    }
+}

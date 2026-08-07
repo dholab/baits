@@ -2,7 +2,7 @@
 
 `dholab/baits` will build auditable Bait Sets of Clean K-mers for biological targets. It will remove Candidate K-mers that have exact matches in configured Interference Backgrounds. When a Taxonomic Reference Database is supplied, it will then apply Taxonomic Exact-Match Screening.
 
-This repository currently implements Source Sequence acquisition. A run can normalize caller-supplied Curated Source Sequences or derive Provisional Source Sequences by aligning Representative Queries to a Target Assembly. Later Candidate K-mer and Bait Set stages are not implemented yet.
+This repository currently implements Source Sequence acquisition and local Candidate K-mer filtering. It enumerates canonical Candidate K-mers, cancels exact Interference Background matches, and removes low-complexity k-mers with Deacon to produce a Locally Filtered Bait Set when survivors remain. Taxonomic Exact-Match Screening, final Deacon index verification, and threshold calibration remain for later commits.
 
 For one curated execution, supply a Curated Source Sequence FASTA, the Target Taxon, and one Interference Background FASTA:
 
@@ -16,6 +16,8 @@ nextflow run dholab/baits \
 For one or more executions, use `--input` with a CSV samplesheet. See `assets/schema_input.json` for its columns. Query-guided rows refer to a separate query-rules TSV defined by `assets/schema_query_rules.json`.
 
 Successful curated and query-guided Source Sequence acquisition publishes `results/<id>/01_source_sequences/source_sequences.fasta`. Query-guided discovery also publishes `candidate_loci.tsv`, `query_blast_hits.tsv`, and `discovery_status.tsv`. The internal `source_sequence_query_groups.tsv` table is generated for downstream stages but is not published.
+
+Whenever Source Sequence acquisition continues to filtering, `results/<id>/02_candidate_kmers/` contains the complete `candidate_kmers.tsv` manifest, `candidate_kmer_occurrences.tsv`, and `filtering_status.tsv`. These tables remain published for biological terminal results. A nonempty local result additionally publishes `results/<id>/04_bait_sets/locally_filtered_baits.fasta`; internal Meryl and Deacon artifacts and the Bait Set status draft are not published.
 
 If query-guided discovery finds no accepted Candidate Locus for one or more configured Query Groups, the run succeeds as a terminal scientific result for that design. It publishes BLAST hits, Candidate Loci, and Query Group status, but no Provisional Source Sequence FASTA.
 

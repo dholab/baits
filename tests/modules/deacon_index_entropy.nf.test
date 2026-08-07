@@ -1,0 +1,16 @@
+nextflow_process {
+    name "Deacon entropy index process"
+    script "../../modules/local/deacon_index_entropy/main.nf"
+    process "DEACON_INDEX_ENTROPY"
+    test("receives explicit scientific arguments in its queue tuple") {
+        when {
+            options '-stub-run'
+            process { """input[0] = [[id: 'design'], file(\"\$baseDir/tests/data/filter_passing_kmers.fasta\"), 31, 1, 0.6]""" }
+        }
+        then {
+            assert process.success
+            assert process.out.index.size() == 1
+            assert process.out.reported_deacon[0][1] == 'deacon'
+        }
+    }
+}

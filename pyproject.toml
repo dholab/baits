@@ -25,6 +25,8 @@ requires-pixi = ">=0.74.0,<0.77"
 python = "3.12.*"
 nextflow = "==26.04.6"
 blast = "==2.16.0"
+meryl = "==1.4.1"
+deacon = "==0.15.0"
 
 [tool.pixi.feature.dev.dependencies]
 nf-test = "==0.9.5"

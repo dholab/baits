@@ -1,0 +1,126 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/nf-core/modules/master/modules/meta-schema.json
+name: build_candidate_tables
+description: Construct canonical candidate k-mer and occurrence evidence from source sequences and Meryl results.
+keywords:
+  - k-mer
+  - fasta
+  - provenance
+tools:
+  - python:
+      description: Python programming language.
+      homepage: https://www.python.org/
+      documentation: https://docs.python.org/3/
+      tool_dev_url: https://github.com/python/cpython
+      licence:
+        - PSF-2.0
+input:
+  - - meta:
+        type: map
+        description: Design metadata.
+    - source_sequences:
+        type: file
+        description: Normalized source sequence FASTA.
+        ontologies: []
+    - source_sequence_query_groups:
+        type: file
+        description: Query group for each source sequence.
+        ontologies: []
+    - meryl_source_counts:
+        type: file
+        description: Printed source sequence Meryl counts used to corroborate candidate identity and copy counts.
+        ontologies: []
+    - background_intersection_counts:
+        type: file
+        description: Printed background-first intersection counts used for explicit-background cancellation.
+        ontologies: []
+    - kmer_size:
+        type: integer
+        description: Candidate k-mer length.
+output:
+  tables:
+    - - meta:
+          type: map
+          description: Design metadata.
+      - candidate_kmers.tsv:
+          type: file
+          description: Complete candidate k-mer manifest.
+          pattern: candidate_kmers.tsv
+          ontologies:
+            - edam: http://edamontology.org/format_3475 # TSV
+      - candidate_kmer_occurrences.tsv:
+          type: file
+          description: Source sequence occurrence provenance.
+          pattern: candidate_kmer_occurrences.tsv
+          ontologies:
+            - edam: http://edamontology.org/format_3475 # TSV
+  complexity_candidates:
+    - - meta:
+          type: map
+          description: Design metadata.
+      - complexity_candidates.fasta:
+          type: file
+          description: Optional candidate k-mer FASTA for low-complexity filtering.
+          pattern: complexity_candidates.fasta
+          ontologies: []
+  terminal_status:
+    - - meta:
+          type: map
+          description: Design metadata.
+      - filtering_status.tsv:
+          type: file
+          description: Optional terminal local-filtering status.
+          pattern: filtering_status.tsv
+          ontologies:
+            - edam: http://edamontology.org/format_3475 # TSV
+  terminal_manifest:
+    - - meta:
+          type: map
+          description: Design metadata.
+      - terminal_candidate_kmers.tsv:
+          type: file
+          description: Optional complete manifest for a terminal cancellation result.
+          pattern: terminal_candidate_kmers.tsv
+          ontologies:
+            - edam: http://edamontology.org/format_3475 # TSV
+  versions_biopython:
+    - - ${task.process}:
+          type: string
+          description: Process name.
+      - biopython:
+          type: string
+          description: Tool name.
+      - python -c 'import Bio; print(Bio.__version__)':
+          type: eval
+          description: Runtime Biopython version.
+  versions_polars:
+    - - ${task.process}:
+          type: string
+          description: Process name.
+      - polars:
+          type: string
+          description: Tool name.
+      - python -c 'import polars; print(polars.__version__)':
+          type: eval
+          description: Runtime Polars version.
+topics:
+  versions:
+    - - ${task.process}:
+          type: string
+          description: Process name.
+      - biopython:
+          type: string
+          description: Tool name.
+      - python -c 'import Bio; print(Bio.__version__)':
+          type: eval
+          description: Runtime Biopython version.
+    - - ${task.process}:
+          type: string
+          description: Process name.
+      - polars:
+          type: string
+          description: Tool name.
+      - python -c 'import polars; print(polars.__version__)':
+          type: eval
+          description: Runtime Polars version.
+authors:
+  - dholab/baits

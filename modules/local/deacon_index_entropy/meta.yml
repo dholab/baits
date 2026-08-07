@@ -1,0 +1,75 @@
+name: deacon_index_entropy
+description: Build an entropy-filtering Deacon index from Candidate K-mers using explicit parameters.
+keywords:
+  - k-mer
+  - entropy
+  - deacon
+tools:
+  - deacon:
+      description: Accelerated DNA sequence search using minimizers.
+      homepage: https://github.com/arcinstitute/deacon
+      documentation: https://github.com/arcinstitute/deacon
+      tool_dev_url: https://github.com/arcinstitute/deacon
+      licence:
+        - MIT
+      identifier: ""
+input:
+  - - meta:
+        type: map
+        description: Immutable design MetaMap.
+    - fasta:
+        type: file
+        description: Candidate K-mer FASTA after Explicit-Background Cancellation.
+        ontologies: []
+    - kmer_size:
+        type: integer
+        description: K-mer size.
+    - deacon_window:
+        type: integer
+        description: Deacon minimizer window size.
+    - entropy_threshold:
+        type: float
+        description: Minimum scaled entropy threshold.
+output:
+  index:
+    - - meta:
+          type: map
+          description: Immutable design MetaMap.
+      - entropy.idx:
+          type: file
+          description: Internal Deacon entropy-filtering index.
+          pattern: entropy.idx
+          ontologies: []
+  versions_deacon:
+    - - ${task.process}:
+          type: string
+          description: Process name.
+      - deacon:
+          type: string
+          description: Tool name.
+      - deacon --version | sed 's/^deacon //':
+          type: eval
+          description: Runtime Deacon version.
+  reported_deacon:
+    - - meta:
+          type: map
+          description: Immutable design MetaMap.
+      - deacon:
+          type: string
+          description: Tool name.
+      - deacon --version | sed 's/^deacon //':
+          type: eval
+          description: Runtime Deacon version.
+topics:
+  versions:
+    - - ${task.process}:
+          type: string
+          description: Process name.
+      - deacon:
+          type: string
+          description: Tool name.
+      - deacon --version | sed 's/^deacon //':
+          type: eval
+          description: Runtime Deacon version.
+authors:
+  - dholab/baits

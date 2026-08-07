@@ -42,6 +42,25 @@
                     "exists": true,
                     "pattern": "^\\S+\\.(fa|fasta|fna)(\\.gz)?$",
                     "description": "Path to the Interference Background FASTA."
+                },
+                "kmer_size": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "default": 31,
+                    "description": "Candidate K-mer length."
+                },
+                "deacon_window": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "default": 1,
+                    "description": "Deacon minimizer window length."
+                },
+                "entropy_threshold": {
+                    "type": "number",
+                    "minimum": 0,
+                    "maximum": 1,
+                    "default": 0.6,
+                    "description": "Deacon minimum scaled entropy threshold."
                 }
             },
             "oneOf": [

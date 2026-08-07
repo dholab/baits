@@ -1,0 +1,15 @@
+nextflow_process {
+    name "Deacon index dump process"
+    script "../../modules/local/deacon_index_dump/main.nf"
+    process "DEACON_INDEX_DUMP"
+    test("emits a declared internal passing-kmer FASTA") {
+        when {
+            options '-stub-run'
+            process { """input[0] = [[id: 'design'], file(\"\$baseDir/tests/data/filter_passing_kmers.fasta\")]""" }
+        }
+        then {
+            assert process.success
+            assert file(process.out.fasta[0][1]).name == 'passing_kmers.fasta'
+        }
+    }
+}

@@ -70,6 +70,7 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--source-sequence-query-groups-out", type=Path, required=True)
     parser.add_argument("--candidate-loci-out", type=Path, required=True)
     parser.add_argument("--discovery-status-out", type=Path, required=True)
+    parser.add_argument("--terminal-status-out", type=Path)
     return parser.parse_args(argv)
 
 
@@ -428,6 +429,12 @@ def main(argv: Sequence[str] | None = None) -> None:
         )
         source_sequences.select("source_sequence_id", "query_group").write_csv(
             args.source_sequence_query_groups_out,
+            separator="\t",
+            quote_style="never",
+        )
+    elif args.terminal_status_out:
+        status.write_csv(
+            args.terminal_status_out,
             separator="\t",
             quote_style="never",
         )

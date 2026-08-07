@@ -1,0 +1,56 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/nf-core/modules/master/modules/meta-schema.json
+name: deacon_index_dump
+description: Dump the canonical k-mers retained by a Deacon index.
+keywords:
+  - k-mer
+  - deacon
+  - fasta
+tools:
+  - deacon:
+      description: Accelerated DNA sequence search using minimizers.
+      homepage: https://github.com/arcinstitute/deacon
+      documentation: https://github.com/arcinstitute/deacon
+      tool_dev_url: https://github.com/arcinstitute/deacon
+      licence:
+        - MIT
+input:
+  - - meta:
+        type: map
+        description: Design metadata.
+    - index:
+        type: file
+        description: Deacon index to dump.
+        ontologies: []
+output:
+  fasta:
+    - - meta:
+          type: map
+          description: Design metadata.
+      - passing_kmers.fasta:
+          type: file
+          description: Canonical k-mers retained by Deacon.
+          pattern: passing_kmers.fasta
+          ontologies: []
+  versions_deacon:
+    - - ${task.process}:
+          type: string
+          description: Process name.
+      - deacon:
+          type: string
+          description: Tool name.
+      - deacon --version | sed 's/^deacon //':
+          type: eval
+          description: Runtime Deacon version.
+topics:
+  versions:
+    - - ${task.process}:
+          type: string
+          description: Process name.
+      - deacon:
+          type: string
+          description: Tool name.
+      - deacon --version | sed 's/^deacon //':
+          type: eval
+          description: Runtime Deacon version.
+authors:
+  - dholab/baits

@@ -1,0 +1,68 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/nf-core/modules/master/modules/meta-schema.json
+name: meryl_intersect
+description: Intersect background and source sequence Meryl databases, preserving background counts.
+keywords:
+  - k-mer
+  - intersection
+  - meryl
+tools:
+  - meryl:
+      description: A genomic k-mer counter and set-operation utility.
+      homepage: https://github.com/marbl/meryl
+      documentation: https://meryl.readthedocs.io/
+      tool_dev_url: https://github.com/marbl/meryl
+      licence:
+        - GPL-3.0-or-later
+      identifier: biotools:meryl
+input:
+  - - meta:
+        type: map
+        description: Design metadata.
+    - background_db:
+        type: directory
+        description: Background Meryl database, whose counts are retained.
+    - source_db:
+        type: directory
+        description: Source sequence Meryl database.
+output:
+  db:
+    - - meta:
+          type: map
+          description: Design metadata.
+      - intersection.meryl:
+          type: directory
+          description: Meryl database of shared canonical k-mers with background counts.
+          pattern: intersection.meryl
+  versions_meryl:
+    - - ${task.process}:
+          type: string
+          description: Process name.
+      - meryl:
+          type: string
+          description: Tool name.
+      - meryl --version |& sed 's/meryl //':
+          type: eval
+          description: Runtime Meryl version.
+  reported_meryl:
+    - - meta:
+          type: map
+          description: Design metadata.
+      - meryl:
+          type: string
+          description: Tool name.
+      - meryl --version |& sed 's/meryl //':
+          type: eval
+          description: Runtime Meryl version.
+topics:
+  versions:
+    - - ${task.process}:
+          type: string
+          description: Process name.
+      - meryl:
+          type: string
+          description: Tool name.
+      - meryl --version |& sed 's/meryl //':
+          type: eval
+          description: Runtime Meryl version.
+authors:
+  - dholab/baits

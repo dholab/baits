@@ -12,6 +12,7 @@ process EXTRACT_SOURCE_SEQUENCES {
     tuple val(meta), path('source_sequences.fasta'), path('source_sequence_query_groups.tsv'), optional: true, emit: source_sequences
     tuple val(meta), path('candidate_loci.tsv')                                                    , emit: candidate_loci
     tuple val(meta), path('discovery_status.tsv')                                                  , emit: discovery_status
+    tuple val(meta), path('discovery_terminal_status.tsv'), optional: true                         , emit: discovery_terminal
     tuple val("${task.process}"), val('biopython'), eval("python -c 'import Bio; print(Bio.__version__)'"), topic: versions, emit: versions_biopython
     tuple val(meta), val('biopython'), eval("python -c 'import Bio; print(Bio.__version__)'"), emit: reported_biopython
 
@@ -28,6 +29,7 @@ process EXTRACT_SOURCE_SEQUENCES {
         --source-sequences-out source_sequences.fasta \
         --source-sequence-query-groups-out source_sequence_query_groups.tsv \
         --candidate-loci-out candidate_loci.tsv \
-        --discovery-status-out discovery_status.tsv
+        --discovery-status-out discovery_status.tsv \
+        --terminal-status-out discovery_terminal_status.tsv
     """
 }

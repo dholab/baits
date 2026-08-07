@@ -1,0 +1,57 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/nf-core/modules/master/modules/meta-schema.json
+name: meryl_print
+description: Print canonical k-mer counts from a Meryl database.
+keywords:
+  - k-mer
+  - meryl
+  - tsv
+tools:
+  - meryl:
+      description: A genomic k-mer counter and set-operation utility.
+      homepage: https://github.com/marbl/meryl
+      documentation: https://meryl.readthedocs.io/
+      tool_dev_url: https://github.com/marbl/meryl
+      licence:
+        - GPL-3.0-or-later
+      identifier: biotools:meryl
+input:
+  - - meta:
+        type: map
+        description: Design metadata.
+    - database:
+        type: directory
+        description: Meryl database to print.
+output:
+  txt:
+    - - meta:
+          type: map
+          description: Design metadata.
+      - meryl_print.tsv:
+          type: file
+          description: Tab-separated canonical k-mer and count rows.
+          pattern: meryl_print.tsv
+  versions_meryl:
+    - - ${task.process}:
+          type: string
+          description: Process name.
+      - meryl:
+          type: string
+          description: Tool name.
+      - meryl --version |& sed 's/meryl //':
+          type: eval
+          description: Runtime Meryl version.
+
+topics:
+  versions:
+    - - ${task.process}:
+          type: string
+          description: Process name.
+      - meryl:
+          type: string
+          description: Tool name.
+      - meryl --version |& sed 's/meryl //':
+          type: eval
+          description: Runtime Meryl version.
+
+authors:
+  - dholab/baits

@@ -1,0 +1,35 @@
+nextflow_process {
+    name "Apply complexity filter process"
+    script "../../modules/local/apply_complexity_filter/main.nf"
+    process "APPLY_COMPLEXITY_FILTER"
+    test("retains only Deacon-passing Candidate K-mers") {
+        when {
+            process {
+                """input[0] = [[id: 'design'], 'curated_input', file(\"\$baseDir/tests/data/filter_manifest.tsv\"), file(\"\$baseDir/tests/data/filter_passing_kmers.fasta\")]"""
+            }
+        }
+        then {
+            assert process.success
+            assert file(process.out.evidence[0][1]).text.contains('REJECT_LOW_COMPLEXITY')
+            assert process.out.baits.size() == 1
+            assert file(process.out.baits[0][1]).text.contains('>bait_000001')
+        }
+    }
+
+    test("publishes filtering evidence without Baits when Deacon retains no Candidate K-mer") {
+        setup {
+            new File("$outputDir/empty.fasta").text = ''
+        }
+        when {
+            process {
+                """input[0] = [[id: 'design'], 'curated_input', file(\"\$baseDir/tests/data/filter_manifest.tsv\"), file(\"$outputDir/empty.fasta\")]"""
+            }
+        }
+        then {
+            assert process.success
+            assert process.out.baits.size() == 0
+            assert file(process.out.evidence[0][1]).text.contains('REJECT_LOW_COMPLEXITY')
+            assert file(process.out.evidence[0][2]).text.endsWith('low_complexity_filtering\n')
+        }
+    }
+}
