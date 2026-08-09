@@ -1,5 +1,0 @@
----
-channels:
-  - bioconda
-dependencies:
-  - deacon=0.15.0

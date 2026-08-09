@@ -129,6 +129,11 @@ workflow {
     screening_decisions = BAITS_MAIN.out.screening_decisions
     screening_status = BAITS_MAIN.out.screening_status
     taxonomically_screened_baits = BAITS_MAIN.out.taxonomically_screened_baits
+    bait_set_status = BAITS_MAIN.out.bait_set_status
+    locally_filtered_deacon_index = BAITS_MAIN.out.locally_filtered_deacon_index
+    taxonomically_screened_deacon_index = BAITS_MAIN.out.taxonomically_screened_deacon_index
+    index_verification_summary = BAITS_MAIN.out.index_verification_summary
+    index_verification_report = BAITS_MAIN.out.index_verification_report
     taxonomic_reference_database = BAITS_MAIN.out.taxonomic_reference_database
 }
 
@@ -188,6 +193,26 @@ output {
     taxonomically_screened_baits {
         mode 'copy'
         path { record -> record[1] >> "${record[0].id}/04_bait_sets/taxonomically_screened_baits.fasta" }
+    }
+    bait_set_status {
+        mode 'copy'
+        path { record -> record[1] >> "${record[0].id}/04_bait_sets/bait_set_status.tsv" }
+    }
+    locally_filtered_deacon_index {
+        mode 'copy'
+        path { record -> record[1] >> "${record[0].id}/05_deacon_index/locally_filtered.idx" }
+    }
+    taxonomically_screened_deacon_index {
+        mode 'copy'
+        path { record -> record[1] >> "${record[0].id}/05_deacon_index/taxonomically_screened.idx" }
+    }
+    index_verification_summary {
+        mode 'copy'
+        path { record -> record[1] >> "${record[0].id}/05_deacon_index/verification_summary.tsv" }
+    }
+    index_verification_report {
+        mode 'copy'
+        path { record -> record[1] >> "${record[0].id}/05_deacon_index/verification_report.md" }
     }
     taxonomic_reference_database {
         mode 'copy'

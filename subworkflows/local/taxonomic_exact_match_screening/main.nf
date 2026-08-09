@@ -34,6 +34,7 @@ workflow TAXONOMIC_EXACT_MATCH_SCREENING {
     manifest = APPLY_TAXONOMIC_SCREENING.out.manifest
     screening_status = APPLY_TAXONOMIC_SCREENING.out.screening_status
     bait_set_status = APPLY_TAXONOMIC_SCREENING.out.bait_set_status
+    terminal_bait_set_status = APPLY_TAXONOMIC_SCREENING.out.terminal_bait_set_status
     baits = APPLY_TAXONOMIC_SCREENING.out.baits
     reported_blast = BLASTN_TAXONOMIC_SCREENING.out.reported_blast
     reported_biopython = APPLY_TAXONOMIC_SCREENING.out.reported_biopython

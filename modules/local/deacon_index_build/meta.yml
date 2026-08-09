@@ -1,5 +1,6 @@
-name: deacon_index_entropy
-description: Build an entropy-filtering Deacon index from Candidate K-mers using explicit parameters.
+# yaml-language-server: $schema=https://raw.githubusercontent.com/nf-core/modules/master/modules/meta-schema.json
+name: deacon_index_build
+description: Build a Deacon index using explicit scientific parameters.
 keywords:
   - k-mer
   - entropy
@@ -12,14 +13,13 @@ tools:
       tool_dev_url: https://github.com/arcinstitute/deacon
       licence:
         - MIT
-      identifier: ""
 input:
   - - meta:
         type: map
-        description: Immutable design MetaMap.
+        description: Design metadata.
     - fasta:
         type: file
-        description: Candidate K-mer FASTA after Explicit-Background Cancellation.
+        description: FASTA used to build the Deacon index.
         ontologies: []
     - kmer_size:
         type: integer
@@ -34,11 +34,11 @@ output:
   index:
     - - meta:
           type: map
-          description: Immutable design MetaMap.
-      - entropy.idx:
+          description: Design metadata.
+      - deacon.idx:
           type: file
-          description: Internal Deacon entropy-filtering index.
-          pattern: entropy.idx
+          description: Deacon index.
+          pattern: deacon.idx
           ontologies: []
   versions_deacon:
     - - ${task.process}:
@@ -53,7 +53,7 @@ output:
   reported_deacon:
     - - meta:
           type: map
-          description: Immutable design MetaMap.
+          description: Design metadata.
       - deacon:
           type: string
           description: Tool name.

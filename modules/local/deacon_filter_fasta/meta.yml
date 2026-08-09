@@ -1,0 +1,70 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/nf-core/modules/master/modules/meta-schema.json
+name: deacon_filter_fasta
+description: Filter FASTA records through a Deacon index at the permissive threshold.
+keywords:
+  - deacon
+  - fasta
+  - k-mer
+tools:
+  - deacon:
+      description: Accelerated DNA sequence search using minimizers.
+      homepage: https://github.com/arcinstitute/deacon
+      documentation: https://github.com/arcinstitute/deacon
+      tool_dev_url: https://github.com/arcinstitute/deacon
+      licence:
+        - MIT
+input:
+  - - meta:
+        type: map
+        description: Design metadata.
+    - index:
+        type: file
+        description: Deacon index.
+        ontologies: []
+    - fasta:
+        type: file
+        description: FASTA records to filter.
+        ontologies: []
+output:
+  fasta:
+    - - meta:
+          type: map
+          description: Design metadata.
+      - filtered.fasta:
+          type: file
+          description: FASTA records retained at `-a 1 -r 0`.
+          pattern: filtered.fasta
+          ontologies: []
+  versions_deacon:
+    - - ${task.process}:
+          type: string
+          description: Process name.
+      - deacon:
+          type: string
+          description: Tool name.
+      - deacon --version | sed 's/^deacon //':
+          type: eval
+          description: Runtime Deacon version.
+  reported_deacon:
+    - - meta:
+          type: map
+          description: Design metadata.
+      - deacon:
+          type: string
+          description: Tool name.
+      - deacon --version | sed 's/^deacon //':
+          type: eval
+          description: Runtime Deacon version.
+topics:
+  versions:
+    - - ${task.process}:
+          type: string
+          description: Process name.
+      - deacon:
+          type: string
+          description: Tool name.
+      - deacon --version | sed 's/^deacon //':
+          type: eval
+          description: Runtime Deacon version.
+authors:
+  - dholab/baits

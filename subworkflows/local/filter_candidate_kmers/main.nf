@@ -4,7 +4,7 @@ include { MERYL_INTERSECT } from '../../../modules/local/meryl_intersect/main'
 include { MERYL_PRINT as MERYL_PRINT_BACKGROUND } from '../../../modules/local/meryl_print/main'
 include { MERYL_PRINT as MERYL_PRINT_SOURCE } from '../../../modules/local/meryl_print/main'
 include { BUILD_CANDIDATE_TABLES } from '../../../modules/local/build_candidate_tables/main'
-include { DEACON_INDEX_ENTROPY } from '../../../modules/local/deacon_index_entropy/main'
+include { DEACON_INDEX_BUILD as DEACON_INDEX_ENTROPY } from '../../../modules/local/deacon_index_build/main'
 include { DEACON_INDEX_DUMP } from '../../../modules/local/deacon_index_dump/main'
 include { APPLY_COMPLEXITY_FILTER } from '../../../modules/local/apply_complexity_filter/main'
 

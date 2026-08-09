@@ -1,0 +1,20 @@
+nextflow_process {
+    name "Deacon FASTA filter process"
+    script "../../modules/local/deacon_filter_fasta/main.nf"
+    process "DEACON_FILTER_FASTA"
+
+    test("filters FASTA with the fixed permissive threshold") {
+        when {
+            options '-stub-run'
+            process {
+                """input[0] = [[id: 'design'], file("\$baseDir/tests/data/taxonomic_bait_set_status.tsv"), file("\$baseDir/tests/data/taxonomic_locally_filtered_baits.fasta")]"""
+            }
+        }
+
+        then {
+            assert process.success
+            assert process.out.fasta.size() == 1
+            assert process.out.reported_deacon[0][1] == 'deacon'
+        }
+    }
+}

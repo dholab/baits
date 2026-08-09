@@ -17,6 +17,7 @@ nextflow_process {
             assert process.out.screening_status.size() == 1
             assert process.out.bait_set_status.size() == 1
             assert process.out.baits.size() == 1
+            assert process.out.terminal_bait_set_status.size() == 0
             assert file(process.out.decisions[0][1]).text.contains('bait_000002\tREJECT_OFF_TARGET_HIT\t0\t1')
             assert file(process.out.manifest[0][1]).text.contains('REJECT_OFF_TARGET_HIT\toff_target_exact_match')
             assert file(process.out.screening_status[0][1]).text.contains('taxonomic_screening_status\tPASS')
@@ -36,6 +37,7 @@ nextflow_process {
         then {
             assert process.success
             assert process.out.baits.size() == 0
+            assert process.out.terminal_bait_set_status.size() == 1
             assert file(process.out.screening_status[0][1]).text.contains('taxonomic_screening_status\tNO_BAITS')
             assert file(process.out.manifest[0][1]).text.count('REJECT_OFF_TARGET_HIT') == 4
         }

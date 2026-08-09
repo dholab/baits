@@ -14,6 +14,7 @@ process APPLY_TAXONOMIC_SCREENING {
     tuple val(meta), path('screening_status.tsv'), emit: screening_status
     tuple val(meta), path('bait_set_status.tsv'), emit: bait_set_status
     tuple val(meta), path('taxonomically_screened_baits.fasta'), path('candidate_kmers.tsv'), path('bait_set_status.tsv'), optional: true, emit: baits
+    tuple val(meta), path('terminal_bait_set_status.tsv'), optional: true, emit: terminal_bait_set_status
     tuple val("${task.process}"), val('biopython'), eval("python -c 'import Bio; print(Bio.__version__)'"), topic: versions, emit: versions_biopython
     tuple val("${task.process}"), val('polars'), eval("python -c 'import polars; print(polars.__version__)'"), topic: versions, emit: versions_polars
     tuple val(meta), val('biopython'), eval("python -c 'import Bio; print(Bio.__version__)'"), emit: reported_biopython
@@ -36,6 +37,7 @@ process APPLY_TAXONOMIC_SCREENING {
         --baits-out taxonomically_screened_baits.fasta \
         --decisions-out screening_decisions.tsv \
         --screening-status-out screening_status.tsv \
-        --bait-set-status-out bait_set_status.tsv
+        --bait-set-status-out bait_set_status.tsv \
+        --terminal-bait-set-status-out terminal_bait_set_status.tsv
     """
 }

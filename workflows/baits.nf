@@ -3,6 +3,7 @@ include { WRITE_PROVENANCE } from '../modules/local/write_provenance/main'
 include { DISCOVER_SOURCE_SEQUENCES } from '../subworkflows/local/discover_source_sequences/main'
 include { FILTER_CANDIDATE_KMERS } from '../subworkflows/local/filter_candidate_kmers/main'
 include { TAXONOMIC_EXACT_MATCH_SCREENING } from '../subworkflows/local/taxonomic_exact_match_screening/main'
+include { BUILD_VERIFY_DEACON_INDEX } from '../subworkflows/local/build_verify_deacon_index/main'
 
 workflow BAITS_MAIN {
     take:
@@ -42,6 +43,31 @@ workflow BAITS_MAIN {
             tuple(meta, locally_filtered_baits, candidate_kmer_manifest, bait_set_status, target_taxid)
         }
     TAXONOMIC_EXACT_MATCH_SCREENING(ch_screening_inputs, ch_taxonomic_reference_db, ch_kmer_size)
+
+    // Build and verify one Deacon Index from the deepest justified Bait Set
+    ch_locally_filtered_index_inputs = FILTER_CANDIDATE_KMERS.out.baits
+        .join(ch_design_context)
+        .combine(ch_taxonomic_screening_not_run)
+        .map { meta, locally_filtered_baits, candidate_kmer_manifest, bait_set_status, target_taxid, interference_background, not_run ->
+            tuple(meta, locally_filtered_baits, candidate_kmer_manifest, bait_set_status, interference_background)
+        }
+    ch_taxonomically_screened_index_inputs = TAXONOMIC_EXACT_MATCH_SCREENING.out.baits
+        .join(ch_design_context)
+        .map { meta, taxonomically_screened_baits, candidate_kmer_manifest, bait_set_status, target_taxid, interference_background ->
+            tuple(meta, taxonomically_screened_baits, candidate_kmer_manifest, bait_set_status, interference_background)
+        }
+    // These keyed markers restore the Bait Set branch after index verification.
+    ch_locally_filtered_index_keys = ch_locally_filtered_index_inputs.map { meta, baits, candidate_kmer_manifest, bait_set_status, interference_background -> tuple(meta, true) }
+    ch_taxonomically_screened_index_keys = ch_taxonomically_screened_index_inputs.map { meta, baits, candidate_kmer_manifest, bait_set_status, interference_background -> tuple(meta, true) }
+    ch_index_inputs = ch_locally_filtered_index_inputs.mix(ch_taxonomically_screened_index_inputs)
+    BUILD_VERIFY_DEACON_INDEX(ch_index_inputs, ch_kmer_size, ch_deacon_window)
+
+    ch_locally_filtered_indexes = BUILD_VERIFY_DEACON_INDEX.out.index
+        .join(ch_locally_filtered_index_keys)
+        .map { meta, baits, candidate_kmer_manifest, bait_set_status, deacon_index, selected -> tuple(meta, deacon_index) }
+    ch_taxonomically_screened_indexes = BUILD_VERIFY_DEACON_INDEX.out.index
+        .join(ch_taxonomically_screened_index_keys)
+        .map { meta, baits, candidate_kmer_manifest, bait_set_status, deacon_index, selected -> tuple(meta, deacon_index) }
 
     // Construct immutable source-input and design provenance facts
     ch_curated_provenance_facts = ch_design_context
@@ -245,10 +271,17 @@ workflow BAITS_MAIN {
     screening_decisions = TAXONOMIC_EXACT_MATCH_SCREENING.out.decisions
     screening_status = TAXONOMIC_EXACT_MATCH_SCREENING.out.screening_status
     taxonomically_screened_baits = TAXONOMIC_EXACT_MATCH_SCREENING.out.baits
+    bait_set_status = BUILD_VERIFY_DEACON_INDEX.out.bait_set_status
+        .mix(TAXONOMIC_EXACT_MATCH_SCREENING.out.terminal_bait_set_status)
+    locally_filtered_deacon_index = ch_locally_filtered_indexes
+    taxonomically_screened_deacon_index = ch_taxonomically_screened_indexes
+    index_verification_summary = BUILD_VERIFY_DEACON_INDEX.out.summary
+    index_verification_report = BUILD_VERIFY_DEACON_INDEX.out.report
     taxonomic_reference_database = TAXONOMIC_EXACT_MATCH_SCREENING.out.reference_database_report
     versions = NORMALIZE_CURATED_SOURCE_SEQUENCES.out.versions_biopython
         .mix(DISCOVER_SOURCE_SEQUENCES.out.versions)
         .mix(WRITE_PROVENANCE.out.versions_python)
         .mix(FILTER_CANDIDATE_KMERS.out.versions)
         .mix(TAXONOMIC_EXACT_MATCH_SCREENING.out.versions)
+        .mix(BUILD_VERIFY_DEACON_INDEX.out.versions)
 }

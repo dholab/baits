@@ -1,0 +1,52 @@
+nextflow_process {
+    name "Verify Deacon index process"
+    script "../../modules/local/verify_deacon_index/main.nf"
+    process "VERIFY_DEACON_INDEX"
+
+    test("verifies round trips and finalizes the bait set status") {
+        setup {
+            new File("$outputDir/background_roundtrip.fasta").text = ""
+        }
+        when {
+            process {
+                """input[0] = [[id: 'design', source_sequence_origin: 'curated_input'], file("\$baseDir/tests/data/taxonomic_locally_filtered_baits.fasta"), file("\$baseDir/tests/data/taxonomic_locally_filtered_baits.fasta"), file("$outputDir/background_roundtrip.fasta"), file("\$baseDir/tests/data/taxonomic_candidate_kmers.tsv"), file("\$baseDir/tests/data/taxonomic_bait_set_status.tsv"), 31, 1]"""
+            }
+        }
+
+        then {
+            assert process.success
+            assert process.out.bait_set_status.size() == 1
+            assert process.out.summary.size() == 1
+            assert process.out.report.size() == 1
+            assert file(process.out.bait_set_status[0][1]).readLines() == [
+                'metric\tvalue',
+                'design_id\tdesign',
+                'source_sequence_origin\tcurated_input',
+                'candidate_kmer_count\t2',
+                'locally_filtered_bait_count\t2',
+                'taxonomic_screening_status\tNOT_RUN',
+                'taxonomically_screened_bait_count\t',
+                'deepest_bait_set\tlocally_filtered',
+                'deacon_index_source\tlocally_filtered',
+            ]
+            assert file(process.out.summary[0][1]).readLines().collect { line -> line.split('\t', 2)[0] } == [
+                'metric',
+                'design_id',
+                'kmer_size',
+                'deacon_window',
+                'deacon_index_entropy_threshold',
+                'deacon_filter_absolute_threshold',
+                'deacon_filter_relative_threshold',
+                'bait_roundtrip_record_count',
+                'bait_roundtrip_sha256',
+                'bait_sequence_sets_equal',
+                'interference_background_roundtrip_record_count',
+                'interference_background_roundtrip_sha256',
+                'conclusion',
+            ]
+            assert file(process.out.report[0][1]).text.contains('locally filtered bait set')
+            assert process.out.versions_biopython[0][1] == 'biopython'
+            assert process.out.versions_polars[0][1] == 'polars'
+        }
+    }
+}

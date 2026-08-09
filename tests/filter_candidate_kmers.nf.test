@@ -19,7 +19,11 @@ nextflow_pipeline {
             assert new File(candidate, 'candidate_kmer_occurrences.tsv').exists()
             assert new File(candidate, 'filtering_status.tsv').exists()
             assert new File("$runDir/results/positive/04_bait_sets/locally_filtered_baits.fasta").exists()
-            assert !new File("$runDir/results/positive/04_bait_sets/bait_set_status.tsv").exists()
+            assert new File("$runDir/results/positive/04_bait_sets/bait_set_status.tsv").text.contains('deacon_index_source\tlocally_filtered')
+            assert new File("$runDir/results/positive/05_deacon_index/locally_filtered.idx").exists()
+            assert new File("$runDir/results/positive/05_deacon_index/verification_summary.tsv").text.contains('bait_sequence_sets_equal\ttrue')
+            assert new File("$runDir/results/positive/05_deacon_index/verification_report.md").exists()
+            assert !new File("$runDir/results/positive/02_candidate_kmers/source_sequence_metadata.tsv").exists()
             assert new File("$runDir/results/positive/07_provenance/parameters.tsv").text.contains('kmer_size\t31')
             assert new File("$runDir/results/positive/07_provenance/software_versions.tsv").text.contains('deacon\t0.15.0')
             assert new File("$runDir/results/positive/07_provenance/software_versions.tsv").text.contains('polars\t1.43.2')
@@ -182,6 +186,8 @@ design_b,88456,$baseDir/tests/data/filter_low_complexity_source.fasta,,,,$baseDi
             assert new File(screened, '03_taxonomic_screening/screening_decisions.tsv').exists()
             assert new File(screened, '03_taxonomic_screening/screening_status.tsv').exists()
             assert new File(screened, '04_bait_sets/taxonomically_screened_baits.fasta').exists()
+            assert new File(screened, '04_bait_sets/bait_set_status.tsv').text.contains('deacon_index_source\ttaxonomically_screened')
+            assert new File(screened, '05_deacon_index/taxonomically_screened.idx').exists()
             assert new File(screened, '07_provenance/taxonomic_reference_database.txt').text.contains('BLASTDB Version:')
             assert new File(screened, '07_provenance/inputs.tsv').text.contains('taxonomic_reference_database\ttaxonomic_reference_database\tdirectory\ttaxonomic_reference_db')
             assert new File(screened, '07_provenance/software_versions.tsv').text.contains('blast\t2.16.0')
@@ -193,6 +199,32 @@ design_b,88456,$baseDir/tests/data/filter_low_complexity_source.fasta,,,,$baseDi
             assert !new File(terminal, '07_provenance/software_versions.tsv').text.contains('blast\t')
             assert !new File(terminal, '03_taxonomic_screening/blast_hits.tsv').exists()
             assert !new File(terminal, '07_provenance/taxonomic_reference_database.txt').exists()
+        }
+    }
+
+    test("publishes final Bait Set status without an index when screening rejects every Bait") {
+        setup {
+            new File("$outputDir/rejecting_reference_db").mkdirs()
+            new File("$outputDir/rejecting_reference.fasta").text = new File("$baseDir/tests/data/filter_source_sequences.fasta").text
+            assert ["pixi", "run", "--environment", "dev", "makeblastdb", "-dbtype", "nucl", "-parse_seqids", "-taxid", "123", "-in", "$outputDir/rejecting_reference.fasta", "-out", "$outputDir/rejecting_reference_db/taxonomic"].execute().waitFor() == 0
+        }
+        when {
+            params {
+                id = "screening_terminal"
+                source_sequences = "$baseDir/tests/data/filter_source_sequences.fasta"
+                target_taxid = "88456"
+                interference_background = "$baseDir/tests/data/interference_background.fasta"
+                taxonomic_reference_db = "$outputDir/rejecting_reference_db"
+            }
+        }
+        then {
+            assert workflow.success
+            def runDir = new File(outputDir).parent
+            def design = new File("$runDir/results/screening_terminal")
+            assert new File(design, '03_taxonomic_screening/screening_status.tsv').text.contains('taxonomic_screening_status\tNO_BAITS')
+            assert new File(design, '04_bait_sets/bait_set_status.tsv').text.endsWith('deacon_index_source\t\n')
+            assert !new File(design, '04_bait_sets/taxonomically_screened_baits.fasta').exists()
+            assert !new File(design, '05_deacon_index').exists()
         }
     }
 }

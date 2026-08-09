@@ -1,10 +1,10 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/nf-core/modules/master/modules/meta-schema.json
-name: apply_taxonomic_screening
-description: Apply exact taxonomic BLAST evidence to locally filtered baits.
+name: verify_deacon_index
+description: Verify Deacon round trips and finalize bait set status.
 keywords:
-  - taxonomy
-  - blast
+  - deacon
   - k-mer
+  - verification
 tools:
   - biopython:
       description: Python tools for biological computation.
@@ -21,107 +21,75 @@ tools:
       tool_dev_url: https://github.com/pola-rs/polars
       licence:
         - MIT
+  - python:
+      description: Python programming language.
+      homepage: https://www.python.org/
+      documentation: https://docs.python.org/3/
+      tool_dev_url: https://github.com/python/cpython
+      licence:
+        - PSF-2.0
 input:
   - - meta:
         type: map
-        description: Design metadata.
-    - locally_filtered_baits:
+        description: Immutable design metadata.
+    - baits:
         type: file
-        description: Locally filtered bait FASTA.
+        description: Bait FASTA used to build the Deacon index.
         ontologies: []
-    - blast_hits:
+    - bait_roundtrip:
         type: file
-        description: Headered exact-match taxonomic BLAST results.
-        ontologies:
-          - edam: http://edamontology.org/format_3475 # TSV
+        description: Baits retained by the Deacon index at the permissive threshold.
+        ontologies: []
+    - background_roundtrip:
+        type: file
+        description: Interference background records retained at the permissive threshold.
+        ontologies: []
     - candidate_kmer_manifest:
         type: file
-        description: Candidate k-mer manifest before taxonomic screening.
+        description: Complete candidate k-mer manifest.
         ontologies:
           - edam: http://edamontology.org/format_3475 # TSV
     - bait_set_status:
         type: file
-        description: Locally filtered bait set status draft.
+        description: Bait set status draft.
         ontologies:
           - edam: http://edamontology.org/format_3475 # TSV
-    - target_taxid:
-        type: string
-        description: Target NCBI taxonomy identifier.
     - kmer_size:
         type: integer
-        description: Exact bait k-mer length.
+        description: Candidate k-mer size.
+    - deacon_window:
+        type: integer
+        description: Deacon minimizer window size.
 output:
-  manifest:
-    - - meta:
-          type: map
-          description: Design metadata.
-      - candidate_kmers.tsv:
-          type: file
-          description: Regenerated candidate k-mer manifest.
-          pattern: candidate_kmers.tsv
-          ontologies:
-            - edam: http://edamontology.org/format_3475 # TSV
-  decisions:
-    - - meta:
-          type: map
-          description: Design metadata.
-      - screening_decisions.tsv:
-          type: file
-          description: Per-bait exact-match taxonomic decisions.
-          pattern: screening_decisions.tsv
-          ontologies:
-            - edam: http://edamontology.org/format_3475 # TSV
-  screening_status:
-    - - meta:
-          type: map
-          description: Design metadata.
-      - screening_status.tsv:
-          type: file
-          description: Aggregate taxonomic-screening status.
-          pattern: screening_status.tsv
-          ontologies:
-            - edam: http://edamontology.org/format_3475 # TSV
   bait_set_status:
     - - meta:
           type: map
-          description: Design metadata.
+          description: Immutable design metadata.
       - bait_set_status.tsv:
           type: file
-          description: Updated bait set status draft.
+          description: Final bait set status for the verified Deacon index.
           pattern: bait_set_status.tsv
           ontologies:
             - edam: http://edamontology.org/format_3475 # TSV
-  baits:
+  summary:
     - - meta:
           type: map
-          description: Design metadata.
-      - taxonomically_screened_baits.fasta:
+          description: Immutable design metadata.
+      - verification_summary.tsv:
           type: file
-          description: Optional taxonomically screened bait FASTA.
-          pattern: taxonomically_screened_baits.fasta
+          description: Machine-readable Deacon index verification evidence.
+          pattern: verification_summary.tsv
+          ontologies:
+            - edam: http://edamontology.org/format_3475 # TSV
+  report:
+    - - meta:
+          type: map
+          description: Immutable design metadata.
+      - verification_report.md:
+          type: file
+          description: Readable Deacon index verification report.
+          pattern: verification_report.md
           ontologies: []
-      - candidate_kmers.tsv:
-          type: file
-          description: Regenerated candidate k-mer manifest.
-          pattern: candidate_kmers.tsv
-          ontologies:
-            - edam: http://edamontology.org/format_3475 # TSV
-      - bait_set_status.tsv:
-          type: file
-          description: Updated bait set status draft.
-          pattern: bait_set_status.tsv
-          ontologies:
-            - edam: http://edamontology.org/format_3475 # TSV
-  terminal_bait_set_status:
-    - - meta:
-          type: map
-          description: Design metadata.
-      - terminal_bait_set_status.tsv:
-          type: file
-          description: Final bait set status when screening rejects every bait.
-          pattern: terminal_bait_set_status.tsv
-          ontologies:
-            - edam: http://edamontology.org/format_3475 # TSV
   versions_biopython:
     - - ${task.process}:
           type: string
@@ -142,6 +110,16 @@ output:
       - python -c 'import polars; print(polars.__version__)':
           type: eval
           description: Runtime Polars version.
+  versions_python:
+    - - ${task.process}:
+          type: string
+          description: Process name.
+      - python:
+          type: string
+          description: Tool name.
+      - python --version | sed 's/Python //':
+          type: eval
+          description: Runtime Python version.
 topics:
   versions:
     - - ${task.process}:
@@ -162,5 +140,14 @@ topics:
       - python -c 'import polars; print(polars.__version__)':
           type: eval
           description: Runtime Polars version.
+    - - ${task.process}:
+          type: string
+          description: Process name.
+      - python:
+          type: string
+          description: Tool name.
+      - python --version | sed 's/Python //':
+          type: eval
+          description: Runtime Python version.
 authors:
   - dholab/baits

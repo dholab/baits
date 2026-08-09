@@ -1,5 +1,5 @@
-process DEACON_INDEX_ENTROPY {
-    tag "$meta.id"
+process DEACON_INDEX_BUILD {
+    tag "${meta.id}"
     label 'process_low'
 
     conda "${moduleDir}/environment.yml"
@@ -9,7 +9,7 @@ process DEACON_INDEX_ENTROPY {
     tuple val(meta), path(fasta), val(kmer_size), val(deacon_window), val(entropy_threshold)
 
     output:
-    tuple val(meta), path('entropy.idx'), emit: index
+    tuple val(meta), path('deacon.idx'), emit: index
     tuple val("${task.process}"), val('deacon'), eval("deacon --version | sed 's/^deacon //'"), topic: versions, emit: versions_deacon
     tuple val(meta), val('deacon'), eval("deacon --version | sed 's/^deacon //'"), emit: reported_deacon
 
@@ -18,11 +18,16 @@ process DEACON_INDEX_ENTROPY {
 
     script:
     """
-    deacon index build -k ${kmer_size} -w ${deacon_window} -e ${entropy_threshold} -o entropy.idx ${fasta}
+    deacon index build \
+        -k ${kmer_size} \
+        -w ${deacon_window} \
+        -e ${entropy_threshold} \
+        -o deacon.idx \
+        ${fasta}
     """
 
     stub:
     """
-    touch entropy.idx
+    touch deacon.idx
     """
 }

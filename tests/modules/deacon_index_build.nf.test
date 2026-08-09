@@ -1,7 +1,7 @@
 nextflow_process {
-    name "Deacon entropy index process"
-    script "../../modules/local/deacon_index_entropy/main.nf"
-    process "DEACON_INDEX_ENTROPY"
+    name "Deacon index build process"
+    script "../../modules/local/deacon_index_build/main.nf"
+    process "DEACON_INDEX_BUILD"
     test("receives explicit scientific arguments in its queue tuple") {
         when {
             options '-stub-run'
