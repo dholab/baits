@@ -1,0 +1,124 @@
+nextflow_pipeline {
+    name "Calibrate Deacon threshold"
+    script "../main.nf"
+    tag "calibrate_deacon_threshold"
+
+    test("publishes calibration evidence and Optimization Read Set provenance") {
+        setup {
+            def sequence = 'ACGTTGCATGTCAGTACGATCGTAG' * 4
+            def secondMate = 'T' * sequence.size()
+            new File("$outputDir/source.fasta").text = ">target\n${sequence}\n"
+            new File("$outputDir/optimization_reads").mkdirs()
+            new File("$outputDir/optimization_reads/sample_R1.fastq").text = "@fragment/1\n${sequence}\n+\n${'I' * sequence.size()}\n"
+            new File("$outputDir/optimization_reads/sample_R2.fastq").text = "@fragment/2\n${secondMate}\n+\n${'I' * secondMate.size()}\n"
+            new File("$outputDir/taxonomic_reference_db").mkdirs()
+            assert ["pixi", "run", "--environment", "dev", "makeblastdb", "-dbtype", "nucl", "-parse_seqids", "-taxid", "88456", "-in", "$outputDir/source.fasta", "-out", "$outputDir/taxonomic_reference_db/taxonomic"].execute().waitFor() == 0
+        }
+        when {
+            params {
+                id = "calibrated"
+                source_sequences = "$outputDir/source.fasta"
+                target_taxid = "88456"
+                interference_background = "$baseDir/tests/data/interference_background.fasta"
+                optimization_read_set = "$outputDir/optimization_reads"
+                taxonomic_reference_db = "$outputDir/taxonomic_reference_db"
+            }
+        }
+        then {
+            assert workflow.success
+            def runDir = new File(outputDir).parent
+            def design = new File("$runDir/results/calibrated")
+            assert new File(design, '06_calibration/candidate_read_counts.tsv').exists()
+            assert new File(design, '06_calibration/candidate_read_counts.tsv').text.contains('sample\tfragment\t1\t')
+            assert new File(design, '06_calibration/whole_read_blast_hits.tsv').exists()
+            assert new File(design, '06_calibration/classified_reads.tsv').text.contains('sample\tfragment\t1\t')
+            assert new File(design, '06_calibration/classified_reads.tsv').text.contains('\tTARGET\t')
+            assert new File(design, '06_calibration/threshold_read_counts.tsv').exists()
+            assert new File(design, '06_calibration/threshold_curve.tsv').exists()
+            def thresholdSummary = new File(design, '06_calibration/threshold_summary.tsv').text
+            assert thresholdSummary.contains('deacon_returned_read_count\t2')
+            assert thresholdSummary.contains('zero_bait_read_count\t1')
+            assert thresholdSummary.contains('calibration_status\tRECOMMENDED_DEACON_ABSOLUTE_THRESHOLD')
+            def inputs = new File(design, '07_provenance/inputs.tsv').text
+            assert inputs.contains('optimization_read\tcalibrated__sample:R1\tfilename\tsample_R1.fastq')
+            assert inputs.contains('optimization_read\tcalibrated__sample:R2\tfilename\tsample_R2.fastq')
+            assert inputs.contains('optimization_read\tcalibrated__sample:R1\tmate\tR1')
+            assert inputs.contains('optimization_read\tcalibrated__sample:R2\tmate\tR2')
+            assert inputs.contains('optimization_read\tcalibrated__sample:R1\tmetagenome_id\tsample')
+            assert inputs.contains('optimization_read\tcalibrated__sample:R2\tmetagenome_id\tsample')
+            assert inputs.readLines().count { it ==~ /optimization_read\tcalibrated__sample:R[12]\tsha256\t[0-9a-f]{64}/ } == 2
+            assert new File(design, '07_provenance/parameters.tsv').text.contains('whole_read_classification_tie_tolerance\t0.1')
+        }
+    }
+
+    test("publishes complete NO_CANDIDATE_READS evidence without whole-read BLAST") {
+        setup {
+            def sequence = 'ACGTTGCATGTCAGTACGATCGTAG' * 4
+            def unrelated = 'T' * sequence.size()
+            new File("$outputDir/source.fasta").text = ">target\n${sequence}\n"
+            new File("$outputDir/optimization_reads").mkdirs()
+            new File("$outputDir/optimization_reads/sample.fastq").text = "@fragment\n${unrelated}\n+\n${'I' * unrelated.size()}\n"
+            new File("$outputDir/taxonomic_reference_db").mkdirs()
+            assert ["pixi", "run", "--environment", "dev", "makeblastdb", "-dbtype", "nucl", "-parse_seqids", "-taxid", "88456", "-in", "$outputDir/source.fasta", "-out", "$outputDir/taxonomic_reference_db/taxonomic"].execute().waitFor() == 0
+        }
+        when {
+            params {
+                id = "no_candidates"
+                source_sequences = "$outputDir/source.fasta"
+                target_taxid = "88456"
+                interference_background = "$baseDir/tests/data/interference_background.fasta"
+                optimization_read_set = "$outputDir/optimization_reads"
+                taxonomic_reference_db = "$outputDir/taxonomic_reference_db"
+            }
+        }
+        then {
+            assert workflow.success
+            def runDir = new File(outputDir).parent
+            def calibration = new File("$runDir/results/no_candidates/06_calibration")
+            assert [
+                'candidate_read_counts.tsv',
+                'whole_read_blast_hits.tsv',
+                'classified_reads.tsv',
+                'threshold_read_counts.tsv',
+                'threshold_curve.tsv',
+                'threshold_summary.tsv',
+            ].every { new File(calibration, it).exists() }
+            assert new File(calibration, 'threshold_summary.tsv').text.contains('calibration_status\tNO_CANDIDATE_READS')
+            def provenance = new File("$runDir/results/no_candidates/07_provenance")
+            assert new File(provenance, 'inputs.tsv').text.contains('optimization_read\tno_candidates__sample\tfilename\tsample.fastq')
+            assert new File(provenance, 'parameters.tsv').text.contains('calibration_deacon_absolute_threshold\t1')
+            assert new File(provenance, 'parameters.tsv').text.contains('whole_read_classification_tie_tolerance\t0.1')
+        }
+    }
+
+    test("does not calibrate when Taxonomic Exact-Match Screening yields no Baits") {
+        setup {
+            def sequence = 'ACGTTGCATGTCAGTACGATCGTAG' * 4
+            new File("$outputDir/source.fasta").text = ">target\n${sequence}\n"
+            new File("$outputDir/optimization_reads").mkdirs()
+            new File("$outputDir/optimization_reads/sample.fastq").text = "@fragment\n${sequence}\n+\n${'I' * sequence.size()}\n"
+            new File("$outputDir/taxonomic_reference_db").mkdirs()
+            assert ["pixi", "run", "--environment", "dev", "makeblastdb", "-dbtype", "nucl", "-parse_seqids", "-taxid", "123", "-in", "$outputDir/source.fasta", "-out", "$outputDir/taxonomic_reference_db/taxonomic"].execute().waitFor() == 0
+        }
+        when {
+            params {
+                id = "screening_terminal"
+                source_sequences = "$outputDir/source.fasta"
+                target_taxid = "88456"
+                interference_background = "$baseDir/tests/data/interference_background.fasta"
+                optimization_read_set = "$outputDir/optimization_reads"
+                taxonomic_reference_db = "$outputDir/taxonomic_reference_db"
+            }
+        }
+        then {
+            assert workflow.success
+            def runDir = new File(outputDir).parent
+            def design = new File("$runDir/results/screening_terminal")
+            assert new File(design, '03_taxonomic_screening/screening_status.tsv').text.contains('taxonomic_screening_status\tNO_BAITS')
+            assert !new File(design, '06_calibration').exists()
+            assert new File(design, '07_provenance/inputs.tsv').text.contains('optimization_read\tscreening_terminal__sample\tfilename\tsample.fastq')
+            assert !new File(design, '07_provenance/parameters.tsv').text.contains('calibration_deacon_absolute_threshold')
+            assert !new File(design, '07_provenance/parameters.tsv').text.contains('whole_read_classification_tie_tolerance')
+        }
+    }
+}

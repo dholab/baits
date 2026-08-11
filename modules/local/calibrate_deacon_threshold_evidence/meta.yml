@@ -1,0 +1,100 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/nf-core/modules/master/modules/meta-schema.json
+name: calibrate_deacon_threshold_evidence
+description: Sweep candidate read evidence to calibrate a Deacon absolute threshold.
+keywords:
+  - deacon
+  - threshold
+  - reads
+tools:
+  - python:
+      description: Python programming language.
+      homepage: https://www.python.org/
+      documentation: https://docs.python.org/3/
+      tool_dev_url: https://github.com/python/cpython
+      licence:
+        - PSF-2.0
+input:
+  - - meta:
+        type: map
+        description: Design metadata.
+    - classified_reads:
+        type: file
+        description: Candidate reads with whole-read classifications.
+        ontologies: []
+    - preparation_summary:
+        type: file
+        description: Aggregate candidate read preparation counts.
+        ontologies: []
+output:
+  read_counts:
+    - - meta:
+          type: map
+          description: Design metadata.
+      - threshold_read_counts.tsv:
+          type: file
+          description: Read-class counts at each absolute threshold.
+          pattern: threshold_read_counts.tsv
+          ontologies:
+            - edam: http://edamontology.org/format_3475 # TSV
+  curve:
+    - - meta:
+          type: map
+          description: Design metadata.
+      - threshold_curve.tsv:
+          type: file
+          description: Retained metagenome and fragment counts by threshold.
+          pattern: threshold_curve.tsv
+          ontologies:
+            - edam: http://edamontology.org/format_3475 # TSV
+  summary:
+    - - meta:
+          type: map
+          description: Design metadata.
+      - threshold_summary.tsv:
+          type: file
+          description: Threshold recommendation, floor, or evidence-limited result.
+          pattern: threshold_summary.tsv
+          ontologies:
+            - edam: http://edamontology.org/format_3475 # TSV
+  versions_python:
+    - - ${task.process}:
+          type: string
+          description: Process name.
+      - python:
+          type: string
+          description: Tool name.
+      - python --version | sed 's/Python //':
+          type: eval
+          description: Runtime Python version.
+  versions_polars:
+    - - ${task.process}:
+          type: string
+          description: Process name.
+      - polars:
+          type: string
+          description: Tool name.
+      - python -c 'import polars; print(polars.__version__)':
+          type: eval
+          description: Runtime Polars version.
+topics:
+  versions:
+    - - ${task.process}:
+          type: string
+          description: Process name.
+      - python:
+          type: string
+          description: Tool name.
+      - python --version | sed 's/Python //':
+          type: eval
+          description: Runtime Python version.
+    - - ${task.process}:
+          type: string
+          description: Process name.
+      - polars:
+          type: string
+          description: Tool name.
+      - python -c 'import polars; print(polars.__version__)':
+          type: eval
+          description: Runtime Polars version.
+authors:
+  - dholab/baits

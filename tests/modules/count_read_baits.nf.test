@@ -1,0 +1,24 @@
+nextflow_process {
+    name "Count Candidate Read Baits process"
+    script "../../modules/local/count_read_baits/main.nf"
+    process "COUNT_READ_BAITS"
+
+    test("recounts distinct Baits on individual paired reads") {
+        setup {
+            new File("$outputDir/baits.fasta").text = '>bait\nACGTA\n'
+            new File("$outputDir/reads_R1.fastq").text = '@fragment/1\nACGTA\n+\nIIIII\n'
+            new File("$outputDir/reads_R2.fastq").text = '@fragment/2\nGGGGG\n+\nIIIII\n'
+        }
+        when {
+            process {
+                """input[0] = [[id: 'design'], [id: 'design__sample', design_id: 'design', metagenome_id: 'sample'], file("$outputDir/baits.fasta"), [file("$outputDir/reads_R1.fastq"), file("$outputDir/reads_R2.fastq")], 5]"""
+            }
+        }
+        then {
+            assert process.success
+            assert process.out.counts.size() == 1
+            assert file(process.out.counts[0][2]).text.contains('sample\tfragment\t1\t5\t1')
+            assert file(process.out.status[0][2]).text.contains('zero_bait_read_count\t1')
+        }
+    }
+}

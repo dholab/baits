@@ -1,0 +1,98 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/nf-core/modules/master/modules/meta-schema.json
+name: resolve_optimization_reads
+description: Resolve one flat optimization read set directory into metagenomes.
+keywords:
+  - fastq
+  - metagenomics
+  - input
+tools:
+  - python:
+      description: Python programming language.
+      homepage: https://www.python.org/
+      documentation: https://docs.python.org/3/
+      tool_dev_url: https://github.com/python/cpython
+      licence:
+        - PSF-2.0
+input:
+  - - meta:
+        type: map
+        description: Design metadata.
+    - optimization_read_set:
+        type: directory
+        description: Flat optimization read set FASTQ directory.
+output:
+  manifest:
+    - - meta:
+          type: map
+          description: Design metadata.
+      - optimization_reads.tsv:
+          type: file
+          description: Internal normalized optimization read set manifest.
+          pattern: optimization_reads.tsv
+          ontologies:
+            - edam: http://edamontology.org/format_3475 # TSV
+      - optimization_read_set:
+          type: directory
+          description: Staged flat optimization read set FASTQ directory.
+  reported_python:
+    - - meta:
+          type: map
+          description: Design metadata.
+      - python:
+          type: string
+          description: Tool name.
+      - python --version | sed 's/Python //':
+          type: eval
+          description: Runtime Python version.
+  reported_polars:
+    - - meta:
+          type: map
+          description: Design metadata.
+      - polars:
+          type: string
+          description: Tool name.
+      - python -c 'import polars; print(polars.__version__)':
+          type: eval
+          description: Runtime Polars version.
+  versions_python:
+    - - ${task.process}:
+          type: string
+          description: Process name.
+      - python:
+          type: string
+          description: Tool name.
+      - python --version | sed 's/Python //':
+          type: eval
+          description: Runtime Python version.
+  versions_polars:
+    - - ${task.process}:
+          type: string
+          description: Process name.
+      - polars:
+          type: string
+          description: Tool name.
+      - python -c 'import polars; print(polars.__version__)':
+          type: eval
+          description: Runtime Polars version.
+topics:
+  versions:
+    - - ${task.process}:
+          type: string
+          description: Process name.
+      - python:
+          type: string
+          description: Tool name.
+      - python --version | sed 's/Python //':
+          type: eval
+          description: Runtime Python version.
+    - - ${task.process}:
+          type: string
+          description: Process name.
+      - polars:
+          type: string
+          description: Tool name.
+      - python -c 'import polars; print(polars.__version__)':
+          type: eval
+          description: Runtime Polars version.
+authors:
+  - dholab/baits

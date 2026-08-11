@@ -1,0 +1,30 @@
+nextflow_process {
+    name "Resolve Optimization Read Set process"
+    script "../../modules/local/resolve_optimization_reads/main.nf"
+    process "RESOLVE_OPTIMIZATION_READS"
+
+    test("resolves a paired metagenome from one flat directory") {
+        setup {
+            new File("$outputDir/reads").mkdirs()
+            new File("$outputDir/reads/sample_R1.fastq").text = '@fragment/1\nACGTA\n+\nIIIII\n'
+            new File("$outputDir/reads/sample_R2.fastq").text = '@fragment/2\nTGCAT\n+\nIIIII\n'
+        }
+        when {
+            process {
+                """input[0] = [[id: 'design', source_sequence_origin: 'curated_input'], file("$outputDir/reads")]"""
+            }
+        }
+
+        then {
+            assert process.success
+            assert process.out.manifest.size() == 1
+            assert file(process.out.manifest[0][1]).text == 'id\tdesign_id\tmetagenome_id\tread_1\tread_2\ndesign__sample\tdesign\tsample\tsample_R1.fastq\tsample_R2.fastq\n'
+            assert process.out.reported_python[0][0] == [id: 'design', source_sequence_origin: 'curated_input']
+            assert process.out.reported_python[0][1] == 'python'
+            assert process.out.reported_python[0][2] == '3.12.13'
+            assert process.out.reported_polars[0][0] == [id: 'design', source_sequence_origin: 'curated_input']
+            assert process.out.reported_polars[0][1] == 'polars'
+            assert process.out.reported_polars[0][2] == '1.43.2'
+        }
+    }
+}

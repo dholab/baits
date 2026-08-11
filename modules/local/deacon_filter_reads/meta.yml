@@ -1,0 +1,97 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/nf-core/modules/master/modules/meta-schema.json
+name: deacon_filter_reads
+description: Retain candidate reads with explicit Deacon thresholds.
+keywords:
+  - filter
+  - index
+  - fasta
+  - fastq
+  - genome
+  - reference
+  - minimizer
+  - candidate reads
+tools:
+  - "deacon":
+      description: "Fast alignment-free sequence filter"
+      homepage: "https://github.com/bede/deacon"
+      documentation: "https://github.com/bede/deacon#readme"
+      tool_dev_url: "https://github.com/bede/deacon"
+      doi: "10.1093/bioinformatics/btae004"
+      licence: ["MIT"]
+      identifier: "biotools:deacon"
+
+input:
+  - - meta:
+        type: map
+        description: Metagenome metadata.
+    - index:
+        type: file
+        description: Deacon minimizer index file.
+        pattern: "*.idx"
+        ontologies:
+          - edam: "http://edamontology.org/data_3210" # Genome index
+    - reads:
+        type: file
+        description: One single-end FASTQ or two paired-end FASTQ files.
+        pattern: "*.{fastq,fastq.gz,fqs,fqs.gz,fq,fq.gz}"
+        ontologies:
+          - edam: "http://edamontology.org/format_1930" # FASTQ
+    - abs_threshold:
+        type: integer
+        description: Minimum absolute number of distinct minimizer hits.
+    - rel_threshold:
+        type: float
+        description: Minimum relative proportion of distinct minimizer hits.
+
+output:
+  fastq_filtered:
+    - - meta:
+          type: map
+          description: Metagenome metadata.
+      - "${prefix}*.fq.gz":
+          type: file
+          description: One single-end or two paired-end filtered FASTQ files.
+          pattern: "*.fq.gz"
+          ontologies:
+            - edam: "http://edamontology.org/format_1930" # FASTQ
+  log:
+    - - meta:
+          type: map
+          description: Metagenome metadata.
+      - "${prefix}.json":
+          type: file
+          description: JSON summary of results.
+          pattern: "*.json"
+          ontologies:
+            - edam: "http://edamontology.org/format_3464" # JSON
+  versions_deacon:
+    - - ${task.process}:
+          type: string
+          description: Process name.
+      - deacon:
+          type: string
+          description: Tool name.
+      - deacon --version | head -n1 | sed "s/deacon //g":
+          type: eval
+          description: Runtime Deacon version.
+
+topics:
+  versions:
+    - - ${task.process}:
+          type: string
+          description: Process name.
+      - deacon:
+          type: string
+          description: Tool name.
+      - deacon --version | head -n1 | sed "s/deacon //g":
+          type: eval
+          description: Runtime Deacon version.
+
+authors:
+  - "@Baksic-Ivan"
+  - "@Omer0191"
+  - dholab/baits
+maintainers:
+  - "@Baksic-Ivan"
+  - "@Omer0191"
+  - "@vagkaratzas"

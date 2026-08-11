@@ -88,4 +88,26 @@ discovery,88456,,$baseDir/tests/data/representative_queries.fasta,$baseDir/tests
             assert workflow.failed
         }
     }
+
+    test("accepts a per-design Optimization Read Set without running calibration alone") {
+        setup {
+            new File("$outputDir/optimization_reads").mkdirs()
+            new File("$outputDir/optimization_reads/sample.fastq").text = '@fragment\nACGTA\n+\nIIIII\n'
+            new File("$outputDir/optimization.csv").text = """id,target_taxid,curated_source_sequences,representative_queries,query_rules,target_assembly,interference_background,optimization_read_set
+optimized,88456,$baseDir/tests/data/curated_source_sequences.fasta,,,,$baseDir/tests/data/interference_background.fasta,$outputDir/optimization_reads
+"""
+        }
+        when {
+            params {
+                input = "$outputDir/optimization.csv"
+            }
+        }
+        then {
+            assert workflow.success
+            def runDir = new File(outputDir).parent
+            def design = new File("$runDir/results/optimized")
+            assert new File(design, '07_provenance/inputs.tsv').text.contains('optimization_read\toptimized__sample\tfilename\tsample.fastq')
+            assert !new File(design, '06_calibration').exists()
+        }
+    }
 }

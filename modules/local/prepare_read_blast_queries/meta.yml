@@ -1,0 +1,154 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/nf-core/modules/master/modules/meta-schema.json
+name: prepare_read_blast_queries
+description: Prepare strand-deduplicated whole-read BLAST queries for one design.
+keywords:
+  - blast
+  - reads
+  - deduplication
+tools:
+  - biopython:
+      description: Python tools for computational molecular biology.
+      homepage: https://biopython.org/
+      documentation: https://biopython.org/wiki/Documentation
+      tool_dev_url: https://github.com/biopython/biopython
+      licence:
+        - BSD-3-Clause
+      identifier: biotools:biopython
+input:
+  - - meta:
+        type: map
+        description: Design metadata.
+    - counts:
+        type: file
+        description: Per-metagenome internal candidate read count tables.
+        ontologies: []
+    - fastas:
+        type: file
+        description: Per-metagenome canonical candidate read FASTAs.
+        ontologies: []
+    - statuses:
+        type: file
+        description: Per-metagenome candidate read preparation statuses.
+        ontologies: []
+output:
+  candidate_read_counts:
+    - - meta:
+          type: map
+          description: Design metadata.
+      - candidate_read_counts.tsv:
+          type: file
+          description: Per-read and read fragment-wide distinct bait counts for each candidate read.
+          pattern: candidate_read_counts.tsv
+          ontologies:
+            - edam: http://edamontology.org/format_3475 # TSV
+  preparation_summary:
+    - - meta:
+          type: map
+          description: Design metadata.
+      - preparation_summary.tsv:
+          type: file
+          description: Aggregate candidate read preparation counts.
+          pattern: preparation_summary.tsv
+          ontologies:
+            - edam: http://edamontology.org/format_3475 # TSV
+  queries:
+    - - meta:
+          type: map
+          description: Design metadata.
+      - whole_read_queries.fasta:
+          type: file
+          description: Optional strand-deduplicated whole-read BLAST query FASTA.
+          pattern: whole_read_queries.fasta
+          ontologies: []
+  terminal_blast_hits:
+    - - meta:
+          type: map
+          description: Design metadata.
+      - whole_read_blast_hits.tsv:
+          type: file
+          description: Empty whole-read BLAST table when there are no candidate reads.
+          pattern: whole_read_blast_hits.tsv
+          ontologies:
+            - edam: http://edamontology.org/format_3475 # TSV
+  terminal_classified_reads:
+    - - meta:
+          type: map
+          description: Design metadata.
+      - classified_reads.tsv:
+          type: file
+          description: Empty classified-read table when there are no candidate reads.
+          pattern: classified_reads.tsv
+          ontologies:
+            - edam: http://edamontology.org/format_3475 # TSV
+  terminal_read_counts:
+    - - meta:
+          type: map
+          description: Design metadata.
+      - threshold_read_counts.tsv:
+          type: file
+          description: Zero-valued threshold counts when there are no candidate reads.
+          pattern: threshold_read_counts.tsv
+          ontologies:
+            - edam: http://edamontology.org/format_3475 # TSV
+  terminal_curve:
+    - - meta:
+          type: map
+          description: Design metadata.
+      - threshold_curve.tsv:
+          type: file
+          description: Zero-valued retention curve when there are no candidate reads.
+          pattern: threshold_curve.tsv
+          ontologies:
+            - edam: http://edamontology.org/format_3475 # TSV
+  terminal_summary:
+    - - meta:
+          type: map
+          description: Design metadata.
+      - threshold_summary.tsv:
+          type: file
+          description: Optional summary for a design with no candidate reads.
+          pattern: threshold_summary.tsv
+          ontologies:
+            - edam: http://edamontology.org/format_3475 # TSV
+  versions_biopython:
+    - - ${task.process}:
+          type: string
+          description: Process name.
+      - biopython:
+          type: string
+          description: Tool name.
+      - python -c 'import Bio; print(Bio.__version__)':
+          type: eval
+          description: Runtime Biopython version.
+  versions_polars:
+    - - ${task.process}:
+          type: string
+          description: Process name.
+      - polars:
+          type: string
+          description: Tool name.
+      - python -c 'import polars; print(polars.__version__)':
+          type: eval
+          description: Runtime Polars version.
+topics:
+  versions:
+    - - ${task.process}:
+          type: string
+          description: Process name.
+      - biopython:
+          type: string
+          description: Tool name.
+      - python -c 'import Bio; print(Bio.__version__)':
+          type: eval
+          description: Runtime Biopython version.
+    - - ${task.process}:
+          type: string
+          description: Process name.
+      - polars:
+          type: string
+          description: Tool name.
+      - python -c 'import polars; print(polars.__version__)':
+          type: eval
+          description: Runtime Polars version.
+authors:
+  - dholab/baits

@@ -1,0 +1,23 @@
+nextflow_process {
+    name "BLASTN whole-read classification process"
+    script "../../modules/local/blastn_whole_read_classification/main.nf"
+    process "BLASTN_WHOLE_READ_CLASSIFICATION"
+
+    test("writes the accepted whole-read BLAST schema in stub mode") {
+        setup {
+            new File("$outputDir/database").mkdirs()
+            new File("$outputDir/database/reference.nin").text = "stub"
+        }
+        when {
+            options '-stub-run'
+            process {
+                """input[0] = [[id: 'design'], file("\$baseDir/tests/data/taxonomic_locally_filtered_baits.fasta"), file("$outputDir/database")]"""
+            }
+        }
+        then {
+            assert process.success
+            assert process.out.hits.size() == 1
+            assert file(process.out.hits[0][1]).text.startsWith('qseqid\tqlen\tsaccver\tstaxids')
+        }
+    }
+}

@@ -1,0 +1,115 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/nf-core/modules/master/modules/meta-schema.json
+name: count_read_baits
+description: Recount distinct taxonomically screened baits on individual candidate reads.
+keywords:
+  - fastq
+  - k-mer
+  - reads
+tools:
+  - biopython:
+      description: Python tools for computational molecular biology.
+      homepage: https://biopython.org/
+      documentation: https://biopython.org/wiki/Documentation
+      tool_dev_url: https://github.com/biopython/biopython
+      licence:
+        - BSD-3-Clause
+      identifier: biotools:biopython
+input:
+  - - design_meta:
+        type: map
+        description: Design metadata.
+    - read_meta:
+        type: map
+        description: Metagenome metadata.
+    - baits:
+        type: file
+        description: Taxonomically screened bait FASTA.
+        ontologies: []
+    - reads:
+        type: file
+        description: Candidate read FASTQ files emitted by Deacon.
+        ontologies: []
+    - kmer_size:
+        type: integer
+        description: Candidate k-mer size.
+output:
+  counts:
+    - - design_meta:
+          type: map
+          description: Design metadata.
+      - read_meta:
+          type: map
+          description: Metagenome metadata.
+      - "${read_meta.id}.counted_reads.tsv":
+          type: file
+          description: Internal per-read bait recount.
+          pattern: "*.counted_reads.tsv"
+          ontologies:
+            - edam: http://edamontology.org/format_3475 # TSV
+  fasta:
+    - - design_meta:
+          type: map
+          description: Design metadata.
+      - read_meta:
+          type: map
+          description: Metagenome metadata.
+      - "${read_meta.id}.candidate_reads.fasta":
+          type: file
+          description: Canonical candidate read sequences after fragment deduplication.
+          pattern: "*.candidate_reads.fasta"
+          ontologies: []
+  status:
+    - - design_meta:
+          type: map
+          description: Design metadata.
+      - read_meta:
+          type: map
+          description: Metagenome metadata.
+      - "${read_meta.id}.candidate_read_status.tsv":
+          type: file
+          description: Per-metagenome candidate read preparation counts.
+          pattern: "*.candidate_read_status.tsv"
+          ontologies:
+            - edam: http://edamontology.org/format_3475 # TSV
+  versions_biopython:
+    - - ${task.process}:
+          type: string
+          description: Process name.
+      - biopython:
+          type: string
+          description: Tool name.
+      - python -c 'import Bio; print(Bio.__version__)':
+          type: eval
+          description: Runtime Biopython version.
+  versions_polars:
+    - - ${task.process}:
+          type: string
+          description: Process name.
+      - polars:
+          type: string
+          description: Tool name.
+      - python -c 'import polars; print(polars.__version__)':
+          type: eval
+          description: Runtime Polars version.
+topics:
+  versions:
+    - - ${task.process}:
+          type: string
+          description: Process name.
+      - biopython:
+          type: string
+          description: Tool name.
+      - python -c 'import Bio; print(Bio.__version__)':
+          type: eval
+          description: Runtime Biopython version.
+    - - ${task.process}:
+          type: string
+          description: Process name.
+      - polars:
+          type: string
+          description: Tool name.
+      - python -c 'import polars; print(polars.__version__)':
+          type: eval
+          description: Runtime Polars version.
+authors:
+  - dholab/baits

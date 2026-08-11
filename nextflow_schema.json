@@ -43,6 +43,12 @@
                     "pattern": "^\\S+\\.(fa|fasta|fna)(\\.gz)?$",
                     "description": "Path to the Interference Background FASTA."
                 },
+                "optimization_read_set": {
+                    "type": "string",
+                    "format": "directory-path",
+                    "exists": true,
+                    "description": "Optional flat FASTQ directory used to calibrate the Deacon absolute threshold."
+                },
                 "kmer_size": {
                     "type": "integer",
                     "minimum": 1,
@@ -71,7 +77,8 @@
                             {"required": ["id"]},
                             {"required": ["source_sequences"]},
                             {"required": ["target_taxid"]},
-                            {"required": ["interference_background"]}
+                            {"required": ["interference_background"]},
+                            {"required": ["optimization_read_set"]}
                         ]
                     }
                 },

@@ -2,6 +2,7 @@
 
 include { UTILS_NFSCHEMA_PLUGIN } from './subworkflows/nf-core/utils_nfschema_plugin'
 include { BAITS_MAIN } from './workflows/baits'
+include { RESOLVE_OPTIMIZATION_READS } from './modules/local/resolve_optimization_reads/main'
 
 workflow {
     main:
@@ -34,6 +35,7 @@ workflow {
             query_rules: '',
             target_assembly: '',
             interference_background: params.interference_background,
+            optimization_read_set: params.optimization_read_set,
         ])
         : Channel.empty()
 
@@ -50,6 +52,79 @@ workflow {
             row,
         )
     }
+
+    ch_optimization_read_sets = ch_normalized_rows
+        .filter { meta, row -> row.optimization_read_set != null && row.optimization_read_set != '' }
+        .map { meta, row -> tuple(meta, file(row.optimization_read_set)) }
+    ch_without_optimization_keys = ch_normalized_rows
+        .filter { meta, row -> row.optimization_read_set == null || row.optimization_read_set == '' }
+        .map { meta, row -> tuple(meta, true) }
+    RESOLVE_OPTIMIZATION_READS(ch_optimization_read_sets)
+    ch_optimization_read_records = RESOLVE_OPTIMIZATION_READS.out.manifest
+        .splitCsv(header: true, sep: '\t', quote: '"', elem: 1)
+    ch_optimization_reads = ch_optimization_read_records
+        .map { design_meta, row, optimization_read_set ->
+            def read_meta = [
+                id: row.id,
+                design_id: row.design_id,
+                metagenome_id: row.metagenome_id,
+            ]
+            def reads = [row.read_1, row.read_2]
+                .findAll { read_name -> read_name }
+                .collect { read_name -> file(optimization_read_set.resolve(read_name)) }
+            tuple(design_meta, read_meta, reads)
+        }
+    // Aggregate [facts, roles, IDs, kinds, files] for each design's read files.
+    ch_optimization_read_file_facts = ch_optimization_read_records
+        .map { design_meta, row, optimization_read_set ->
+            def readNames = [row.read_1, row.read_2].findAll { readName -> readName }
+            def mates = readNames.size() == 1 ? ['single'] : ['R1', 'R2']
+            def inputIds = mates.collect { mate ->
+                mate == 'single' ? row.id : "${row.id}:${mate}"
+            }
+            def inputFacts = inputIds.indices.collectMany { index ->
+                [
+                    [input_role: 'optimization_read', input_id: inputIds[index], attribute: 'metagenome_id', value: row.metagenome_id],
+                    [input_role: 'optimization_read', input_id: inputIds[index], attribute: 'mate', value: mates[index]],
+                ]
+            }
+            def reads = readNames.collect { readName -> file(optimization_read_set.resolve(readName)) }
+            tuple(
+                design_meta,
+                inputFacts,
+                ['optimization_read'] * reads.size(),
+                inputIds,
+                ['file'] * reads.size(),
+                reads,
+            )
+        }
+        .groupTuple(by: 0)
+        .map { design_meta, input_fact_groups, role_groups, id_groups, kind_groups, read_groups ->
+            tuple(
+                design_meta,
+                input_fact_groups.collectMany { facts -> facts },
+                role_groups.collectMany { roles -> roles },
+                id_groups.collectMany { ids -> ids },
+                kind_groups.collectMany { kinds -> kinds },
+                read_groups.collectMany { reads -> reads },
+            )
+        }
+    ch_optimization_resolver_versions = RESOLVE_OPTIMIZATION_READS.out.reported_python
+        .join(RESOLVE_OPTIMIZATION_READS.out.reported_polars)
+        .map { meta, python_component, python_version, polars_component, polars_version ->
+            tuple(
+                meta,
+                [
+                    [component: python_component, version: python_version],
+                    [component: polars_component, version: polars_version],
+                ],
+            )
+        }
+    ch_optimization_provenance_facts = ch_optimization_read_file_facts
+        .join(ch_optimization_resolver_versions)
+        .map { meta, input_facts, input_file_roles, input_file_ids, input_file_kinds, input_files, software_versions ->
+            tuple(meta, input_facts, input_file_roles, input_file_ids, input_file_kinds, input_files, software_versions)
+        }
 
     ch_kmer_size = Channel.value(params.kmer_size)
     ch_deacon_window = Channel.value(params.deacon_window)
@@ -112,6 +187,9 @@ workflow {
         ch_entropy_threshold,
         ch_taxonomic_reference_db,
         ch_taxonomic_screening_not_run,
+        ch_optimization_reads,
+        ch_optimization_provenance_facts,
+        ch_without_optimization_keys,
     )
 
     // Publication
@@ -135,6 +213,12 @@ workflow {
     index_verification_summary = BAITS_MAIN.out.index_verification_summary
     index_verification_report = BAITS_MAIN.out.index_verification_report
     taxonomic_reference_database = BAITS_MAIN.out.taxonomic_reference_database
+    candidate_read_counts = BAITS_MAIN.out.candidate_read_counts
+    whole_read_blast_hits = BAITS_MAIN.out.whole_read_blast_hits
+    classified_reads = BAITS_MAIN.out.classified_reads
+    threshold_read_counts = BAITS_MAIN.out.threshold_read_counts
+    threshold_curve = BAITS_MAIN.out.threshold_curve
+    threshold_summary = BAITS_MAIN.out.threshold_summary
 }
 
 output {
@@ -217,5 +301,29 @@ output {
     taxonomic_reference_database {
         mode 'copy'
         path { record -> record[1] >> "${record[0].id}/07_provenance/taxonomic_reference_database.txt" }
+    }
+    candidate_read_counts {
+        mode 'copy'
+        path { record -> record[1] >> "${record[0].id}/06_calibration/candidate_read_counts.tsv" }
+    }
+    whole_read_blast_hits {
+        mode 'copy'
+        path { record -> record[1] >> "${record[0].id}/06_calibration/whole_read_blast_hits.tsv" }
+    }
+    classified_reads {
+        mode 'copy'
+        path { record -> record[1] >> "${record[0].id}/06_calibration/classified_reads.tsv" }
+    }
+    threshold_read_counts {
+        mode 'copy'
+        path { record -> record[1] >> "${record[0].id}/06_calibration/threshold_read_counts.tsv" }
+    }
+    threshold_curve {
+        mode 'copy'
+        path { record -> record[1] >> "${record[0].id}/06_calibration/threshold_curve.tsv" }
+    }
+    threshold_summary {
+        mode 'copy'
+        path { record -> record[1] >> "${record[0].id}/06_calibration/threshold_summary.tsv" }
     }
 }

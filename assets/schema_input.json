@@ -58,6 +58,12 @@
                 "exists": true,
                 "pattern": "^\\S+\\.(fa|fasta|fna)(\\.gz)?$",
                 "errorMessage": "interference_background must be an existing FASTA or compressed FASTA file"
+            },
+            "optimization_read_set": {
+                "type": ["string", "null"],
+                "format": "directory-path",
+                "exists": true,
+                "errorMessage": "optimization_read_set must be an existing flat FASTQ directory"
             }
         },
         "required": ["id", "target_taxid", "interference_background"],

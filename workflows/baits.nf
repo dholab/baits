@@ -4,6 +4,7 @@ include { DISCOVER_SOURCE_SEQUENCES } from '../subworkflows/local/discover_sourc
 include { FILTER_CANDIDATE_KMERS } from '../subworkflows/local/filter_candidate_kmers/main'
 include { TAXONOMIC_EXACT_MATCH_SCREENING } from '../subworkflows/local/taxonomic_exact_match_screening/main'
 include { BUILD_VERIFY_DEACON_INDEX } from '../subworkflows/local/build_verify_deacon_index/main'
+include { CALIBRATE_DEACON_THRESHOLD } from '../subworkflows/local/calibrate_deacon_threshold/main'
 
 workflow BAITS_MAIN {
     take:
@@ -17,6 +18,9 @@ workflow BAITS_MAIN {
     ch_entropy_threshold
     ch_taxonomic_reference_db
     ch_taxonomic_screening_not_run
+    ch_optimization_reads
+    ch_optimization_provenance_facts
+    ch_without_optimization_keys
 
     main:
 
@@ -65,9 +69,22 @@ workflow BAITS_MAIN {
     ch_locally_filtered_indexes = BUILD_VERIFY_DEACON_INDEX.out.index
         .join(ch_locally_filtered_index_keys)
         .map { meta, baits, candidate_kmer_manifest, bait_set_status, deacon_index, selected -> tuple(meta, deacon_index) }
-    ch_taxonomically_screened_indexes = BUILD_VERIFY_DEACON_INDEX.out.index
+    ch_taxonomically_screened_verified_indexes = BUILD_VERIFY_DEACON_INDEX.out.index
         .join(ch_taxonomically_screened_index_keys)
-        .map { meta, baits, candidate_kmer_manifest, bait_set_status, deacon_index, selected -> tuple(meta, deacon_index) }
+        .map { meta, baits, candidate_kmer_manifest, bait_set_status, deacon_index, selected ->
+            tuple(meta, baits, candidate_kmer_manifest, bait_set_status, deacon_index)
+        }
+    ch_taxonomically_screened_indexes = ch_taxonomically_screened_verified_indexes
+        .map { meta, baits, candidate_kmer_manifest, bait_set_status, deacon_index -> tuple(meta, deacon_index) }
+
+    // Calibrate only taxonomically screened, verified Deacon Indexes
+    ch_calibration_inputs = ch_optimization_reads
+        .combine(ch_taxonomically_screened_verified_indexes, by: 0)
+        .combine(ch_design_context, by: 0)
+        .map { meta, read_meta, reads, taxonomically_screened_baits, candidate_kmer_manifest, bait_set_status, deacon_index, target_taxid, interference_background ->
+            tuple(meta, read_meta, reads, taxonomically_screened_baits, bait_set_status, deacon_index, target_taxid)
+        }
+    CALIBRATE_DEACON_THRESHOLD(ch_calibration_inputs, ch_taxonomic_reference_db, ch_kmer_size)
 
     // Construct immutable source-input and design provenance facts
     ch_curated_provenance_facts = ch_design_context
@@ -246,11 +263,61 @@ workflow BAITS_MAIN {
             )
         }
 
+    ch_provenance_facts = ch_discovery_terminal_provenance_facts
+        .mix(ch_screening_not_requested_provenance_facts)
+        .mix(ch_filtering_terminal_with_reference_facts)
+        .mix(ch_screened_provenance_facts)
+
+    ch_without_optimization_provenance_facts = ch_provenance_facts
+        .join(ch_without_optimization_keys)
+        .map { meta, input_facts, input_file_roles, input_file_ids, input_file_kinds, input_files, parameters, software_versions, without_optimization ->
+            tuple(meta, input_facts, input_file_roles, input_file_ids, input_file_kinds, input_files, parameters, software_versions)
+        }
+    ch_with_optimization_provenance_facts = ch_provenance_facts
+        .join(ch_optimization_provenance_facts)
+        .map { meta, input_facts, input_file_roles, input_file_ids, input_file_kinds, input_files, parameters, software_versions, optimization_input_facts, optimization_file_roles, optimization_file_ids, optimization_file_kinds, optimization_files, optimization_versions ->
+            tuple(
+                meta,
+                input_facts + optimization_input_facts,
+                input_file_roles + optimization_file_roles,
+                input_file_ids + optimization_file_ids,
+                input_file_kinds + optimization_file_kinds,
+                input_files + optimization_files,
+                parameters,
+                software_versions + optimization_versions,
+            )
+        }
+
+    ch_calibrated_design_keys = CALIBRATE_DEACON_THRESHOLD.out.summary
+        .map { meta, summary -> tuple(meta, true) }
+
+    ch_final_optimization_provenance_facts = ch_with_optimization_provenance_facts
+        .join(ch_calibrated_design_keys, remainder: true)
+        .map { meta, input_facts, input_file_roles, input_file_ids, input_file_kinds, input_files, parameters, software_versions, calibration_ran ->
+            def calibrationParameters = calibration_ran ? [
+                [parameter: 'calibration_deacon_absolute_threshold', value: '1'],
+                [parameter: 'calibration_deacon_relative_threshold', value: '0'],
+                [parameter: 'whole_read_blast_dust', value: 'no'],
+                [parameter: 'whole_read_blast_evalue', value: '1e-10'],
+                [parameter: 'whole_read_blast_max_target_seqs', value: '25'],
+                [parameter: 'whole_read_blast_task', value: 'blastn'],
+                [parameter: 'whole_read_classification_tie_tolerance', value: '0.1'],
+            ] : []
+            tuple(
+                meta,
+                input_facts,
+                input_file_roles,
+                input_file_ids,
+                input_file_kinds,
+                input_files,
+                parameters + calibrationParameters,
+                software_versions,
+            )
+        }
+
     WRITE_PROVENANCE(
-        ch_discovery_terminal_provenance_facts
-            .mix(ch_screening_not_requested_provenance_facts)
-            .mix(ch_filtering_terminal_with_reference_facts)
-            .mix(ch_screened_provenance_facts),
+        ch_without_optimization_provenance_facts
+            .mix(ch_final_optimization_provenance_facts),
     )
 
     emit:
@@ -278,10 +345,17 @@ workflow BAITS_MAIN {
     index_verification_summary = BUILD_VERIFY_DEACON_INDEX.out.summary
     index_verification_report = BUILD_VERIFY_DEACON_INDEX.out.report
     taxonomic_reference_database = TAXONOMIC_EXACT_MATCH_SCREENING.out.reference_database_report
+    candidate_read_counts = CALIBRATE_DEACON_THRESHOLD.out.candidate_read_counts
+    whole_read_blast_hits = CALIBRATE_DEACON_THRESHOLD.out.whole_read_blast_hits
+    classified_reads = CALIBRATE_DEACON_THRESHOLD.out.classified_reads
+    threshold_read_counts = CALIBRATE_DEACON_THRESHOLD.out.threshold_read_counts
+    threshold_curve = CALIBRATE_DEACON_THRESHOLD.out.threshold_curve
+    threshold_summary = CALIBRATE_DEACON_THRESHOLD.out.summary
     versions = NORMALIZE_CURATED_SOURCE_SEQUENCES.out.versions_biopython
         .mix(DISCOVER_SOURCE_SEQUENCES.out.versions)
         .mix(WRITE_PROVENANCE.out.versions_python)
         .mix(FILTER_CANDIDATE_KMERS.out.versions)
         .mix(TAXONOMIC_EXACT_MATCH_SCREENING.out.versions)
         .mix(BUILD_VERIFY_DEACON_INDEX.out.versions)
+        .mix(CALIBRATE_DEACON_THRESHOLD.out.versions)
 }

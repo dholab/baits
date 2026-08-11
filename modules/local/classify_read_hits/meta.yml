@@ -1,0 +1,83 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/nf-core/modules/master/modules/meta-schema.json
+name: classify_read_hits
+description: Classify candidate reads from whole-read BLAST evidence.
+keywords:
+  - blast
+  - reads
+  - taxonomy
+tools:
+  - python:
+      description: Python programming language.
+      homepage: https://www.python.org/
+      documentation: https://docs.python.org/3/
+      tool_dev_url: https://github.com/python/cpython
+      licence:
+        - PSF-2.0
+input:
+  - - meta:
+        type: map
+        description: Design metadata.
+    - candidate_read_counts:
+        type: file
+        description: Candidate read bait counts and BLAST representative IDs.
+        ontologies: []
+    - blast_hits:
+        type: file
+        description: Whole-read BLAST evidence.
+        ontologies: []
+    - target_taxid:
+        type: string
+        description: Target taxon identifier.
+output:
+  classified_reads:
+    - - meta:
+          type: map
+          description: Design metadata.
+      - classified_reads.tsv:
+          type: file
+          description: Candidate reads with whole-read classifications.
+          pattern: classified_reads.tsv
+          ontologies:
+            - edam: http://edamontology.org/format_3475 # TSV
+  versions_python:
+    - - ${task.process}:
+          type: string
+          description: Process name.
+      - python:
+          type: string
+          description: Tool name.
+      - python --version | sed 's/Python //':
+          type: eval
+          description: Runtime Python version.
+  versions_polars:
+    - - ${task.process}:
+          type: string
+          description: Process name.
+      - polars:
+          type: string
+          description: Tool name.
+      - python -c 'import polars; print(polars.__version__)':
+          type: eval
+          description: Runtime Polars version.
+topics:
+  versions:
+    - - ${task.process}:
+          type: string
+          description: Process name.
+      - python:
+          type: string
+          description: Tool name.
+      - python --version | sed 's/Python //':
+          type: eval
+          description: Runtime Python version.
+    - - ${task.process}:
+          type: string
+          description: Process name.
+      - polars:
+          type: string
+          description: Tool name.
+      - python -c 'import polars; print(polars.__version__)':
+          type: eval
+          description: Runtime Polars version.
+authors:
+  - dholab/baits
