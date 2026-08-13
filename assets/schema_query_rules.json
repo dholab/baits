@@ -2,7 +2,7 @@
     "$schema": "https://json-schema.org/draft/2020-12/schema",
     "$id": "https://raw.githubusercontent.com/dholab/baits/main/assets/schema_query_rules.json",
     "title": "dholab/baits query rules",
-    "description": "Rules for representative queries used to derive Provisional Source Sequences.",
+    "description": "Rules for representative queries used to derive provisional source sequences.",
     "type": "array",
     "minItems": 1,
     "items": {

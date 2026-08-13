@@ -58,39 +58,39 @@ class BlastQueryPreparationError(ValueError):
 
     @classmethod
     def malformed_counts(cls, path: Path) -> BlastQueryPreparationError:
-        return cls(f"Candidate-read counts are malformed: {path}")
+        return cls(f"Candidate read counts are malformed: {path}")
 
     @classmethod
     def malformed_status(cls, path: Path) -> BlastQueryPreparationError:
-        return cls(f"Candidate-read status is malformed: {path}")
+        return cls(f"Candidate read status is malformed: {path}")
 
     @classmethod
     def unexpected_status_metrics(cls, path: Path) -> BlastQueryPreparationError:
-        return cls(f"Candidate-read status has unexpected metrics: {path}")
+        return cls(f"Candidate read status has unexpected metrics: {path}")
 
     @classmethod
     def multiple_metagenomes(cls) -> BlastQueryPreparationError:
-        return cls("Candidate-read count relation identifies multiple metagenomes")
+        return cls("Candidate read count relation identifies multiple metagenomes")
 
     @classmethod
     def metagenome_disagreement(cls) -> BlastQueryPreparationError:
-        return cls("Candidate-read counts and status identify different metagenomes")
+        return cls("Candidate read counts and status identify different metagenomes")
 
     @classmethod
     def duplicate_identity(cls) -> BlastQueryPreparationError:
-        return cls("Candidate-read identity is duplicated")
+        return cls("Candidate read identity is duplicated")
 
     @classmethod
     def duplicate_sequence_id(cls) -> BlastQueryPreparationError:
-        return cls("Candidate-read sequence ID is duplicated")
+        return cls("Candidate read sequence ID is duplicated")
 
     @classmethod
     def duplicate_fasta_id(cls) -> BlastQueryPreparationError:
-        return cls("Candidate-read FASTA record ID is duplicated")
+        return cls("Candidate read FASTA record ID is duplicated")
 
     @classmethod
     def fasta_disagreement(cls) -> BlastQueryPreparationError:
-        return cls("Candidate-read count and FASTA records disagree")
+        return cls("Candidate read count and FASTA records disagree")
 
     @classmethod
     def empty_fasta_disagreement(cls) -> BlastQueryPreparationError:
@@ -98,19 +98,19 @@ class BlastQueryPreparationError(ValueError):
 
     @classmethod
     def length_disagreement(cls) -> BlastQueryPreparationError:
-        return cls("Candidate-read sequence length disagrees with counts")
+        return cls("Candidate read sequence length disagrees with counts")
 
     @classmethod
     def status_count_disagreement(cls, metagenome_id: str) -> BlastQueryPreparationError:
-        return cls(f"Candidate-read status count disagrees for {metagenome_id}")
+        return cls(f"Candidate read status count disagrees for {metagenome_id}")
 
     @classmethod
     def duplicate_status_metagenome(cls) -> BlastQueryPreparationError:
-        return cls("Candidate-read statuses contain duplicate metagenome_id values")
+        return cls("Candidate read statuses contain duplicate metagenome_id values")
 
     @classmethod
     def unequal_input_lists(cls) -> BlastQueryPreparationError:
-        return cls("Candidate-read count, FASTA, and status file lists have different lengths")
+        return cls("Candidate read count, FASTA, and status file lists have different lengths")
 
     @classmethod
     def missing_terminal_paths(cls) -> BlastQueryPreparationError:

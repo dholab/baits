@@ -3,7 +3,7 @@ nextflow_pipeline {
     script "../main.nf"
     tag "calibrate_deacon_threshold"
 
-    test("publishes calibration evidence and Optimization Read Set provenance") {
+    test("publishes calibration evidence and optimization read set provenance") {
         setup {
             def sequence = 'ACGTTGCATGTCAGTACGATCGTAG' * 4
             def secondMate = 'T' * sequence.size()
@@ -91,7 +91,7 @@ nextflow_pipeline {
         }
     }
 
-    test("does not calibrate when Taxonomic Exact-Match Screening yields no Baits") {
+    test("does not calibrate when taxonomic exact-match screening yields no baits") {
         setup {
             def sequence = 'ACGTTGCATGTCAGTACGATCGTAG' * 4
             new File("$outputDir/source.fasta").text = ">target\n${sequence}\n"

@@ -202,7 +202,7 @@ def test_no_database_hits_allow_every_bait_to_pass() -> None:
 
 def test_manifest_and_bait_relations_must_be_bijective() -> None:
     missing_bait = bait_frame().filter(pl.col("bait_id") != "bait_000005")
-    with pytest.raises(screening.TaxonomicScreeningError, match="absent from the Bait FASTA"):
+    with pytest.raises(screening.TaxonomicScreeningError, match="absent from the bait FASTA"):
         screening.construct_screening_result(missing_bait, manifest_frame(), hit_frame([]))
 
     mismatched_sequence = bait_frame().with_columns(
@@ -211,7 +211,7 @@ def test_manifest_and_bait_relations_must_be_bijective() -> None:
         .otherwise(pl.col("kmer"))
         .alias("kmer"),
     )
-    with pytest.raises(screening.TaxonomicScreeningError, match="absent from the Bait FASTA"):
+    with pytest.raises(screening.TaxonomicScreeningError, match="absent from the bait FASTA"):
         screening.construct_screening_result(mismatched_sequence, manifest_frame(), hit_frame([]))
 
 

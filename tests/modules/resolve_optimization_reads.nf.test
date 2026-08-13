@@ -1,5 +1,5 @@
 nextflow_process {
-    name "Resolve Optimization Read Set process"
+    name "Resolve optimization read set process"
     script "../../modules/local/resolve_optimization_reads/main.nf"
     process "RESOLVE_OPTIMIZATION_READS"
 

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Apply exact-match taxonomic evidence to locally filtered Baits."""
+"""Apply exact-match taxonomic evidence to locally filtered baits."""
 
 from __future__ import annotations
 
@@ -69,7 +69,7 @@ class TaxonomicScreeningError(ValueError):
 
 
 class SourceSequenceOrigin(StrEnum):
-    """Provenance of the sequences that yielded Candidate K-mers."""
+    """Provenance of the sequences that yielded candidate k-mers."""
 
     CURATED_INPUT = "curated_input"
     QUERY_GUIDED_DISCOVERY = "query_guided_discovery"
@@ -77,7 +77,7 @@ class SourceSequenceOrigin(StrEnum):
 
 @dataclass(frozen=True)
 class BaitSetStatus:
-    """Validated status of the locally filtered Bait Set."""
+    """Validated status of the locally filtered bait set."""
 
     design_id: str
     source_sequence_origin: SourceSequenceOrigin
@@ -135,9 +135,9 @@ def _header(path: Path, label: str) -> list[str]:
 
 
 def construct_baits(records: Sequence[SeqRecord], kmer_size: int) -> pl.LazyFrame:
-    """Construct the ordered, canonical Bait relation from parsed FASTA records."""
+    """Construct the ordered, canonical bait relation from parsed FASTA records."""
     if not records:
-        message = "Locally filtered Bait FASTA must not be empty"
+        message = "Locally filtered bait FASTA must not be empty"
         raise TaxonomicScreeningError(message)
 
     identifiers = tuple(record.id for record in records)
@@ -197,7 +197,7 @@ def construct_baits(records: Sequence[SeqRecord], kmer_size: int) -> pl.LazyFram
 
 
 def read_baits(path: Path, kmer_size: int) -> pl.LazyFrame:
-    """Read the locally filtered Bait FASTA and construct its domain relation."""
+    """Read the locally filtered bait FASTA and construct its domain relation."""
     text = path.read_text()
     first_content = next((line for line in text.splitlines() if line.strip()), "")
     if first_content and not first_content.startswith(">"):
@@ -212,7 +212,7 @@ def read_baits(path: Path, kmer_size: int) -> pl.LazyFrame:
 
 
 def scan_manifest(path: Path, kmer_size: int) -> pl.LazyFrame:
-    """Scan and construct the valid pre-screening Candidate K-mer manifest."""
+    """Scan and construct the valid pre-screening candidate k-mer manifest."""
     if _header(path, "Candidate manifest") != MANIFEST_FIELDS:
         message = "Candidate manifest has an unexpected schema"
         raise TaxonomicScreeningError(message)
@@ -269,7 +269,7 @@ def scan_manifest(path: Path, kmer_size: int) -> pl.LazyFrame:
         ).then(pl.lit("Candidate manifest contains a missing field")),
         pl.when(pl.col("candidate_kmer_id") != expected_candidate_id).then(
             pl.concat_str(
-                pl.lit("invalid or non-sequential Candidate K-mer ID: "),
+                pl.lit("invalid or non-sequential candidate k-mer ID: "),
                 pl.col("candidate_kmer_id"),
             ),
         ),
@@ -280,19 +280,19 @@ def scan_manifest(path: Path, kmer_size: int) -> pl.LazyFrame:
             ),
         ),
         pl.when(~kmer.str.contains(r"^[ACGT]+$") | (kmer.str.len_chars() != kmer_size)).then(
-            pl.concat_str(pl.lit("invalid Candidate K-mer: "), kmer),
+            pl.concat_str(pl.lit("invalid candidate k-mer: "), kmer),
         ),
         pl.when(kmer != kmer.map_elements(canonical_kmer, return_dtype=pl.String)).then(
-            pl.concat_str(pl.lit("noncanonical Candidate K-mer: "), kmer),
+            pl.concat_str(pl.lit("noncanonical candidate k-mer: "), kmer),
         ),
         pl.when(pl.len().over("kmer") > 1).then(
-            pl.concat_str(pl.lit("duplicate Candidate K-mer: "), kmer),
+            pl.concat_str(pl.lit("duplicate candidate k-mer: "), kmer),
         ),
         pl.when(
             (pl.col("bait_id").fill_null("") != "")
             & (pl.len().over("bait_id") > 1),
         ).then(
-            pl.concat_str(pl.lit("duplicate Bait ID: "), pl.col("bait_id")),
+            pl.concat_str(pl.lit("duplicate bait ID: "), pl.col("bait_id")),
         ),
         pl.when(
             ~pl.col("source_copy_count").str.contains(r"^[0-9]+$")
@@ -341,7 +341,7 @@ def scan_manifest(path: Path, kmer_size: int) -> pl.LazyFrame:
         message = f"Could not parse Candidate manifest: {error}"
         raise TaxonomicScreeningError(message) from error
     if validation.item(0, "row_count") == 0 or validation.item(0, "bait_count") == 0:
-        message = "Taxonomic screening requires at least one locally filtered Bait"
+        message = "Taxonomic screening requires at least one locally filtered bait"
         raise TaxonomicScreeningError(message)
     if first_error := validation.item(0, "first_error"):
         raise TaxonomicScreeningError(first_error)
@@ -434,9 +434,9 @@ def read_bait_set_status(
     candidate_kmer_count: int,
     locally_filtered_bait_count: int,
 ) -> BaitSetStatus:
-    """Read and construct the locally filtered Bait Set status."""
-    if _header(path, "Bait Set status") != ["metric", "value"]:
-        message = "Bait Set status has an unexpected schema"
+    """Read and construct the locally filtered bait set status."""
+    if _header(path, "Bait set status") != ["metric", "value"]:
+        message = "Bait set status has an unexpected schema"
         raise TaxonomicScreeningError(message)
     try:
         status = pl.read_csv(
@@ -445,16 +445,16 @@ def read_bait_set_status(
             schema_overrides={"metric": pl.String, "value": pl.String},
         ).with_columns(pl.col("value").fill_null(""))
     except pl.exceptions.PolarsError as error:
-        message = f"Could not parse Bait Set status: {error}"
+        message = f"Could not parse bait set status: {error}"
         raise TaxonomicScreeningError(message) from error
     if status.get_column("metric").to_list() != BAIT_SET_METRICS:
-        message = "Bait Set status has unexpected metrics or metric order"
+        message = "Bait set status has unexpected metrics or metric order"
         raise TaxonomicScreeningError(message)
     values = dict(status.select("metric", "value").iter_rows())
     try:
         origin = SourceSequenceOrigin(values["source_sequence_origin"])
     except ValueError as error:
-        message = "Bait Set status has an invalid Source Sequence origin"
+        message = "Bait set status has an invalid source sequence origin"
         raise TaxonomicScreeningError(message) from error
     expected = {
         "design_id": design_id,
@@ -466,7 +466,7 @@ def read_bait_set_status(
         "deacon_index_source": "",
     }
     if any(values[key] != value for key, value in expected.items()):
-        message = "Bait Set status is not coherent before taxonomic screening"
+        message = "Bait set status is not coherent before taxonomic screening"
         raise TaxonomicScreeningError(message)
     return BaitSetStatus(
         design_id=design_id,
@@ -487,11 +487,11 @@ def construct_screening_result(
     relation_errors = pl.concat(
         [
             eligible.join(baits.select("bait_id", "kmer"), on=["bait_id", "kmer"], how="anti")
-            .with_columns(pl.lit("PASS Candidate K-mer is absent from the Bait FASTA").alias("error"))
+            .with_columns(pl.lit("PASS candidate k-mer is absent from the bait FASTA").alias("error"))
             .select("error"),
             baits.select("bait_id", "kmer")
             .join(eligible, on=["bait_id", "kmer"], how="anti")
-            .with_columns(pl.lit("Bait FASTA contains no matching PASS Candidate K-mer").alias("error"))
+            .with_columns(pl.lit("Bait FASTA contains no matching PASS candidate k-mer").alias("error"))
             .select("error"),
             hits.select("qseqid")
             .join(baits.select(pl.col("bait_id").alias("qseqid")), on="qseqid", how="anti")

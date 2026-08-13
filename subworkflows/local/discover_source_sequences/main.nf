@@ -33,7 +33,7 @@ workflow DISCOVER_SOURCE_SEQUENCES {
 
     BLASTN_SOURCE_SEQUENCES(ch_blast_inputs)
 
-    // Extract Source Sequences and evidence
+    // Extract source sequences and evidence
     ch_extraction_inputs = PREPARE_QUERIES.out.fasta
         .join(ch_extraction_context)
         .join(BLASTN_SOURCE_SEQUENCES.out.txt)

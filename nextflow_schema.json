@@ -2,13 +2,13 @@
     "$schema": "https://json-schema.org/draft/2020-12/schema",
     "$id": "https://raw.githubusercontent.com/dholab/baits/main/nextflow_schema.json",
     "title": "dholab/baits pipeline parameters",
-    "description": "Build auditable Bait Sets of Clean K-mers for biological targets",
+    "description": "Build auditable bait sets of clean k-mers for biological targets",
     "type": "object",
     "$defs": {
         "source_sequence_options": {
-            "title": "Source Sequence options",
+            "title": "Source sequence options",
             "type": "object",
-            "description": "Supply a main samplesheet or one Curated Source Sequence FASTA.",
+            "description": "Supply a main samplesheet or one curated source sequence FASTA.",
             "properties": {
                 "input": {
                     "type": "string",
@@ -22,26 +22,26 @@
                 "id": {
                     "type": "string",
                     "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$",
-                    "description": "Optional identifier for one direct curated execution. The Source Sequence FASTA name is used when this parameter is absent."
+                    "description": "Optional identifier for one direct curated run. The source sequence FASTA name is used when this parameter is absent."
                 },
                 "source_sequences": {
                     "type": "string",
                     "format": "file-path",
                     "exists": true,
                     "pattern": "^\\S+\\.(fa|fasta|fna)(\\.gz)?$",
-                    "description": "Path to one Curated Source Sequence FASTA."
+                    "description": "Path to one curated source sequence FASTA."
                 },
                 "target_taxid": {
                     "type": "string",
                     "pattern": "^[1-9][0-9]*$",
-                    "description": "NCBI Taxonomy identifier for the Target Taxon."
+                    "description": "NCBI Taxonomy identifier for the target taxon."
                 },
                 "interference_background": {
                     "type": "string",
                     "format": "file-path",
                     "exists": true,
                     "pattern": "^\\S+\\.(fa|fasta|fna)(\\.gz)?$",
-                    "description": "Path to the Interference Background FASTA."
+                    "description": "Path to the interference background FASTA."
                 },
                 "optimization_read_set": {
                     "type": "string",
@@ -53,7 +53,7 @@
                     "type": "integer",
                     "minimum": 1,
                     "default": 31,
-                    "description": "Candidate K-mer length."
+                    "description": "Candidate k-mer length."
                 },
                 "deacon_window": {
                     "type": "integer",
@@ -89,14 +89,14 @@
             ]
         },
         "taxonomic_screening_options": {
-            "title": "Taxonomic Exact-Match Screening options",
+            "title": "Taxonomic exact-match screening options",
             "type": "object",
             "properties": {
                 "taxonomic_reference_db": {
                     "type": "string",
                     "format": "directory-path",
                     "exists": true,
-                    "description": "Optional Taxonomic Reference Database directory."
+                    "description": "Optional taxonomic reference database directory."
                 }
             }
         },

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Build canonical Candidate K-mer evidence from Source Sequences."""
+"""Build canonical candidate k-mer evidence from source sequences."""
 
 from __future__ import annotations
 
@@ -37,11 +37,11 @@ DNA_IUPAC = frozenset("ACGTRYSWKMBDHVN")
 
 
 class SourceSequenceError(ValueError):
-    """Raised when Source Sequences are not valid input."""
+    """Raised when source sequences are not valid input."""
 
 
 class QueryGroupError(ValueError):
-    """Raised when Source Sequence Query Groups are not valid input."""
+    """Raised when source sequence query groups are not valid input."""
 
 
 class MerylCountError(ValueError):
@@ -49,12 +49,12 @@ class MerylCountError(ValueError):
 
 
 class CandidateEvidenceError(ValueError):
-    """Raised when independent Candidate evidence disagrees."""
+    """Raised when independent candidate evidence disagrees."""
 
 
 @dataclass(frozen=True)
 class CandidateEvidence:
-    """The manifest, Source occurrences, and candidates for complexity filtering."""
+    """The manifest, source occurrences, and candidates for complexity filtering."""
 
     manifest: pl.LazyFrame
     occurrences: pl.LazyFrame
@@ -85,13 +85,13 @@ def read_source_sequences(path: Path) -> pl.LazyFrame:
     with open_fasta(path) as handle:
         records = tuple(SeqIO.parse(handle, "fasta"))
     if not records:
-        message = "Source Sequence FASTA must contain at least one record"
+        message = "Source sequence FASTA must contain at least one record"
         raise SourceSequenceError(message)
 
     identifiers = tuple(record.id for record in records)
     blank_identifier = next((identifier for identifier in identifiers if not identifier), None)
     if blank_identifier is not None:
-        message = "Source Sequence FASTA record ID must not be blank"
+        message = "Source sequence FASTA record ID must not be blank"
         raise SourceSequenceError(message)
     duplicate_identifier = next(
         (
@@ -102,7 +102,7 @@ def read_source_sequences(path: Path) -> pl.LazyFrame:
         None,
     )
     if duplicate_identifier is not None:
-        message = f"Duplicate Source Sequence FASTA record ID: {duplicate_identifier}"
+        message = f"Duplicate source sequence FASTA record ID: {duplicate_identifier}"
         raise SourceSequenceError(message)
 
     raw_sequences = tuple(str(record.seq) for record in records)
@@ -115,7 +115,7 @@ def read_source_sequences(path: Path) -> pl.LazyFrame:
         None,
     )
     if non_normalized is not None:
-        message = f"Source Sequence FASTA must contain uppercase bases: {non_normalized}"
+        message = f"Source sequence FASTA must contain uppercase bases: {non_normalized}"
         raise SourceSequenceError(message)
     sequences = raw_sequences
     invalid_sequence = next(
@@ -130,7 +130,7 @@ def read_source_sequences(path: Path) -> pl.LazyFrame:
         identifier, sequence = invalid_sequence
         invalid_bases = "".join(sorted(set(sequence) - DNA_IUPAC))
         message = (
-            f"Source Sequence FASTA contains malformed DNA/IUPAC sequence for {identifier}: "
+            f"Source sequence FASTA contains malformed DNA/IUPAC sequence for {identifier}: "
             f"{invalid_bases or sequence}"
         )
         raise SourceSequenceError(message)
@@ -146,19 +146,19 @@ def scan_query_groups(path: Path, source_sequences: pl.LazyFrame) -> pl.LazyFram
         query_groups = pl.scan_csv(path, separator="\t", schema_overrides=QUERY_GROUP_SCHEMA)
         columns = query_groups.collect_schema().names()
     except pl.exceptions.PolarsError as error:
-        message = f"Could not parse Source Sequence Query Groups: {error}"
+        message = f"Could not parse source sequence query groups: {error}"
         raise QueryGroupError(message) from error
     if columns != list(QUERY_GROUP_SCHEMA):
-        message = "Source Sequence Query Groups columns must be exactly: source_sequence_id, query_group"
+        message = "Source sequence query group columns must be exactly: source_sequence_id, query_group"
         raise QueryGroupError(message)
 
     contextualized = query_groups.with_row_index("_row").with_columns(
         pl.when(pl.col("source_sequence_id").is_null() | (pl.col("source_sequence_id") == ""))
-        .then(pl.lit("blank source_sequence_id in Source Sequence Query Groups"))
+        .then(pl.lit("blank source_sequence_id in source sequence query groups"))
         .when(pl.len().over("source_sequence_id") > 1)
         .then(
             pl.concat_str(
-                pl.lit("duplicate source_sequence_id in Source Sequence Query Groups: "),
+                pl.lit("duplicate source_sequence_id in source sequence query groups: "),
                 pl.col("source_sequence_id"),
             ),
         )
@@ -179,7 +179,7 @@ def scan_query_groups(path: Path, source_sequences: pl.LazyFrame) -> pl.LazyFram
         .collect()
     )
     if missing.height:
-        message = f"Missing Source Sequence Query Group ID: {missing.item(0, 'source_sequence_id')}"
+        message = f"Missing source sequence query group ID: {missing.item(0, 'source_sequence_id')}"
         raise QueryGroupError(message)
     extra = (
         contextualized.join(source_sequences, on="source_sequence_id", how="anti")
@@ -189,7 +189,7 @@ def scan_query_groups(path: Path, source_sequences: pl.LazyFrame) -> pl.LazyFram
         .collect()
     )
     if extra.height:
-        message = f"Unknown Source Sequence Query Group ID: {extra.item(0, 'source_sequence_id')}"
+        message = f"Unknown source sequence query group ID: {extra.item(0, 'source_sequence_id')}"
         raise QueryGroupError(message)
     return contextualized.with_columns(
         pl.col("query_group").fill_null(""),
@@ -293,7 +293,7 @@ def construct_candidate_evidence(
     )
     if mismatched_source_count.height:
         message = (
-            "Meryl Source counts must equal Python Candidate keys and positional occurrence "
+            "Meryl source counts must equal Python candidate keys and positional occurrence "
             f"counts: {mismatched_source_count.item(0, 'kmer')}"
         )
         raise CandidateEvidenceError(message)
@@ -307,7 +307,7 @@ def construct_candidate_evidence(
     )
     if unexpected_background.height:
         message = (
-            "Background intersection contains non-Candidate K-mer: "
+            "Background intersection contains non-candidate k-mer: "
             f"{unexpected_background.item(0, 'kmer')}"
         )
         raise CandidateEvidenceError(message)
@@ -367,7 +367,7 @@ def main(argv: Sequence[str] | None = None) -> None:
 
     source_sequences = read_source_sequences(args.source_sequences)
     query_groups = scan_query_groups(args.source_sequence_query_groups, source_sequences)
-    meryl_source_counts = scan_meryl_counts(args.meryl_source_counts, args.kmer_size, "Meryl Source counts")
+    meryl_source_counts = scan_meryl_counts(args.meryl_source_counts, args.kmer_size, "Meryl source counts")
     background_counts = scan_meryl_counts(
         args.background_intersection_counts,
         args.kmer_size,

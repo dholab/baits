@@ -1,5 +1,5 @@
 nextflow_process {
-    name "BLASTN Source Sequences process"
+    name "BLASTN source sequences process"
     script "../../modules/local/blastn_source_sequences/main.nf"
     process "BLASTN_SOURCE_SEQUENCES"
 

@@ -141,7 +141,7 @@ workflow {
         tuple(meta, row.target_taxid as String, file(row.interference_background))
     }
 
-    // Source Sequence acquisition
+    // Source sequence acquisition
     source_inputs = ch_normalized_rows.branch { meta, row ->
         curated: row.curated_source_sequences
         discovery: true

@@ -1,5 +1,5 @@
 nextflow_process {
-    name "Prepare Queries process"
+    name "Prepare queries process"
     script "../../modules/local/prepare_queries/main.nf"
     process "PREPARE_QUERIES"
 

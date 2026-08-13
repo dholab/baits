@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Construct Provisional Source Sequences from Candidate Loci."""
+"""Construct provisional source sequences from candidate loci."""
 
 from __future__ import annotations
 
@@ -57,7 +57,7 @@ class SequenceInputError(ValueError):
 
 
 class BlastHitInputError(ValueError):
-    """Raised when BLAST output cannot construct Candidate Loci."""
+    """Raised when BLAST output cannot construct candidate loci."""
 
 
 def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
@@ -95,7 +95,7 @@ def scan_query_rules(path: Path) -> pl.LazyFrame:
         pl.when((query_id == "") | (pl.len().over("query_id") > 1))
         .then(pl.concat_str(pl.lit("missing or duplicated query_id: "), query_id))
         .when(pl.col("query_group").fill_null("") == "")
-        .then(pl.concat_str(pl.lit("missing Query Group for "), query_id))
+        .then(pl.concat_str(pl.lit("missing query group for "), query_id))
         .when(
             pl.col("min_identity").is_null()
             | pl.col("min_query_coverage").is_null()
@@ -201,7 +201,7 @@ def construct_candidate_loci(
     )
     if missing_query.height:
         query_id = missing_query.item(0, "query_id")
-        message = f"Missing Representative Query FASTA record: {query_id}"
+        message = f"Missing representative query FASTA record: {query_id}"
         raise SequenceInputError(message)
 
     contextualized = (

@@ -3,7 +3,7 @@ nextflow_workflow {
     script "../subworkflows/local/calibrate_deacon_threshold/main.nf"
     workflow "CALIBRATE_DEACON_THRESHOLD"
 
-    test("calibrates one Target-classified Candidate Read") {
+    test("calibrates one target-classified candidate read") {
         setup {
             def sequence = 'ACGTA' + ('G' * 95)
             new File("$outputDir/baits.fasta").text = '>bait_000001\nACGTA\n'

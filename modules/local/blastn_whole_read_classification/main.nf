@@ -37,7 +37,7 @@ process BLASTN_WHOLE_READ_CLASSIFICATION {
         done
     fi
     if [ -z "\$db_prefix" ]; then
-        printf 'Taxonomic Reference Database has no .nal, .nin, or .ndb entry.\n' >&2
+        printf 'Taxonomic reference database has no .nal, .nin, or .ndb entry.\n' >&2
         exit 1
     fi
 

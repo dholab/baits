@@ -1,5 +1,5 @@
 nextflow_process {
-    name "Write Provenance process"
+    name "Write provenance process"
     script "../../modules/local/write_provenance/main.nf"
     process "WRITE_PROVENANCE"
 

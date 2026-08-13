@@ -38,7 +38,7 @@ process BLASTN_TAXONOMIC_SCREENING {
         done
     fi
     if [ -z "\$db_prefix" ]; then
-        printf 'Taxonomic Reference Database has no .nal, .nin, or .ndb entry.\\n' >&2
+        printf 'Taxonomic reference database has no .nal, .nin, or .ndb entry.\\n' >&2
         exit 1
     fi
 
@@ -65,6 +65,6 @@ process BLASTN_TAXONOMIC_SCREENING {
     stub:
     """
     printf 'qseqid\\tsaccver\\tstaxids\\tsscinames\\tpident\\tlength\\tmismatch\\tgapopen\\tqstart\\tqend\\tsstart\\tsend\\tstitle\\n' > taxonomic_blast_hits.tsv
-    printf 'Taxonomic Reference Database stub\\n' > taxonomic_reference_database.txt
+    printf 'Taxonomic reference database stub\\n' > taxonomic_reference_database.txt
     """
 }

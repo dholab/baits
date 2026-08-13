@@ -1,9 +1,9 @@
 nextflow_pipeline {
-    name "Validate Source Sequence parameters"
+    name "Validate source sequence parameters"
     script "../main.nf"
     tag "input"
 
-    test("rejects direct Curated Source Sequences without a Target Taxon") {
+    test("rejects direct curated source sequences without a target taxon") {
         when {
             params {
                 source_sequences = "$baseDir/tests/data/curated_source_sequences.fasta"
@@ -16,7 +16,7 @@ nextflow_pipeline {
         }
     }
 
-    test("accepts one direct curated Source Sequence execution") {
+    test("accepts one direct curated source sequence run") {
         when {
             params {
                 id = "cyclospora"
@@ -70,7 +70,7 @@ mixed,88456,$baseDir/tests/data/curated_source_sequences.fasta,$baseDir/tests/da
         }
     }
 
-    test("rejects query rules without a Query Group") {
+    test("rejects query rules without a query group") {
         setup {
             new File("$outputDir/invalid_rules_input.csv").text = """\
 id,target_taxid,curated_source_sequences,representative_queries,query_rules,target_assembly,interference_background
@@ -89,7 +89,7 @@ discovery,88456,,$baseDir/tests/data/representative_queries.fasta,$baseDir/tests
         }
     }
 
-    test("accepts a per-design Optimization Read Set without running calibration alone") {
+    test("accepts a per-design optimization read set without running calibration alone") {
         setup {
             new File("$outputDir/optimization_reads").mkdirs()
             new File("$outputDir/optimization_reads/sample.fastq").text = '@fragment\nACGTA\n+\nIIIII\n'

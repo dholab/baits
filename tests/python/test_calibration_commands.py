@@ -353,7 +353,7 @@ def test_construct_metagenome_candidate_evidence_rejects_duplicate_candidate_rea
         ">first\nACGTA\n>second\nTTTTT\n",
     )
 
-    with pytest.raises(BlastQueryPreparationError, match="Candidate-read identity is duplicated"):
+    with pytest.raises(BlastQueryPreparationError, match="Candidate read identity is duplicated"):
         construct_metagenome_candidate_evidence(*paths)
 
 
@@ -392,7 +392,7 @@ def test_construct_metagenome_candidate_evidence_rejects_invalid_count_headers(
     )
     counts.write_text(header + "sample\tf\t\t5\t1\t1\tread\n")
 
-    with pytest.raises(BlastQueryPreparationError, match="Candidate-read counts are malformed"):
+    with pytest.raises(BlastQueryPreparationError, match="Candidate read counts are malformed"):
         construct_metagenome_candidate_evidence(counts, fasta, status)
 
 
@@ -405,7 +405,7 @@ def test_construct_metagenome_candidate_evidence_rejects_renamed_status_header(t
     )
     status.write_text(status.read_text().replace("metric\tvalue", "renamed\tvalue", 1))
 
-    with pytest.raises(BlastQueryPreparationError, match="Candidate-read status is malformed"):
+    with pytest.raises(BlastQueryPreparationError, match="Candidate read status is malformed"):
         construct_metagenome_candidate_evidence(counts, fasta, status)
 
 
@@ -639,7 +639,7 @@ def test_construct_candidate_read_counts_rejects_invalid_headers(tmp_path: Path,
     candidates = write_classification_candidates(tmp_path, "sample\tf\t\t100\t1\t1\tr1\n")
     candidates.write_text(header + "sample\tf\t\t100\t1\t1\tr1\n")
 
-    with pytest.raises(CandidateReadClassificationError, match="Candidate-read counts are malformed"):
+    with pytest.raises(CandidateReadClassificationError, match="Candidate read counts are malformed"):
         construct_candidate_read_counts(candidates)
 
 

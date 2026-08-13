@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Apply Deacon low-complexity results to Candidate K-mers."""
+"""Apply Deacon low-complexity results to candidate k-mers."""
 
 from __future__ import annotations
 
@@ -36,7 +36,7 @@ class ComplexityFilterError(ValueError):
 
 
 class SourceSequenceOrigin(StrEnum):
-    """Provenance of the sequences that yielded Candidate K-mers."""
+    """Provenance of the sequences that yielded candidate k-mers."""
 
     CURATED_INPUT = "curated_input"
     QUERY_GUIDED_DISCOVERY = "query_guided_discovery"
@@ -67,7 +67,7 @@ def canonical_kmer(kmer: str) -> str:
 
 
 def scan_manifest(path: Path) -> pl.LazyFrame:
-    """Scan and construct the valid pre-complexity Candidate K-mer manifest."""
+    """Scan and construct the valid pre-complexity candidate k-mer manifest."""
     try:
         header = pl.scan_csv(
             path,
@@ -75,7 +75,7 @@ def scan_manifest(path: Path) -> pl.LazyFrame:
             infer_schema_length=0,
         ).collect_schema().names()
     except pl.exceptions.PolarsError as error:
-        message = f"Could not parse Candidate manifest: {error}"
+        message = f"Could not parse candidate manifest: {error}"
         raise ComplexityFilterError(message) from error
     if header != MANIFEST_FIELDS:
         message = "Candidate manifest has an unexpected schema"
@@ -89,7 +89,7 @@ def scan_manifest(path: Path) -> pl.LazyFrame:
         ).with_row_index("_row", offset=1)
         manifest.collect_schema()
     except pl.exceptions.PolarsError as error:
-        message = f"Could not parse Candidate manifest: {error}"
+        message = f"Could not parse candidate manifest: {error}"
         raise ComplexityFilterError(message) from error
 
     source_copy_count = pl.col("source_copy_count").cast(pl.Int64, strict=False)
@@ -117,19 +117,19 @@ def scan_manifest(path: Path) -> pl.LazyFrame:
         pl.when(pl.any_horizontal([pl.col(field).is_null() for field in MANIFEST_FIELDS if field not in evidence_fields]))
         .then(pl.lit("Candidate manifest contains a missing field")),
         pl.when(pl.col("candidate_kmer_id") != expected_candidate_id).then(
-            pl.concat_str(pl.lit("invalid or non-sequential Candidate K-mer ID: "), pl.col("candidate_kmer_id")),
+            pl.concat_str(pl.lit("invalid or non-sequential candidate k-mer ID: "), pl.col("candidate_kmer_id")),
         ),
         pl.when((kmer < kmer.shift(1)).fill_null(value=False)).then(
             pl.concat_str(pl.lit("Candidate manifest is not sorted by k-mer at "), pl.col("candidate_kmer_id")),
         ),
         pl.when(~kmer.str.contains(r"^[ACGT]+$")).then(
-            pl.concat_str(pl.lit("invalid Candidate K-mer: "), kmer),
+            pl.concat_str(pl.lit("invalid candidate k-mer: "), kmer),
         ),
         pl.when(kmer != kmer.map_elements(canonical_kmer, return_dtype=pl.String)).then(
-            pl.concat_str(pl.lit("noncanonical Candidate K-mer: "), kmer),
+            pl.concat_str(pl.lit("noncanonical candidate k-mer: "), kmer),
         ),
         pl.when(pl.len().over("kmer") > 1).then(
-            pl.concat_str(pl.lit("duplicate Candidate K-mer: "), kmer),
+            pl.concat_str(pl.lit("duplicate candidate k-mer: "), kmer),
         ),
         pl.when(~pl.col("source_copy_count").str.contains(r"^[0-9]+$") | (source_copy_count <= 0)).then(
             pl.concat_str(pl.lit("invalid source_copy_count for "), pl.col("candidate_kmer_id")),
@@ -159,18 +159,18 @@ def scan_manifest(path: Path) -> pl.LazyFrame:
             pl.col("_invalid_row").drop_nulls().first().alias("first_error"),
         ).collect()
     except pl.exceptions.PolarsError as error:
-        message = f"Could not parse Candidate manifest: {error}"
+        message = f"Could not parse candidate manifest: {error}"
         raise ComplexityFilterError(message) from error
     if validation.item(0, "row_count") == 0:
-        message = "Complexity filtering requires at least one eligible Candidate K-mer"
+        message = "Complexity filtering requires at least one eligible candidate k-mer"
         raise ComplexityFilterError(message)
     if first_error := validation.item(0, "first_error"):
         raise ComplexityFilterError(first_error)
     if validation.item(0, "eligible_count") == 0:
-        message = "Complexity filtering requires at least one eligible Candidate K-mer"
+        message = "Complexity filtering requires at least one eligible candidate k-mer"
         raise ComplexityFilterError(message)
     if validation.item(0, "kmer_lengths") != 1:
-        message = "Candidate K-mers must have one common length"
+        message = "Candidate k-mers must have one common length"
         raise ComplexityFilterError(message)
     return parsed.drop("_invalid_row")
 
@@ -255,7 +255,7 @@ def main(argv: Sequence[str] | None = None) -> None:
     eligible = manifest.filter(pl.col("status") == "PASS").select("kmer")
     unexpected = passing_kmers.join(eligible, on="kmer", how="anti").limit(1).collect()
     if unexpected.height:
-        message = "Deacon passing sequences are not eligible Candidate K-mers"
+        message = "Deacon passing sequences are not eligible candidate k-mers"
         raise ComplexityFilterError(message)
 
     results = apply_complexity_results(manifest, passing_kmers)

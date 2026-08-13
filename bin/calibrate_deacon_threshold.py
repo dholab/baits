@@ -69,11 +69,11 @@ class DeaconThresholdCalibrationError(ValueError):
 
     @classmethod
     def malformed_preparation_summary(cls, path: Path) -> DeaconThresholdCalibrationError:
-        return cls(f"Candidate-read preparation summary is malformed: {path}")
+        return cls(f"Candidate read preparation summary is malformed: {path}")
 
     @classmethod
     def design_mismatch(cls) -> DeaconThresholdCalibrationError:
-        return cls("Candidate-read preparation summary design_id does not match")
+        return cls("Candidate read preparation summary design_id does not match")
 
     @classmethod
     def candidate_count_mismatch(cls) -> DeaconThresholdCalibrationError:

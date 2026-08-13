@@ -111,7 +111,7 @@ def test_query_groups_preserve_blank_labels_and_require_exact_schema_and_id_rela
     path = tmp_path / "groups.tsv"
     path.write_text("source_sequence_id\tquery_group\na\t\nb\tgroup\n")
     assert candidates.scan_query_groups(path, source).collect().rows() == [("a", ""), ("b", "group")]
-    for content, error in (("query_group\tsource_sequence_id\n\ta\n", "columns must be exactly"), ("source_sequence_id\tquery_group\na\tg\n", "Missing Source Sequence Query Group ID"), ("source_sequence_id\tquery_group\na\tg\nb\tg\nc\tg\n", "Unknown Source Sequence Query Group ID")):
+    for content, error in (("query_group\tsource_sequence_id\n\ta\n", "columns must be exactly"), ("source_sequence_id\tquery_group\na\tg\n", "Missing source sequence query group ID"), ("source_sequence_id\tquery_group\na\tg\nb\tg\nc\tg\n", "Unknown source sequence query group ID")):
         path.write_text(content)
         with pytest.raises(candidates.QueryGroupError, match=error):
             candidates.scan_query_groups(path, source)
@@ -153,7 +153,7 @@ def test_background_evidence_is_candidate_subset_and_anti_join_uses_background_f
         (candidates.project_canonical(KMER_A[1:] + "A"), 0, "PASS"),
     ]
     assert evidence.complexity_candidates.collect().rows() == [("candidate_kmer_000002", candidates.project_canonical(KMER_A[1:] + "A"))]
-    with pytest.raises(candidates.CandidateEvidenceError, match="non-Candidate"):
+    with pytest.raises(candidates.CandidateEvidenceError, match="non-candidate"):
         candidates.construct_candidate_evidence(source, query_groups, counts({"kmer": [KMER_A, candidates.project_canonical(KMER_A[1:] + "A")], "count": [1, 1]}), counts({"kmer": [KMER_B], "count": [1]}), len(KMER_A))
 
 

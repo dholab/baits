@@ -2,7 +2,7 @@
     "$schema": "https://json-schema.org/draft/2020-12/schema",
     "$id": "https://raw.githubusercontent.com/dholab/baits/main/assets/schema_input.json",
     "title": "dholab/baits main samplesheet",
-    "description": "One row for each independent Clean K-mer Design execution.",
+    "description": "One row for each independent clean k-mer design run.",
     "type": "array",
     "minItems": 1,
     "items": {

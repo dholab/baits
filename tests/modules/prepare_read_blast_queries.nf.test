@@ -3,7 +3,7 @@ nextflow_process {
     script "../../modules/local/prepare_read_blast_queries/main.nf"
     process "PREPARE_READ_BLAST_QUERIES"
 
-    test("deduplicates Candidate Read sequences for one design") {
+    test("deduplicates candidate read sequences for one design") {
         setup {
             new File("$outputDir/counts.tsv").text = 'metagenome_id\tfragment_id\tmate\tread_length\tdistinct_bait_count\tfragment_distinct_bait_count\tcandidate_sequence_id\nsample\tfragment\t1\t5\t1\t1\tread_1\n'
             new File("$outputDir/reads.fasta").text = '>read_1\nACGTA\n'

@@ -12,7 +12,7 @@ workflow BUILD_VERIFY_DEACON_INDEX {
 
     main:
 
-    // Build the operational Deacon Index from the selected Bait Set
+    // Build the operational Deacon index from the selected bait set
     ch_index_build_inputs = ch_index_inputs
         .combine(ch_kmer_size)
         .combine(ch_deacon_window)
@@ -21,7 +21,7 @@ workflow BUILD_VERIFY_DEACON_INDEX {
         }
     DEACON_INDEX_BAIT_SET(ch_index_build_inputs)
 
-    // Round-trip the Bait Set and Interference Background at the permissive threshold
+    // Round-trip the bait set and interference background at the permissive threshold
     ch_bait_roundtrip_inputs = DEACON_INDEX_BAIT_SET.out.index
         .join(ch_index_inputs)
         .map { meta, deacon_index, baits, candidate_kmer_manifest, bait_set_status, interference_background ->
@@ -35,7 +35,7 @@ workflow BUILD_VERIFY_DEACON_INDEX {
     DEACON_BAIT_ROUNDTRIP(ch_bait_roundtrip_inputs)
     DEACON_BACKGROUND_ROUNDTRIP(ch_background_roundtrip_inputs)
 
-    // Verify both round trips and finalize the Bait Set status
+    // Verify both round trips and finalize the bait set status
     ch_verification_inputs = ch_index_inputs
         .join(DEACON_BAIT_ROUNDTRIP.out.fasta)
         .join(DEACON_BACKGROUND_ROUNDTRIP.out.fasta)

@@ -24,15 +24,15 @@ workflow BAITS_MAIN {
 
     main:
 
-    // Source Sequence acquisition
+    // Source sequence acquisition
     NORMALIZE_CURATED_SOURCE_SEQUENCES(ch_curated_inputs)
     DISCOVER_SOURCE_SEQUENCES(ch_discovery_inputs)
 
-    // Converge curated and discovered Source Sequences
+    // Converge curated and discovered source sequences
     ch_source_sequences = NORMALIZE_CURATED_SOURCE_SEQUENCES.out.source_sequences
         .mix(DISCOVER_SOURCE_SEQUENCES.out.source_sequences)
 
-    // Filter Candidate K-mers
+    // Filter candidate k-mers
     ch_filtering_inputs = ch_source_sequences
         .join(ch_design_context)
         .map { meta, source_sequences, source_sequence_query_groups, target_taxid, interference_background ->
@@ -40,7 +40,7 @@ workflow BAITS_MAIN {
         }
     FILTER_CANDIDATE_KMERS(ch_filtering_inputs, ch_kmer_size, ch_deacon_window, ch_entropy_threshold)
 
-    // Screen the Locally Filtered Bait Set when a Taxonomic Reference Database is supplied
+    // Screen the locally filtered bait set when a taxonomic reference database is supplied
     ch_screening_inputs = FILTER_CANDIDATE_KMERS.out.baits
         .join(ch_design_context)
         .map { meta, locally_filtered_baits, candidate_kmer_manifest, bait_set_status, target_taxid, interference_background ->
@@ -48,7 +48,7 @@ workflow BAITS_MAIN {
         }
     TAXONOMIC_EXACT_MATCH_SCREENING(ch_screening_inputs, ch_taxonomic_reference_db, ch_kmer_size)
 
-    // Build and verify one Deacon Index from the deepest justified Bait Set
+    // Build and verify one Deacon index from the deepest justified nonempty bait set
     ch_locally_filtered_index_inputs = FILTER_CANDIDATE_KMERS.out.baits
         .join(ch_design_context)
         .combine(ch_taxonomic_screening_not_run)
@@ -60,7 +60,7 @@ workflow BAITS_MAIN {
         .map { meta, taxonomically_screened_baits, candidate_kmer_manifest, bait_set_status, target_taxid, interference_background ->
             tuple(meta, taxonomically_screened_baits, candidate_kmer_manifest, bait_set_status, interference_background)
         }
-    // These keyed markers restore the Bait Set branch after index verification.
+    // These keyed markers restore the bait set branch after index verification.
     ch_locally_filtered_index_keys = ch_locally_filtered_index_inputs.map { meta, baits, candidate_kmer_manifest, bait_set_status, interference_background -> tuple(meta, true) }
     ch_taxonomically_screened_index_keys = ch_taxonomically_screened_index_inputs.map { meta, baits, candidate_kmer_manifest, bait_set_status, interference_background -> tuple(meta, true) }
     ch_index_inputs = ch_locally_filtered_index_inputs.mix(ch_taxonomically_screened_index_inputs)
@@ -204,7 +204,7 @@ workflow BAITS_MAIN {
             )
         }
 
-    // Finalize designs according to whether Taxonomic Exact-Match Screening ran
+    // Finalize designs according to whether taxonomic exact-match screening ran
     ch_filtering_terminal_provenance_facts = ch_without_deacon_provenance_facts
         .mix(
             ch_with_deacon_provenance_facts

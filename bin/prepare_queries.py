@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Prepare representative queries for Candidate Locus discovery."""
+"""Prepare representative queries for candidate locus discovery."""
 
 from __future__ import annotations
 
@@ -99,7 +99,7 @@ def construct_prepared_queries(
         pl.when(pl.col("representative_query_sequence").is_null())
         .then(
             pl.concat_str(
-                pl.lit("Missing Representative Query FASTA record: "),
+                pl.lit("Missing representative query FASTA record: "),
                 pl.col("query_id"),
             ),
         )
@@ -160,7 +160,7 @@ def main(argv: Sequence[str] | None = None) -> None:
         None,
     )
     if duplicate_id:
-        message = f"Duplicate Representative Query FASTA record ID: {duplicate_id}"
+        message = f"Duplicate representative query FASTA record ID: {duplicate_id}"
         raise QueryInputError(message)
     records = SeqIO.to_dict(fasta_records)
     sequences = [str(record.seq).upper().replace("U", "T") for record in records.values()]

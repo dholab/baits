@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Normalize Curated Source Sequences and write their Query Groups."""
+"""Normalize curated source sequences and write their query groups."""
 
 from __future__ import annotations
 
@@ -18,7 +18,7 @@ if TYPE_CHECKING:
 
 
 class CuratedSourceSequenceError(ValueError):
-    """Raised when Curated Source Sequences do not satisfy their contract."""
+    """Raised when curated source sequences do not satisfy their contract."""
 
 
 def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
@@ -32,7 +32,7 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
 def normalize_curated_source_sequences(path: Path) -> tuple[SeqRecord, ...]:
     records = tuple(SeqIO.parse(path, "fasta"))
     if not records:
-        message = "Curated Source Sequence FASTA must contain at least one record"
+        message = "Curated source sequence FASTA must contain at least one record"
         raise CuratedSourceSequenceError(message)
     duplicate_ids = sorted(
         identifier
@@ -40,7 +40,7 @@ def normalize_curated_source_sequences(path: Path) -> tuple[SeqRecord, ...]:
         if count > 1
     )
     if duplicate_ids:
-        message = f"Duplicate Curated Source Sequence FASTA record ID: {duplicate_ids[0]}"
+        message = f"Duplicate curated source sequence FASTA record ID: {duplicate_ids[0]}"
         raise CuratedSourceSequenceError(message)
     return tuple(
         SeqRecord(

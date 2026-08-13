@@ -2,7 +2,7 @@ nextflow_process {
     name "Apply complexity filter process"
     script "../../modules/local/apply_complexity_filter/main.nf"
     process "APPLY_COMPLEXITY_FILTER"
-    test("retains only Deacon-passing Candidate K-mers") {
+    test("retains only Deacon-passing candidate k-mers") {
         when {
             process {
                 """input[0] = [[id: 'design'], 'curated_input', file(\"\$baseDir/tests/data/filter_manifest.tsv\"), file(\"\$baseDir/tests/data/filter_passing_kmers.fasta\")]"""
@@ -15,7 +15,7 @@ nextflow_process {
             assert file(process.out.baits[0][1]).text.contains('>bait_000001')
         }
     }
-    test("publishes filtering evidence without Baits when Deacon retains no Candidate K-mer") {
+    test("publishes filtering evidence without baits when Deacon retains no candidate k-mer") {
         setup {
             new File("$outputDir/empty.fasta").text = ''
         }
@@ -32,7 +32,7 @@ nextflow_process {
         }
     }
 
-    test("emits the terminal Candidate K-mer manifest when no Baits remain") {
+    test("emits the terminal candidate k-mer manifest when no baits remain") {
         when {
             process {
                 """input[0] = [[id: 'design'], 'curated_input', file(\"\$baseDir/tests/data/filter_manifest.tsv\"), file(\"\$baseDir/tests/data/filter_empty_passing_kmers.fasta\")]"""

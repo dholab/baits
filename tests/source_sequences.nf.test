@@ -1,9 +1,9 @@
 nextflow_pipeline {
-    name "Acquire Source Sequences"
+    name "Acquire source sequences"
     script "../main.nf"
     tag "source_sequences"
 
-    test("publishes Curated Source Sequences without the internal Query Group table") {
+    test("publishes curated source sequences without the internal query group table") {
         when {
             params {
                 id = "curated_design"
@@ -25,7 +25,7 @@ nextflow_pipeline {
         }
     }
 
-    test("publishes Candidate Loci and Query Group status from real BLAST composition") {
+    test("publishes candidate loci and query group status from real BLAST composition") {
         setup {
             new File("$outputDir/discovery_input.csv").text = """\
 id,target_taxid,curated_source_sequences,representative_queries,query_rules,target_assembly,interference_background
@@ -52,7 +52,7 @@ discovery_design,88456,,$baseDir/tests/data/representative_queries.fasta,$baseDi
         }
     }
 
-    test("missing Query Group publishes Candidate Loci and status but no Provisional Source Sequences") {
+    test("missing query group publishes candidate loci and status but no provisional source sequences") {
         setup {
             new File("$outputDir/rules.tsv").text = """\
 query_id	query_group	query_start	query_end	min_identity	min_query_coverage
@@ -97,7 +97,7 @@ negative_design,88456,,$outputDir/queries.fasta,$outputDir/rules.tsv,$baseDir/te
         }
     }
 
-    test("multi-design discovery joins each prepared Query FASTA to its matching database") {
+    test("multi-design discovery joins each prepared query FASTA to its matching database") {
         setup {
             new File("$outputDir/queries_a.fasta").text = ">qa\nATGCGTACGTTAGCCATGACCTGATCGTACGATTCGGAAC\n"
             new File("$outputDir/rules_a.tsv").text = "query_id\tquery_group\tquery_start\tquery_end\tmin_identity\tmin_query_coverage\nqa\tA\t1\t0\t100\t100\n"

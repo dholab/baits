@@ -17,7 +17,7 @@ workflow FILTER_CANDIDATE_KMERS {
 
     main:
 
-    // Count Source and Background K-mers
+    // Count source and background k-mers
     ch_source_count_inputs = ch_filtering_inputs.map { meta, source_sequences, source_sequence_query_groups, interference_background ->
         tuple(meta, source_sequences)
     }
@@ -30,7 +30,7 @@ workflow FILTER_CANDIDATE_KMERS {
     MERYL_COUNT_SOURCE(ch_source_count_inputs, ch_kmer_size)
     MERYL_COUNT_BACKGROUND(ch_background_count_inputs, ch_kmer_size)
 
-    // Isolate Source K-mers absent from the Background
+    // Isolate source k-mers absent from the background
     ch_count_pairs = MERYL_COUNT_SOURCE.out.meryl_db
         .join(MERYL_COUNT_BACKGROUND.out.meryl_db)
         .map { meta, source_db, background_db -> tuple(meta, source_db, background_db) }

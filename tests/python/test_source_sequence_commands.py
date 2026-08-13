@@ -414,7 +414,7 @@ def test_duplicate_representative_query_ids_are_malformed_input(tmp_path: Path) 
     )
 
     assert result.returncode != 0
-    assert "Duplicate Representative Query FASTA record ID: q1" in result.stderr
+    assert "Duplicate representative query FASTA record ID: q1" in result.stderr
 
 
 def construct_source_sequence_provenance(

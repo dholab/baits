@@ -3,7 +3,7 @@ nextflow_process {
     script "../../modules/local/apply_taxonomic_screening/main.nf"
     process "APPLY_TAXONOMIC_SCREENING"
 
-    test("retains on-target Baits and records off-target exact-match decisions") {
+    test("retains on-target baits and records off-target exact-match decisions") {
         when {
             process {
                 """input[0] = [[id: 'design', source_sequence_origin: 'curated_input'], file(\"\$baseDir/tests/data/taxonomic_locally_filtered_baits.fasta\"), file(\"\$baseDir/tests/data/taxonomic_blast_hits.tsv\"), file(\"\$baseDir/tests/data/taxonomic_candidate_kmers.tsv\"), file(\"\$baseDir/tests/data/taxonomic_bait_set_status.tsv\"), '88456', 31]"""
@@ -27,7 +27,7 @@ nextflow_process {
         }
     }
 
-    test("preserves all-rejected evidence without a Bait Set continuation") {
+    test("preserves all-rejected evidence without a bait set continuation") {
         when {
             process {
                 """input[0] = [[id: 'design', source_sequence_origin: 'curated_input'], file(\"\$baseDir/tests/data/taxonomic_locally_filtered_baits.fasta\"), file(\"\$baseDir/tests/data/taxonomic_all_rejected_blast_hits.tsv\"), file(\"\$baseDir/tests/data/taxonomic_candidate_kmers.tsv\"), file(\"\$baseDir/tests/data/taxonomic_bait_set_status.tsv\"), '88456', 31]"""

@@ -14,7 +14,7 @@ workflow CALIBRATE_DEACON_THRESHOLD {
 
     main:
 
-    // Retain every read with at least one indexed Bait
+    // Retain every read with at least one indexed bait
     ch_deacon_inputs = ch_calibration_inputs.map { design_meta, read_meta, reads, baits, bait_set_status, deacon_index, target_taxid ->
         tuple(read_meta, deacon_index, reads, 1, 0)
     }
@@ -26,7 +26,7 @@ workflow CALIBRATE_DEACON_THRESHOLD {
         .unique()
     DEACON_FILTER_CANDIDATE_READS(ch_deacon_inputs)
 
-    // Recount distinct Baits on each individual read
+    // Recount distinct baits on each individual read
     ch_recount_inputs = DEACON_FILTER_CANDIDATE_READS.out.fastq_filtered
         .join(ch_read_context)
         .combine(ch_kmer_size)
@@ -50,7 +50,7 @@ workflow CALIBRATE_DEACON_THRESHOLD {
         .join(ch_grouped_statuses)
     PREPARE_READ_BLAST_QUERIES(ch_preparation_inputs)
 
-    // Classify each Candidate Read from its representative's best whole-read alignments
+    // Classify each candidate read from its representative's best whole-read alignments
     ch_whole_read_blast_inputs = PREPARE_READ_BLAST_QUERIES.out.queries
         .combine(ch_taxonomic_reference_db)
         .map { design_meta, queries, taxonomic_reference_db ->

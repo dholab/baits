@@ -1,9 +1,9 @@
 nextflow_process {
-    name "Extract Source Sequences process"
+    name "Extract source sequences process"
     script "../../modules/local/extract_source_sequences/main.nf"
     process "EXTRACT_SOURCE_SEQUENCES"
 
-    test("emits Provisional Source Sequences, Candidate Loci, and Query Group status") {
+    test("emits provisional source sequences, candidate loci, and query group status") {
         when {
             process {
                 """
@@ -24,7 +24,7 @@ nextflow_process {
         }
     }
 
-    test("emits Candidate Loci and status but no Provisional Source Sequence for a missing Query Group") {
+    test("emits candidate loci and status but no provisional source sequence for a missing query group") {
         when {
             process {
                 """

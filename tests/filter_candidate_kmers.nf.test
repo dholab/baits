@@ -1,8 +1,8 @@
 nextflow_pipeline {
-    name "Filter Candidate K-mers"
+    name "Filter candidate k-mers"
     script "../main.nf"
     tag "filter_candidate_kmers"
-    test("publishes only canonical evidence and nonempty locally filtered Baits") {
+    test("publishes only canonical evidence and nonempty locally filtered baits") {
         when {
             params {
                 id = "positive"
@@ -57,7 +57,7 @@ nextflow_pipeline {
             ]
         }
     }
-    test("reports Meryl Background positional multiplicity") {
+    test("reports Meryl background positional multiplicity") {
         when {
             params {
                 id = "background_multiplicity"
@@ -72,7 +72,7 @@ nextflow_pipeline {
             assert new File("$runDir/results/background_multiplicity/02_candidate_kmers/candidate_kmers.tsv").text.contains('ACGTACGTACGTACGTACGTACGTACGTACG\t1\t3\tREJECT_INTERFERENCE_BACKGROUND')
         }
     }
-    test("stages same-basename Source and Background files without database collision") {
+    test("stages same-basename source and background files without database collision") {
         setup {
             new File("$outputDir/source").mkdirs()
             new File("$outputDir/background").mkdirs()
@@ -94,7 +94,7 @@ nextflow_pipeline {
             assert new File("$runDir/results/same_basename/04_bait_sets/locally_filtered_baits.fasta").exists()
         }
     }
-    test("short Source Sequences publish candidate enumeration evidence without Baits") {
+    test("short source sequences publish candidate enumeration evidence without baits") {
         when {
             params {
                 id = "short_terminal"
@@ -125,7 +125,7 @@ nextflow_pipeline {
             ]
         }
     }
-    test("all low-complexity Candidates publish evidence without Baits") {
+    test("all low-complexity candidates publish evidence without baits") {
         when {
             params {
                 id = "complexity_terminal"
@@ -143,7 +143,7 @@ nextflow_pipeline {
             assert !new File("$runDir/results/complexity_terminal/04_bait_sets/locally_filtered_baits.fasta").exists()
         }
     }
-    test("pairs independent designs with their own Source Sequences") {
+    test("pairs independent designs with their own source sequences") {
         setup {
             new File("$outputDir/multi.csv").text = """id,target_taxid,curated_source_sequences,representative_queries,query_rules,target_assembly,interference_background
 design_a,88456,$baseDir/tests/data/filter_source_sequences.fasta,,,,$baseDir/tests/data/interference_background.fasta
@@ -202,7 +202,7 @@ design_b,88456,$baseDir/tests/data/filter_low_complexity_source.fasta,,,,$baseDi
         }
     }
 
-    test("publishes final Bait Set status without an index when screening rejects every Bait") {
+    test("publishes final bait set status without an index when screening rejects every bait") {
         setup {
             new File("$outputDir/rejecting_reference_db").mkdirs()
             new File("$outputDir/rejecting_reference.fasta").text = new File("$baseDir/tests/data/filter_source_sequences.fasta").text

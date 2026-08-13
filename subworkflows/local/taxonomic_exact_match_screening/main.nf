@@ -9,7 +9,7 @@ workflow TAXONOMIC_EXACT_MATCH_SCREENING {
 
     main:
 
-    // Search locally filtered Baits against the shared Taxonomic Reference Database
+    // Search locally filtered baits against the shared taxonomic reference database
     ch_blast_inputs = ch_screening_inputs
         .combine(ch_taxonomic_reference_db)
         .combine(ch_kmer_size)
@@ -18,7 +18,7 @@ workflow TAXONOMIC_EXACT_MATCH_SCREENING {
         }
     BLASTN_TAXONOMIC_SCREENING(ch_blast_inputs)
 
-    // Apply the Allowed Taxonomic Scope
+    // Apply the allowed taxonomic scope
     ch_screening_interpreter_inputs = BLASTN_TAXONOMIC_SCREENING.out.hits
         .join(ch_screening_inputs)
         .combine(ch_kmer_size)

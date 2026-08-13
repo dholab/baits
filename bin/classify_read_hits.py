@@ -60,11 +60,11 @@ class CandidateReadClassificationError(ValueError):
 
     @classmethod
     def malformed_candidates(cls, path: Path) -> CandidateReadClassificationError:
-        return cls(f"Candidate-read counts are malformed: {path}")
+        return cls(f"Candidate read counts are malformed: {path}")
 
     @classmethod
     def duplicate_identity(cls) -> CandidateReadClassificationError:
-        return cls("Candidate-read identity is duplicated")
+        return cls("Candidate read identity is duplicated")
 
     @classmethod
     def malformed_hits(cls, path: Path) -> CandidateReadClassificationError:

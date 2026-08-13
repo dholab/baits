@@ -1,5 +1,5 @@
 nextflow_process {
-    name "Build Candidate K-mer tables process"
+    name "Build candidate k-mer tables process"
     script "../../modules/local/build_candidate_tables/main.nf"
     process "BUILD_CANDIDATE_TABLES"
     test("builds complete source-faithful candidate evidence") {
