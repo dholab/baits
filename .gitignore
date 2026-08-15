@@ -23,6 +23,9 @@
 !/conf/
 !/conf/*.config
 
+!/docs/
+!/docs/*.md
+
 # Bounded source and test layouts
 !/assets/
 !/assets/*.csv

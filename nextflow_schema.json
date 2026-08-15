@@ -41,7 +41,7 @@
                     "format": "file-path",
                     "exists": true,
                     "pattern": "^\\S+\\.(fa|fasta|fna)(\\.gz)?$",
-                    "description": "Path to the interference background FASTA."
+                    "description": "Path to the background FASTA used for exact-match cancellation."
                 },
                 "calibration_reads": {
                     "type": "string",

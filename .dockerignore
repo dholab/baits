@@ -16,6 +16,7 @@
 CONTEXT.md
 com/
 dist/
-docs/
+docs/*
+!docs/designs.md
 results/
 work/

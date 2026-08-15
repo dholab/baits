@@ -72,7 +72,7 @@ nextflow run dholab/baits \
     --taxon_ref_db /path/to/blast/database
 ```
 
-Run `nextflow run dholab/baits -r main --help` for the full parameter list. The design and query-rule schemas live under [`assets/`](assets/).
+Run `nextflow run dholab/baits -r main --help` for the full parameter list. The design and query-rule schemas live under [`assets/`](assets/). See [Curated sequences and targeted designs](docs/designs.md) for a practical guide to the two input systems.
 
 ## Containers and Dependencies
 
