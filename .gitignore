@@ -19,6 +19,7 @@
 
 # Bounded source and test layouts
 !/assets/
+!/assets/*.csv
 !/assets/*.json
 !/assets/*.tsv
 

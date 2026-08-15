@@ -1,67 +1,127 @@
 # dholab/baits
 
-`dholab/baits` will build auditable bait sets of clean k-mers for biological targets. It will remove candidate k-mers that have exact matches in configured interference backgrounds. When a taxonomic reference database is supplied, it will then apply taxonomic exact-match screening.
+`dholab/baits` is an nf-core-style bioinformatics pipeline. It takes biological sequences from a particular taxon and boils them down to the set of k-mers--"baits"--that most confidently identify that taxon. Baits are like the *in silico* equivalent of PCR primers or hybrid capture probes. Use them with [Deacon](https://github.com/bede/deacon) to enrich target reads from shotgun reads, remove a known contaminant, or separate out closely related strains.
 
-This repository implements source sequence acquisition, candidate k-mer filtering, optional taxonomic exact-match screening, verified Deacon index construction, and evidence-qualified Deacon threshold calibration. It enumerates canonical candidate k-mers, cancels exact interference background matches, and removes low-complexity k-mers with Deacon to produce a locally filtered bait set when survivors remain. When supplied a taxonomic reference database, it screens those baits with full-length exact BLAST matches under the target taxon.
+## Overview
 
-For one curated run, supply a curated source sequence FASTA, the target taxon, and one interference background FASTA:
+`dholab/baits` is a generalization of the idea developed in our study [*Putative Cyclospora cayetanensis detection in wastewater metagenomic datasets*](https://github.com/dholab/cyclospora-in-wastewater-metagenomics), where we identified a set of 1,670 baits that could be used to identify *Cyclospora cayetanensis* in large wastewater mixtures. With `dholab/baits` and the right choice of reference databases, users can identify baits for any taxon.
+
+`dholab/baits` offers three major operations for each target taxon. First, all k-mer subsequences from the provided source sequences are checked against a "background", which can be any reference in FASTA format. For the aforementioned *Cyclospora* study, the ribosomal rRNA databases SILVA and Rfam together with NCBI GenBank *Cyclospora* sequences comprised the background. Any k-mers from the source sequences that are present in the background are rejected. Give `dholab/baits` source sequences and a background, and it will find the source k-mers that distinguish it from the background.
+
+K-mers that are absent from the background are filtered for low complexity. The survivors can then go through the second operation: an exact, taxonomically informed screening against NCBI Core NT. Core NT can be swapped for another taxonomic BLAST database, and this step can also be skipped. If a database is provided, k-mers matching sequences from any taxon other than the target are rejected.
+
+Third, `dholab/baits` can use provided sequencing reads to estimate how many bait matches are required before off-target hits go to zero. For many sequencing reads, a single bait match may still allow off-target hits. In the *Cyclospora* study, we found that requiring 20 bait matches reduced off-target hits to zero in the tested reads. `dholab/baits` can help you calibrate your own threshold for your own baits and your own data.
+
+In summary, `dholab/baits` allows you to bring your own source sequences, your own background reference, your own BLAST-compatible taxonomic database, and your own calibration reads. In return, it gives you k-mer baits to confidently identify your taxon and the number of bait matches you should require to call a detection "good".
+
+## Quick Start
+
+Install [Nextflow](https://www.nextflow.io/docs/latest/install.html) and [Docker](https://docs.docker.com/engine/install/), then launch the pipeline from the directory where you want its results and work files:
 
 ```bash
 nextflow run dholab/baits \
-    --source_sequences sources.fasta \
+    -r main \
+    -profile docker \
+    --source_sequences source_sequences.fasta \
     --target_taxid 88456 \
-    --interference_background interference.fasta
+    --background background.fasta
 ```
 
-Add `--taxonomic_reference_db taxonomic_reference_db` to run taxonomic exact-match screening.
+Nextflow fetches and caches the pipeline under `$NXF_HOME/assets` (normally `~/.nextflow/assets`), so users do not need to clone this repository. Here, `88456` is the NCBI taxonomy ID for *C. cayetanensis*; substitute the ID for your target taxon. The bait FASTA is written under `results/<id>/04_bait_sets/`, and a verified Deacon index and its report are written under `results/<id>/05_deacon_index/`.
 
-To calibrate the Deacon absolute threshold, also supply `--optimization_read_set optimization_reads`. This must be a flat directory containing single-end `<metagenome>.fastq[.gz]` files or complete `<metagenome>_R1.fastq[.gz]` and `<metagenome>_R2.fastq[.gz]` pairs. Calibration runs only for a taxonomically screened bait set backed by its verified Deacon index and the taxonomic reference database.
+The example follows the current `main` branch. For reproducible analyses, replace `main` with a release tag or immutable commit revision.
 
-For one or more executions, use `--input` with a CSV samplesheet. See `assets/schema_input.json` for its columns. Query-guided rows refer to a separate query-rules TSV defined by `assets/schema_query_rules.json`.
+## Pipeline Configuration
 
-Successful curated and query-guided source sequence acquisition publishes `results/<id>/01_source_sequences/source_sequences.fasta`. Query-guided discovery also publishes `candidate_loci.tsv`, `query_blast_hits.tsv`, and `discovery_status.tsv`. The internal `source_sequence_query_groups.tsv` table is generated for downstream stages but is not published.
+A basic run needs source sequences, an NCBI taxonomy ID, and a background FASTA. These are the parameters most users will control:
 
-Whenever source sequence acquisition continues to filtering, `results/<id>/02_candidate_kmers/` contains the complete `candidate_kmers.tsv` manifest, `candidate_kmer_occurrences.tsv`, and `filtering_status.tsv`. These tables remain published for biological terminal results. A nonempty local result additionally publishes `results/<id>/04_bait_sets/locally_filtered_baits.fasta`.
+| Parameter | Default | Purpose |
+|---|---|---|
+| `--input` | — | Design CSV for multiple designs or query-guided discovery; replaces the direct-run inputs below. |
+| `--source_sequences` | — | Source-sequence FASTA for one direct run. |
+| `--target_taxid` | — | NCBI taxonomy ID for the target taxon. |
+| `--background` | — | FASTA containing sequences that the baits must not match. |
+| `--id` | FASTA basename | Name used for the design and its results directory. |
+| `--taxon_ref_db` | not run | Directory containing an optional taxonomic BLAST database. |
+| `--calibration_reads` | not run | Flat FASTQ directory used to estimate a Deacon threshold. Requires `--taxon_ref_db`. |
+| `--kmer_size` | `31` | Length of each candidate k-mer. |
+| `--deacon_window` | `1` | Deacon minimizer window length. |
+| `--entropy_threshold` | `0.6` | Minimum scaled entropy used for low-complexity filtering. |
 
-Taxonomic exact-match screening is optional and uses the supplied taxonomic reference database directory. BLAST searches use `-task blastn -word_size <kmer_size> -ungapped -perc_identity 100 -qcov_hsp_perc 100 -dust no`; an exact match outside the target taxon or without a usable taxonomic assignment rejects that bait. Screening publishes its hits, decisions, status, nonempty taxonomically screened bait set, and the database's unparsed `blastdbcmd -info` self-report.
-
-The pipeline builds one Deacon index from the deepest justified nonempty bait set. It verifies that the index reproduces the bait sequence set at `-a 1 -r 0` and retains no interference background records. The final bait set status is published in `04_bait_sets/`; the index, machine-readable verification summary, and readable report are published in `05_deacon_index/`.
-
-Calibration publishes per-read and read-fragment-wide distinct-bait counts, whole-read BLAST evidence, classifications, threshold counts and retention curves, and `threshold_summary.tsv` in `06_calibration/`. For paired-end data, the fragment-wide count is the union across mates and is the value compared with Deacon `-a`. The summary reports a recommended Deacon absolute threshold when supported, or the evidence-limited status `SPECIFICITY_FLOOR`, `NO_CLASSIFIED_READS`, or `NO_CANDIDATE_READS`. Optimization read set file identities and SHA-256 digests are included in `07_provenance/inputs.tsv`; fixed Deacon, BLAST, and tie-tolerance settings are added to `parameters.tsv` when calibration runs.
-
-If query-guided discovery finds no accepted candidate locus for one or more configured query groups, the run succeeds as a terminal scientific result for that design. It publishes BLAST hits, candidate loci, and query group status, but no provisional source sequence FASTA.
-
-`assets/cyclospora_rrna_query_rules.tsv` contains the real query configuration from the Cyclospora rRNA study. It is not a test fixture and does not include the reference sequence files required to run the study.
-
-Run the pipeline with Nextflow:
+For a complete direct run with taxonomic screening and threshold calibration:
 
 ```bash
-nextflow run dholab/baits --help
-nextflow run dholab/baits --version
+nextflow run dholab/baits \
+    -r main \
+    -profile docker \
+    --id my_design \
+    --source_sequences source_sequences.fasta \
+    --target_taxid 88456 \
+    --background background.fasta \
+    --taxon_ref_db /path/to/blast/database \
+    --calibration_reads reads/
 ```
+
+Use `--input designs.csv` instead of the direct source, taxon, and background parameters for multiple designs or query-guided source discovery. Copy and edit [`assets/example_designs.csv`](assets/example_designs.csv), then run:
+
+```bash
+nextflow run dholab/baits \
+    -r main \
+    -profile docker \
+    --input designs.csv \
+    --taxon_ref_db /path/to/blast/database
+```
+
+Run `nextflow run dholab/baits -r main --help` for the full parameter list. The design and query-rule schemas live under [`assets/`](assets/).
+
+## Containers and Dependencies
+
+Remote runs require Nextflow and a supported container runtime on the host. Each process declares a pinned container image, which Nextflow and the selected runtime fetch automatically. No Pixi environment or source checkout is required.
+
+The commands above select the bundled `docker` profile, which enables Docker while retaining Nextflow's local executor. On a cluster with [Apptainer](https://apptainer.org/docs/admin/latest/installation.html), select `-profile apptainer` instead. Executor, queue, and storage settings can be supplied separately through the site's Nextflow configuration.
+
+No runtime profile is selected automatically. Without one, tasks run in the host environment using Nextflow's default local executor; this is primarily useful for contributors working inside the Pixi environment or for users who manage every dependency themselves.
+
+The main software components are:
+
+| Component | Role |
+|---|---|
+| [Nextflow](https://www.nextflow.io/) | Host-side workflow runner that fetches the pipeline and orchestrates local or cluster execution. |
+| [Meryl](https://github.com/marbl/meryl) | Counts source k-mers and finds exact occurrences in the background. |
+| [Deacon](https://github.com/bede/deacon) | Filters low-complexity k-mers and builds the final read-filtering index. |
+| [BLAST+](https://blast.ncbi.nlm.nih.gov/doc/blast-help/downloadblastdata.html) | Locates source sequences, screens baits taxonomically, and classifies calibration reads. |
+| [Biopython](https://biopython.org/) and [Polars](https://pola.rs/) | Parse sequence data and construct the pipeline's evidence tables. |
+
+Reference databases and sequencing reads remain user-supplied. In particular, the pipeline does not download or manage a taxonomic BLAST database such as `core_nt`.
 
 ## Development
 
-Pixi provides the locked development and test environments. It is not required to run the pipeline.
-
-Install the development environments:
+Pixi is intended for contributors working from a source checkout. It provides locked environments for development on macOS ARM and Linux. Install them with:
 
 ```bash
 pixi install --locked
 ```
 
-Inspect the local checkout:
+The repository follows nf-core's modular Nextflow conventions: `main.nf` is the entry point, `workflows/` and `subworkflows/` compose the analysis, and `modules/` contains individual processes. The pipeline reuses nf-core modules where their contracts fit and keeps project-specific processes under `modules/local/`. [nf-schema](https://nextflow-io.github.io/nf-schema/latest/) validates command-line parameters and design CSVs against the schemas under `assets/`.
+
+Inspect the local checkout with:
 
 ```bash
 pixi run nextflow run . --help
 pixi run nextflow run . --version
 ```
 
-Run the project tests:
+Pure Python tests cover scientific transformations and input contracts. nf-test exercises modules, subworkflows, and complete pipeline paths; Ruff and ty provide static checks.
 
 ```bash
-pixi run --environment dev nf-test test
 pixi run --environment dev test-python
+pixi run --environment dev lint-python
+pixi run --environment dev typecheck-python
+pixi run --environment dev nf-test test
 ```
 
-The project uses nf-core-compatible components, nf-schema for parameter validation, and nf-test for workflow tests.
+Pass a test file to nf-test when working on one pipeline path:
+
+```bash
+pixi run --environment dev nf-test test tests/filter_candidate_kmers.nf.test
+```
