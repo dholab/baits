@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/nf-core/modules/master/modules/meta-schema.json
 name: prepare_read_blast_queries
-description: Prepare strand-deduplicated whole-read BLAST queries for one design.
+description: Prepare strand-deduplicated read BLAST queries for one design.
 keywords:
   - blast
   - reads
@@ -37,7 +37,7 @@ output:
           description: Design metadata.
       - candidate_read_counts.tsv:
           type: file
-          description: Per-read and read fragment-wide distinct bait counts for each candidate read.
+          description: Bait count for each candidate read.
           pattern: candidate_read_counts.tsv
           ontologies:
             - edam: http://edamontology.org/format_3475 # TSV
@@ -55,19 +55,19 @@ output:
     - - meta:
           type: map
           description: Design metadata.
-      - whole_read_queries.fasta:
+      - read_queries.fasta:
           type: file
-          description: Optional strand-deduplicated whole-read BLAST query FASTA.
-          pattern: whole_read_queries.fasta
+          description: Optional strand-deduplicated read BLAST query FASTA.
+          pattern: read_queries.fasta
           ontologies: []
   terminal_blast_hits:
     - - meta:
           type: map
           description: Design metadata.
-      - whole_read_blast_hits.tsv:
+      - read_blast_hits.tsv:
           type: file
-          description: Empty whole-read BLAST table when there are no candidate reads.
-          pattern: whole_read_blast_hits.tsv
+          description: Empty read BLAST table when there are no candidate reads.
+          pattern: read_blast_hits.tsv
           ontologies:
             - edam: http://edamontology.org/format_3475 # TSV
   terminal_classified_reads:
@@ -88,16 +88,6 @@ output:
           type: file
           description: Zero-valued threshold counts when there are no candidate reads.
           pattern: threshold_read_counts.tsv
-          ontologies:
-            - edam: http://edamontology.org/format_3475 # TSV
-  terminal_curve:
-    - - meta:
-          type: map
-          description: Design metadata.
-      - threshold_curve.tsv:
-          type: file
-          description: Zero-valued retention curve when there are no candidate reads.
-          pattern: threshold_curve.tsv
           ontologies:
             - edam: http://edamontology.org/format_3475 # TSV
   terminal_summary:

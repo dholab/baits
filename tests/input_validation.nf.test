@@ -89,25 +89,22 @@ discovery,88456,,$baseDir/tests/data/representative_queries.fasta,$baseDir/tests
         }
     }
 
-    test("accepts per-design calibration reads without running calibration alone") {
+    test("rejects calibration reads without a taxonomic reference database") {
         setup {
-            new File("$outputDir/optimization_reads").mkdirs()
-            new File("$outputDir/optimization_reads/sample.fastq").text = '@fragment\nACGTA\n+\nIIIII\n'
-            new File("$outputDir/optimization.csv").text = """id,target_taxid,curated_source_sequences,representative_queries,query_rules,target_assembly,background,calibration_reads
-optimized,88456,$baseDir/tests/data/curated_source_sequences.fasta,,,,$baseDir/tests/data/interference_background.fasta,$outputDir/optimization_reads
+            new File("$outputDir/calibration_reads").mkdirs()
+            new File("$outputDir/calibration_reads/sample.fastq").text = '@fragment\nACGTA\n+\nIIIII\n'
+            new File("$outputDir/calibration.csv").text = """id,target_taxid,curated_source_sequences,representative_queries,query_rules,target_assembly,background,calibration_reads
+optimized,88456,$baseDir/tests/data/curated_source_sequences.fasta,,,,$baseDir/tests/data/interference_background.fasta,$outputDir/calibration_reads
 """
         }
         when {
             params {
-                input = "$outputDir/optimization.csv"
+                input = "$outputDir/calibration.csv"
             }
         }
         then {
-            assert workflow.success
-            def runDir = new File(outputDir).parent
-            def design = new File("$runDir/results/optimized")
-            assert new File(design, '07_provenance/inputs.tsv').text.contains('optimization_read\toptimized__sample\tfilename\tsample.fastq')
-            assert !new File(design, '06_calibration').exists()
+            assert workflow.failed
+            assert workflow.stdout.join('\n').contains('calibration_reads requires taxon_ref_db')
         }
     }
 }

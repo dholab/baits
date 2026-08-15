@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/nf-core/modules/master/modules/meta-schema.json
-name: calibrate_deacon_threshold_evidence
-description: Sweep candidate read evidence to calibrate a Deacon absolute threshold.
+name: calibrate_threshold
+description: Sweep classified calibration reads to recommend a threshold.
 keywords:
   - deacon
   - threshold
@@ -19,7 +19,7 @@ input:
         description: Design metadata.
     - classified_reads:
         type: file
-        description: Candidate reads with whole-read classifications.
+        description: Classified calibration reads.
         ontologies: []
     - preparation_summary:
         type: file
@@ -32,18 +32,8 @@ output:
           description: Design metadata.
       - threshold_read_counts.tsv:
           type: file
-          description: Read-class counts at each absolute threshold.
+          description: Read-class counts at each threshold.
           pattern: threshold_read_counts.tsv
-          ontologies:
-            - edam: http://edamontology.org/format_3475 # TSV
-  curve:
-    - - meta:
-          type: map
-          description: Design metadata.
-      - threshold_curve.tsv:
-          type: file
-          description: Retained metagenome and fragment counts by threshold.
-          pattern: threshold_curve.tsv
           ontologies:
             - edam: http://edamontology.org/format_3475 # TSV
   summary:
@@ -52,7 +42,7 @@ output:
           description: Design metadata.
       - threshold_summary.tsv:
           type: file
-          description: Threshold recommendation, floor, or evidence-limited result.
+          description: Threshold recommendation or unsupported result.
           pattern: threshold_summary.tsv
           ontologies:
             - edam: http://edamontology.org/format_3475 # TSV

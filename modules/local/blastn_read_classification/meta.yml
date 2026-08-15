@@ -1,5 +1,5 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/nf-core/modules/master/modules/meta-schema.json
-name: blastn_whole_read_classification
+name: blastn_read_classification
 description: Align strand-deduplicated candidate reads against a taxonomic reference database.
 keywords:
   - blast
@@ -19,7 +19,7 @@ input:
         description: Design metadata.
     - queries:
         type: file
-        description: Strand-deduplicated whole-read BLAST query FASTA.
+        description: Strand-deduplicated read BLAST query FASTA.
         ontologies: []
     - taxonomic_reference_db:
         type: directory
@@ -29,10 +29,10 @@ output:
     - - meta:
           type: map
           description: Design metadata.
-      - whole_read_blast_hits.tsv:
+      - read_blast_hits.tsv:
           type: file
-          description: Headered whole-read BLAST evidence.
-          pattern: whole_read_blast_hits.tsv
+          description: Headered read BLAST evidence.
+          pattern: read_blast_hits.tsv
           ontologies:
             - edam: http://edamontology.org/format_3475 # TSV
   versions_blast:

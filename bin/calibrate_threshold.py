@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Calibrate a Deacon absolute threshold from classified candidate reads."""
+"""Calibrate a threshold from classified candidate reads."""
 
 from __future__ import annotations
 
@@ -16,31 +16,29 @@ if TYPE_CHECKING:
     from collections.abc import Sequence
 
 CLASSIFIED_FIELDS = (
-    "metagenome_id", "fragment_id", "mate", "read_length", "distinct_bait_count",
-    "fragment_distinct_bait_count", "representative_id", "classification",
+    "metagenome_id", "fragment_id", "mate", "read_length", "bait_count",
+    "representative_id", "classification",
     "best_target_bit_score", "best_non_target_bit_score",
 )
 PREPARATION_METRICS = (
     "design_id", "deacon_returned_read_count", "duplicate_fragment_count",
-    "zero_bait_read_count", "candidate_read_count", "whole_read_blast_query_count",
+    "zero_bait_read_count", "candidate_read_count", "read_blast_query_count",
 )
 SUMMARY_METRICS = (
     *PREPARATION_METRICS, "target_classified_read_count", "non_target_classified_read_count",
     "tied_read_count", "no_hit_read_count", "calibration_status",
-    "recommended_deacon_absolute_threshold", "specificity_floor", "conclusion",
+    "recommended_threshold", "conclusion",
 )
 READ_COUNT_FIELDS = (
     "threshold", "target_read_count", "non_target_read_count", "tied_read_count",
     "no_hit_read_count",
 )
-CURVE_FIELDS = ("threshold", "retained_metagenome_count", "retained_fragment_count")
 CLASSIFIED_SCHEMA = {
     "metagenome_id": pl.String,
     "fragment_id": pl.String,
     "mate": pl.String,
     "read_length": pl.Int64,
-    "distinct_bait_count": pl.Int64,
-    "fragment_distinct_bait_count": pl.Int64,
+    "bait_count": pl.Int64,
     "representative_id": pl.String,
     "classification": pl.String,
     "best_target_bit_score": pl.String,
@@ -60,10 +58,6 @@ class DeaconThresholdCalibrationError(ValueError):
         return cls("Classified-read identity is duplicated")
 
     @classmethod
-    def fragment_disagreement(cls) -> DeaconThresholdCalibrationError:
-        return cls("Classified-read fragment-wide bait counts disagree")
-
-    @classmethod
     def no_classified_reads(cls) -> DeaconThresholdCalibrationError:
         return cls("Classified-read evidence must contain at least one candidate read")
 
@@ -81,9 +75,8 @@ class DeaconThresholdCalibrationError(ValueError):
 
 
 class CalibrationStatus(StrEnum):
-    NO_CLASSIFIED_READS = "NO_CLASSIFIED_READS"
-    RECOMMENDED_DEACON_ABSOLUTE_THRESHOLD = "RECOMMENDED_DEACON_ABSOLUTE_THRESHOLD"
-    SPECIFICITY_FLOOR = "SPECIFICITY_FLOOR"
+    RECOMMENDED_THRESHOLD = "RECOMMENDED_THRESHOLD"
+    NO_SUPPORTED_THRESHOLD = "NO_SUPPORTED_THRESHOLD"
 
 
 @dataclass(frozen=True)
@@ -93,32 +86,29 @@ class PreparationSummary:
     duplicate_fragment_count: int
     zero_bait_read_count: int
     candidate_read_count: int
-    whole_read_blast_query_count: int
+    read_blast_query_count: int
 
 
 @dataclass(frozen=True)
 class CalibrationConclusion:
     status: CalibrationStatus
     recommended_threshold: int | None
-    specificity_floor: int | None
     conclusion: str
 
 
 @dataclass(frozen=True)
 class ThresholdCalibration:
     read_counts: pl.LazyFrame
-    curve: pl.LazyFrame
     summary: pl.LazyFrame
     conclusion: CalibrationConclusion
 
 
 def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Calibrate a Deacon absolute threshold.")
+    parser = argparse.ArgumentParser(description="Calibrate a threshold.")
     parser.add_argument("--design-id", required=True)
     parser.add_argument("--classified-reads", type=Path, required=True)
     parser.add_argument("--preparation-summary", type=Path, required=True)
     parser.add_argument("--read-counts-out", type=Path, required=True)
-    parser.add_argument("--curve-out", type=Path, required=True)
     parser.add_argument("--summary-out", type=Path, required=True)
     return parser.parse_args(argv)
 
@@ -143,16 +133,13 @@ def classified_read_errors(reads: pl.LazyFrame) -> pl.LazyFrame:
         pl.col("representative_id").is_not_null(),
         pl.col("classification").is_not_null(),
         pl.col("read_length").is_not_null(),
-        pl.col("distinct_bait_count").is_not_null(),
-        pl.col("fragment_distinct_bait_count").is_not_null(),
+        pl.col("bait_count").is_not_null(),
         pl.col("metagenome_id").str.strip_chars().str.len_chars() > 0,
         pl.col("fragment_id").str.strip_chars().str.len_chars() > 0,
         pl.col("representative_id").str.strip_chars().str.len_chars() > 0,
         pl.col("mate").is_in(("", "1", "2")),
         pl.col("read_length") > 0,
-        pl.col("distinct_bait_count") > 0,
-        pl.col("fragment_distinct_bait_count") > 0,
-        pl.col("fragment_distinct_bait_count") >= pl.col("distinct_bait_count"),
+        pl.col("bait_count") > 0,
         pl.col("classification").is_in(("TARGET", "NON_TARGET", "TIED", "NO_HIT")),
     )
     return pl.concat(
@@ -163,11 +150,6 @@ def classified_read_errors(reads: pl.LazyFrame) -> pl.LazyFrame:
             reads.group_by("metagenome_id", "fragment_id", "mate").len().filter(
                 pl.col("len") > 1,
             ).with_columns(pl.lit("duplicate_identity").alias("error")).select("error"),
-            reads.group_by("metagenome_id", "fragment_id").agg(
-                pl.col("fragment_distinct_bait_count").n_unique().alias("count"),
-            ).filter(pl.col("count") > 1).with_columns(
-                pl.lit("fragment_disagreement").alias("error"),
-            ).select("error"),
         ],
         how="vertical",
     )
@@ -193,8 +175,6 @@ def construct_classified_reads(path: Path) -> pl.LazyFrame:
     match error:
         case "duplicate_identity":
             raise DeaconThresholdCalibrationError.duplicate_identity()
-        case "fragment_disagreement":
-            raise DeaconThresholdCalibrationError.fragment_disagreement()
         case None:
             return reads
         case _:
@@ -235,30 +215,23 @@ def construct_preparation_summary(path: Path, design_id: str) -> PreparationSumm
 
 
 def conclusion_from_counts(read_counts: pl.DataFrame) -> CalibrationConclusion:
-    first = read_counts.row(0, named=True)
-    if first["target_read_count"] + first["non_target_read_count"] + first["tied_read_count"] == 0:
+    supported = read_counts.filter(
+        (pl.col("target_read_count") > 0)
+        & (pl.col("non_target_read_count") == 0)
+        & (pl.col("tied_read_count") == 0)
+        & (pl.col("no_hit_read_count") == 0),
+    )
+    if supported.height:
+        threshold = supported.item(0, "threshold")
         return CalibrationConclusion(
-            CalibrationStatus.NO_CLASSIFIED_READS,
-            None,
-            None,
-            "Every candidate read is a no-hit read; no threshold is supported.",
-        )
-    clean = read_counts.filter(
-        (pl.col("non_target_read_count") == 0) & (pl.col("tied_read_count") == 0),
-    ).row(0, named=True)
-    threshold = clean["threshold"]
-    if clean["target_read_count"] > 0:
-        return CalibrationConclusion(
-            CalibrationStatus.RECOMMENDED_DEACON_ABSOLUTE_THRESHOLD,
+            CalibrationStatus.RECOMMENDED_THRESHOLD,
             threshold,
-            None,
-            f"The recommended Deacon absolute threshold is {threshold} for this optimization read set.",
+            f"The recommended threshold is {threshold} for these calibration reads.",
         )
     return CalibrationConclusion(
-        CalibrationStatus.SPECIFICITY_FLOOR,
+        CalibrationStatus.NO_SUPPORTED_THRESHOLD,
         None,
-        threshold,
-        f"The specificity floor is {threshold}; no target-classified read remains.",
+        "No threshold is supported by these calibration reads.",
     )
 
 
@@ -273,12 +246,11 @@ def summary_relation(preparation: PreparationSummary, totals: pl.DataFrame, conc
                     preparation.duplicate_fragment_count,
                     preparation.zero_bait_read_count,
                     preparation.candidate_read_count,
-                    preparation.whole_read_blast_query_count,
+                    preparation.read_blast_query_count,
                 )),
                 *(str(totals.item(0, field)) for field in READ_COUNT_FIELDS[1:]),
                 conclusion.status.value,
                 "" if conclusion.recommended_threshold is None else str(conclusion.recommended_threshold),
-                "" if conclusion.specificity_floor is None else str(conclusion.specificity_floor),
                 conclusion.conclusion,
             ),
         },
@@ -292,11 +264,11 @@ def construct_threshold_calibration(
     reads = classified_reads.collect()
     if reads.height != preparation.candidate_read_count:
         raise DeaconThresholdCalibrationError.candidate_count_mismatch()
-    maximum = cast("int", reads.get_column("fragment_distinct_bait_count").max())
+    maximum = cast("int", reads.get_column("bait_count").max())
     thresholds = pl.DataFrame({"threshold": range(1, maximum + 2)}).lazy()
     evidence = reads.lazy()
     retained = thresholds.join(evidence, how="cross").filter(
-        pl.col("fragment_distinct_bait_count") >= pl.col("threshold"),
+        pl.col("bait_count") >= pl.col("threshold"),
     )
     read_counts = thresholds.join(
         retained.group_by("threshold").agg(
@@ -308,24 +280,10 @@ def construct_threshold_calibration(
         on="threshold",
         how="left",
     ).with_columns(pl.all().exclude("threshold").fill_null(0)).select(READ_COUNT_FIELDS).sort("threshold")
-    fragments = evidence.select(
-        "metagenome_id", "fragment_id", "fragment_distinct_bait_count",
-    ).unique()
-    curve = thresholds.join(
-        thresholds.join(fragments, how="cross").filter(
-            pl.col("fragment_distinct_bait_count") >= pl.col("threshold"),
-        ).group_by("threshold").agg(
-            pl.col("metagenome_id").n_unique().alias("retained_metagenome_count"),
-            pl.len().alias("retained_fragment_count"),
-        ),
-        on="threshold",
-        how="left",
-    ).with_columns(pl.all().exclude("threshold").fill_null(0)).select(CURVE_FIELDS).sort("threshold")
     materialized_counts = read_counts.collect()
-    materialized_curve = curve.collect()
     conclusion = conclusion_from_counts(materialized_counts)
     summary = summary_relation(preparation, materialized_counts.head(1), conclusion)
-    return ThresholdCalibration(materialized_counts.lazy(), materialized_curve.lazy(), summary, conclusion)
+    return ThresholdCalibration(materialized_counts.lazy(), summary, conclusion)
 
 
 def main(argv: Sequence[str] | None = None) -> None:
@@ -334,7 +292,6 @@ def main(argv: Sequence[str] | None = None) -> None:
     preparation = construct_preparation_summary(args.preparation_summary, args.design_id)
     calibration = construct_threshold_calibration(classified_reads, preparation)
     calibration.read_counts.collect().write_csv(args.read_counts_out, separator="\t", quote_style="never")
-    calibration.curve.collect().write_csv(args.curve_out, separator="\t", quote_style="never")
     calibration.summary.collect().write_csv(args.summary_out, separator="\t", quote_style="never")
 
 

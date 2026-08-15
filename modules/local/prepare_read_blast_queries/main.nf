@@ -11,11 +11,10 @@ process PREPARE_READ_BLAST_QUERIES {
     output:
     tuple val(meta), path('candidate_read_counts.tsv'), emit: candidate_read_counts
     tuple val(meta), path('preparation_summary.tsv'), emit: preparation_summary
-    tuple val(meta), path('whole_read_queries.fasta'), optional: true, emit: queries
-    tuple val(meta), path('whole_read_blast_hits.tsv'), optional: true, emit: terminal_blast_hits
+    tuple val(meta), path('read_queries.fasta'), optional: true, emit: queries
+    tuple val(meta), path('read_blast_hits.tsv'), optional: true, emit: terminal_blast_hits
     tuple val(meta), path('classified_reads.tsv'), optional: true, emit: terminal_classified_reads
     tuple val(meta), path('threshold_read_counts.tsv'), optional: true, emit: terminal_read_counts
-    tuple val(meta), path('threshold_curve.tsv'), optional: true, emit: terminal_curve
     tuple val(meta), path('threshold_summary.tsv'), optional: true, emit: terminal_summary
     tuple val("${task.process}"), val('biopython'), eval("python -c 'import Bio; print(Bio.__version__)'"), topic: versions, emit: versions_biopython
     tuple val("${task.process}"), val('polars'), eval("python -c 'import polars; print(polars.__version__)'"), topic: versions, emit: versions_polars
@@ -34,12 +33,11 @@ process PREPARE_READ_BLAST_QUERIES {
         --fastas ${sorted_fastas.join(' ')} \
         --statuses ${sorted_statuses.join(' ')} \
         --candidate-counts-out candidate_read_counts.tsv \
-        --query-out whole_read_queries.fasta \
+        --query-out read_queries.fasta \
         --summary-out preparation_summary.tsv \
-        --terminal-blast-hits-out whole_read_blast_hits.tsv \
+        --terminal-blast-hits-out read_blast_hits.tsv \
         --terminal-classified-reads-out classified_reads.tsv \
         --terminal-read-counts-out threshold_read_counts.tsv \
-        --terminal-curve-out threshold_curve.tsv \
         --terminal-summary-out threshold_summary.tsv
     """
 }

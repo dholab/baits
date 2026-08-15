@@ -2,7 +2,7 @@
 
 include { UTILS_NFSCHEMA_PLUGIN } from './subworkflows/nf-core/utils_nfschema_plugin'
 include { BAITS_MAIN } from './workflows/baits'
-include { RESOLVE_OPTIMIZATION_READS } from './modules/local/resolve_optimization_reads/main'
+include { RESOLVE_CALIBRATION_READS } from './modules/local/resolve_calibration_reads/main'
 
 workflow {
     main:
@@ -47,23 +47,26 @@ workflow {
 
     // Each row becomes [design metadata, normalized input row].
     ch_normalized_rows = ch_rows.map { row ->
+        if (row.calibration_reads && !params.taxon_ref_db) {
+            error "calibration_reads requires taxon_ref_db"
+        }
         tuple(
             [id: row.id, source_sequence_origin: row.curated_source_sequences ? 'curated_input' : 'query_guided_discovery'],
             row,
         )
     }
 
-    ch_optimization_read_sets = ch_normalized_rows
+    ch_calibration_read_sets = ch_normalized_rows
         .filter { meta, row -> row.calibration_reads != null && row.calibration_reads != '' }
         .map { meta, row -> tuple(meta, file(row.calibration_reads)) }
-    ch_without_optimization_keys = ch_normalized_rows
+    ch_without_calibration_keys = ch_normalized_rows
         .filter { meta, row -> row.calibration_reads == null || row.calibration_reads == '' }
         .map { meta, row -> tuple(meta, true) }
-    RESOLVE_OPTIMIZATION_READS(ch_optimization_read_sets)
-    ch_optimization_read_records = RESOLVE_OPTIMIZATION_READS.out.manifest
+    RESOLVE_CALIBRATION_READS(ch_calibration_read_sets)
+    ch_calibration_read_records = RESOLVE_CALIBRATION_READS.out.manifest
         .splitCsv(header: true, sep: '\t', quote: '"', elem: 1)
-    ch_optimization_reads = ch_optimization_read_records
-        .map { design_meta, row, optimization_read_set ->
+    ch_calibration_reads = ch_calibration_read_records
+        .map { design_meta, row, calibration_read_set ->
             def read_meta = [
                 id: row.id,
                 design_id: row.design_id,
@@ -71,12 +74,12 @@ workflow {
             ]
             def reads = [row.read_1, row.read_2]
                 .findAll { read_name -> read_name }
-                .collect { read_name -> file(optimization_read_set.resolve(read_name)) }
+                .collect { read_name -> file(calibration_read_set.resolve(read_name)) }
             tuple(design_meta, read_meta, reads)
         }
     // Aggregate [facts, roles, IDs, kinds, files] for each design's read files.
-    ch_optimization_read_file_facts = ch_optimization_read_records
-        .map { design_meta, row, optimization_read_set ->
+    ch_calibration_read_file_facts = ch_calibration_read_records
+        .map { design_meta, row, calibration_read_set ->
             def readNames = [row.read_1, row.read_2].findAll { readName -> readName }
             def mates = readNames.size() == 1 ? ['single'] : ['R1', 'R2']
             def inputIds = mates.collect { mate ->
@@ -84,15 +87,15 @@ workflow {
             }
             def inputFacts = inputIds.indices.collectMany { index ->
                 [
-                    [input_role: 'optimization_read', input_id: inputIds[index], attribute: 'metagenome_id', value: row.metagenome_id],
-                    [input_role: 'optimization_read', input_id: inputIds[index], attribute: 'mate', value: mates[index]],
+                    [input_role: 'calibration_read', input_id: inputIds[index], attribute: 'metagenome_id', value: row.metagenome_id],
+                    [input_role: 'calibration_read', input_id: inputIds[index], attribute: 'mate', value: mates[index]],
                 ]
             }
-            def reads = readNames.collect { readName -> file(optimization_read_set.resolve(readName)) }
+            def reads = readNames.collect { readName -> file(calibration_read_set.resolve(readName)) }
             tuple(
                 design_meta,
                 inputFacts,
-                ['optimization_read'] * reads.size(),
+                ['calibration_read'] * reads.size(),
                 inputIds,
                 ['file'] * reads.size(),
                 reads,
@@ -109,8 +112,8 @@ workflow {
                 read_groups.collectMany { reads -> reads },
             )
         }
-    ch_optimization_resolver_versions = RESOLVE_OPTIMIZATION_READS.out.reported_python
-        .join(RESOLVE_OPTIMIZATION_READS.out.reported_polars)
+    ch_calibration_resolver_versions = RESOLVE_CALIBRATION_READS.out.reported_python
+        .join(RESOLVE_CALIBRATION_READS.out.reported_polars)
         .map { meta, python_component, python_version, polars_component, polars_version ->
             tuple(
                 meta,
@@ -120,8 +123,8 @@ workflow {
                 ],
             )
         }
-    ch_optimization_provenance_facts = ch_optimization_read_file_facts
-        .join(ch_optimization_resolver_versions)
+    ch_calibration_provenance_facts = ch_calibration_read_file_facts
+        .join(ch_calibration_resolver_versions)
         .map { meta, input_facts, input_file_roles, input_file_ids, input_file_kinds, input_files, software_versions ->
             tuple(meta, input_facts, input_file_roles, input_file_ids, input_file_kinds, input_files, software_versions)
         }
@@ -187,9 +190,9 @@ workflow {
         ch_entropy_threshold,
         ch_taxonomic_reference_db,
         ch_taxonomic_screening_not_run,
-        ch_optimization_reads,
-        ch_optimization_provenance_facts,
-        ch_without_optimization_keys,
+        ch_calibration_reads,
+        ch_calibration_provenance_facts,
+        ch_without_calibration_keys,
     )
 
 }

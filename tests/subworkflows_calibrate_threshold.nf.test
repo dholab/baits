@@ -1,7 +1,7 @@
 nextflow_workflow {
-    name "Calibrate Deacon threshold subworkflow"
-    script "../subworkflows/local/calibrate_deacon_threshold/main.nf"
-    workflow "CALIBRATE_DEACON_THRESHOLD"
+    name "Calibrate threshold subworkflow"
+    script "../subworkflows/local/calibrate_threshold/main.nf"
+    workflow "CALIBRATE_THRESHOLD"
 
     test("calibrates one target-classified candidate read") {
         setup {
@@ -12,12 +12,12 @@ nextflow_workflow {
             new File("$outputDir/taxonomic_reference_db").mkdirs()
             new File("$outputDir/reference.fasta").text = ">target\n${sequence}\n"
             assert ["pixi", "run", "deacon", "index", "build", "-k", "5", "-w", "1", "-e", "0", "-o", "$outputDir/baits.idx", "$outputDir/baits.fasta"].execute().waitFor() == 0
-            assert ["pixi", "run", "--environment", "dev", "makeblastdb", "-dbtype", "nucl", "-parse_seqids", "-taxid", "88456", "-in", "$outputDir/reference.fasta", "-out", "$outputDir/taxonomic_reference_db/taxonomic"].execute().waitFor() == 0
+            assert ["pixi", "run", "--environment", "dev", "makeblastdb", "-dbtype", "nucl", "-parse_seqids", "-taxid", "1729", "-in", "$outputDir/reference.fasta", "-out", "$outputDir/taxonomic_reference_db/taxonomic"].execute().waitFor() == 0
         }
         when {
             workflow {
                 """
-                input[0] = Channel.of([[id: 'design'], [id: 'design__sample', design_id: 'design', metagenome_id: 'sample'], [file("$outputDir/reads.fastq")], file("$outputDir/baits.fasta"), file("$outputDir/status.tsv"), file("$outputDir/baits.idx"), '88456'])
+                input[0] = Channel.of([[id: 'design'], [id: 'design__sample', design_id: 'design', metagenome_id: 'sample'], [file("$outputDir/reads.fastq")], file("$outputDir/baits.fasta"), file("$outputDir/status.tsv"), file("$outputDir/baits.idx"), '1729'])
                 input[1] = Channel.value(file("$outputDir/taxonomic_reference_db"))
                 input[2] = Channel.value(5)
                 """
@@ -26,9 +26,7 @@ nextflow_workflow {
         then {
             assert workflow.success
             assert workflow.out.summary.size() == 1
-            assert file(workflow.out.summary[0][1]).text.contains('recommended_deacon_absolute_threshold\t1')
-            assert workflow.out.candidate_reads.size() == 1
-            assert workflow.out.deacon_summaries.size() == 1
+            assert file(workflow.out.summary[0][1]).text.contains('recommended_threshold\t1')
         }
     }
 

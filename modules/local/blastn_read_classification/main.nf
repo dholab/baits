@@ -1,4 +1,4 @@
-process BLASTN_WHOLE_READ_CLASSIFICATION {
+process BLASTN_READ_CLASSIFICATION {
     tag "${meta.id}"
     label 'process_medium'
 
@@ -9,7 +9,7 @@ process BLASTN_WHOLE_READ_CLASSIFICATION {
     tuple val(meta), path(queries), path(taxonomic_reference_db, stageAs: 'reference_input/*')
 
     output:
-    tuple val(meta), path('whole_read_blast_hits.tsv'), emit: hits
+    tuple val(meta), path('read_blast_hits.tsv'), emit: hits
     tuple val("${task.process}"), val('blast'), eval('blastn -version 2>&1 | sed "s/^.*blastn: //; s/ .*$//; s/+.*$//"'), topic: versions, emit: versions_blast
     tuple val(meta), val('blast'), eval('blastn -version 2>&1 | sed "s/^.*blastn: //; s/ .*$//; s/+.*$//"'), emit: reported_blast
 
@@ -41,7 +41,7 @@ process BLASTN_WHOLE_READ_CLASSIFICATION {
         exit 1
     fi
 
-    printf 'qseqid\tqlen\tsaccver\tstaxids\tpident\tlength\tmismatch\tgapopen\tqstart\tqend\tsstart\tsend\tevalue\tbitscore\tqcovhsp\tstitle\n' > whole_read_blast_hits.tsv
+    printf 'qseqid\tqlen\tsaccver\tstaxids\tpident\tlength\tmismatch\tgapopen\tqstart\tqend\tsstart\tsend\tevalue\tbitscore\tqcovhsp\tstitle\n' > read_blast_hits.tsv
     blastn \
         -query ${queries} \
         -db "\$db_prefix" \
@@ -50,11 +50,11 @@ process BLASTN_WHOLE_READ_CLASSIFICATION {
         -max_target_seqs 25 \
         -dust no \
         -outfmt '6 qseqid qlen saccver staxids pident length mismatch gapopen qstart qend sstart send evalue bitscore qcovhsp stitle' \
-        >> whole_read_blast_hits.tsv
+        >> read_blast_hits.tsv
     """
 
     stub:
     """
-    printf 'qseqid\tqlen\tsaccver\tstaxids\tpident\tlength\tmismatch\tgapopen\tqstart\tqend\tsstart\tsend\tevalue\tbitscore\tqcovhsp\tstitle\n' > whole_read_blast_hits.tsv
+    printf 'qseqid\tqlen\tsaccver\tstaxids\tpident\tlength\tmismatch\tgapopen\tqstart\tqend\tsstart\tsend\tevalue\tbitscore\tqcovhsp\tstitle\n' > read_blast_hits.tsv
     """
 }

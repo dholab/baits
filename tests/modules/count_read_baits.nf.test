@@ -3,7 +3,7 @@ nextflow_process {
     script "../../modules/local/count_read_baits/main.nf"
     process "COUNT_READ_BAITS"
 
-    test("recounts distinct baits on individual paired reads") {
+    test("counts baits on individual paired reads") {
         setup {
             new File("$outputDir/baits.fasta").text = '>bait\nACGTA\n'
             new File("$outputDir/reads_R1.fastq").text = '@fragment/1\nACGTA\n+\nIIIII\n'

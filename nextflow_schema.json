@@ -2,7 +2,7 @@
     "$schema": "https://json-schema.org/draft/2020-12/schema",
     "$id": "https://raw.githubusercontent.com/dholab/baits/main/nextflow_schema.json",
     "title": "dholab/baits pipeline parameters",
-    "description": "Build auditable bait sets of clean k-mers for biological targets",
+    "description": "Build auditable bait sets for biological targets",
     "type": "object",
     "$defs": {
         "source_sequence_options": {
@@ -47,7 +47,7 @@
                     "type": "string",
                     "format": "directory-path",
                     "exists": true,
-                    "description": "Optional flat FASTQ directory used to calibrate the Deacon absolute threshold."
+                    "description": "Optional flat FASTQ directory used to calibrate a threshold."
                 },
                 "kmer_size": {
                     "type": "integer",
@@ -133,6 +133,10 @@
     "allOf": [
         {"$ref": "#/$defs/source_sequence_options"},
         {"$ref": "#/$defs/taxonomic_screening_options"},
-        {"$ref": "#/$defs/generic_options"}
+        {"$ref": "#/$defs/generic_options"},
+        {
+            "if": {"required": ["calibration_reads"]},
+            "then": {"required": ["taxon_ref_db"]}
+        }
     ]
 }

@@ -63,7 +63,7 @@
                 "type": ["string", "null"],
                 "format": "directory-path",
                 "exists": true,
-                "errorMessage": "calibration_reads must be an existing flat FASTQ directory"
+                "errorMessage": "calibration_reads must be an existing flat calibration-read FASTQ directory"
             }
         },
         "required": ["id", "target_taxid", "background"],

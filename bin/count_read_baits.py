@@ -23,8 +23,7 @@ COUNT_SCHEMA = {
     "fragment_id": pl.String,
     "mate": pl.String,
     "read_length": pl.Int64,
-    "distinct_bait_count": pl.Int64,
-    "fragment_distinct_bait_count": pl.Int64,
+    "bait_count": pl.Int64,
     "candidate_sequence_id": pl.String,
 }
 COMPLEMENT = str.maketrans("ACGTN", "TGCAN")
@@ -92,7 +91,7 @@ class CandidateReadRecount:
 
 def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="Recount distinct baits on individual candidate reads.",
+        description="Count baits on individual candidate reads.",
     )
     parser.add_argument("--metagenome-id", required=True)
     parser.add_argument("--baits", type=Path, required=True)
@@ -170,8 +169,7 @@ def construct_candidate_read_recount(
     fragment_ids: list[str] = []
     mates: list[str] = []
     read_lengths: list[int] = []
-    distinct_bait_counts: list[int] = []
-    fragment_distinct_bait_counts: list[int] = []
+    bait_counts: list[int] = []
     candidate_sequence_ids: list[str] = []
     fasta_records: list[SeqRecord] = []
     seen_fragment_ids: set[str] = set()
@@ -201,13 +199,12 @@ def construct_candidate_read_recount(
         bait_matches = tuple(
             matched_baits(sequence, baits, kmer_size) for sequence in canonical_sequences
         )
-        fragment_bait_count = len(frozenset().union(*bait_matches))
         for mate_index, (sequence, read_baits) in enumerate(
             zip(canonical_sequences, bait_matches, strict=True),
             start=1,
         ):
-            distinct_bait_count = len(read_baits)
-            if distinct_bait_count == 0:
+            bait_count = len(read_baits)
+            if bait_count == 0:
                 zero_bait_read_count += 1
                 continue
             candidate_sequence_id = f"candidate_read_{len(fasta_records) + 1:06d}"
@@ -215,8 +212,7 @@ def construct_candidate_read_recount(
             fragment_ids.append(current_fragment_id)
             mates.append("" if len(records) == 1 else str(mate_index))
             read_lengths.append(len(sequence))
-            distinct_bait_counts.append(distinct_bait_count)
-            fragment_distinct_bait_counts.append(fragment_bait_count)
+            bait_counts.append(bait_count)
             candidate_sequence_ids.append(candidate_sequence_id)
             fasta_records.append(SeqRecord(Seq(sequence), id=candidate_sequence_id, description=""))
 
@@ -226,8 +222,7 @@ def construct_candidate_read_recount(
             fragment_ids,
             mates,
             read_lengths,
-            distinct_bait_counts,
-            fragment_distinct_bait_counts,
+            bait_counts,
             candidate_sequence_ids,
         ),
         schema=COUNT_SCHEMA,

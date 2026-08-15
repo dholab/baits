@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Resolve a flat optimization read set directory into manifest evidence."""
+"""Resolve a flat calibration-read directory into manifest evidence."""
 
 from __future__ import annotations
 
@@ -22,40 +22,40 @@ FASTQ_PATTERN = re.compile(
 )
 
 
-class OptimizationReadSetError(ValueError):
-    """Raised when optimization read set input cannot be resolved safely."""
+class CalibrationReadError(ValueError):
+    """Raised when calibration-read input cannot be resolved safely."""
 
     @classmethod
-    def nested_directory(cls, path: Path) -> OptimizationReadSetError:
-        return cls(f"Optimization read set contains a nested directory: {path.name}")
+    def nested_directory(cls, path: Path) -> CalibrationReadError:
+        return cls(f"Calibration reads contain a nested directory: {path.name}")
 
     @classmethod
-    def no_accepted_fastq_files(cls) -> OptimizationReadSetError:
-        return cls("Optimization read set contains no accepted FASTQ files")
+    def no_accepted_fastq_files(cls) -> CalibrationReadError:
+        return cls("Calibration reads contain no accepted FASTQ files")
 
     @classmethod
-    def duplicate_files(cls, metagenome_id: str, role: str) -> OptimizationReadSetError:
-        return cls(f"Optimization read set has duplicate files for {metagenome_id}: {role}")
+    def duplicate_files(cls, metagenome_id: str, role: str) -> CalibrationReadError:
+        return cls(f"Calibration reads have duplicate files for {metagenome_id}: {role}")
 
     @classmethod
-    def mixed_layout(cls, metagenome_id: str) -> OptimizationReadSetError:
-        return cls(f"Optimization read set mixes single-end and paired files for {metagenome_id}")
+    def mixed_layout(cls, metagenome_id: str) -> CalibrationReadError:
+        return cls(f"Calibration reads mix single-end and paired files for {metagenome_id}")
 
     @classmethod
-    def missing_mate(cls, metagenome_id: str, mate: str) -> OptimizationReadSetError:
-        return cls(f"Optimization read set is missing {mate} for {metagenome_id}")
+    def missing_mate(cls, metagenome_id: str, mate: str) -> CalibrationReadError:
+        return cls(f"Calibration reads are missing {mate} for {metagenome_id}")
 
     @classmethod
-    def invalid_files(cls, metagenome_id: str) -> OptimizationReadSetError:
-        return cls(f"Optimization read set has invalid files for {metagenome_id}")
+    def invalid_files(cls, metagenome_id: str) -> CalibrationReadError:
+        return cls(f"Calibration reads have invalid files for {metagenome_id}")
 
     @classmethod
-    def not_a_directory(cls, path: Path) -> OptimizationReadSetError:
-        return cls(f"Optimization read set is not a directory: {path}")
+    def not_a_directory(cls, path: Path) -> CalibrationReadError:
+        return cls(f"Calibration reads are not a directory: {path}")
 
     @classmethod
-    def invalid_read_count(cls) -> OptimizationReadSetError:
-        return cls("Optimization read set must contain one or two reads")
+    def invalid_read_count(cls) -> CalibrationReadError:
+        return cls("Calibration-read records must contain one or two reads")
 
 
 @dataclass(frozen=True)
@@ -67,34 +67,34 @@ class ResolvedReadSet:
 
     def __post_init__(self) -> None:
         if len(self.reads) not in (1, PAIRED_READ_COUNT):
-            raise OptimizationReadSetError.invalid_read_count()
+            raise CalibrationReadError.invalid_read_count()
 
 
 @dataclass(frozen=True)
-class OptimizationReadFile:
+class CalibrationReadFile:
     metagenome_id: str
     role: str
     path: Path
 
 
 def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Resolve one flat optimization read set directory.")
+    parser = argparse.ArgumentParser(description="Resolve one flat calibration-read directory.")
     parser.add_argument("--design-id", required=True)
     parser.add_argument("--directory", type=Path, required=True)
     parser.add_argument("--manifest-out", type=Path, required=True)
     return parser.parse_args(argv)
 
 
-def construct_optimization_read_sets(
+def construct_calibration_read_sets(
     design_id: str,
     children: Sequence[Path],
 ) -> tuple[ResolvedReadSet, ...]:
     nested = next((path for path in children if path.is_dir()), None)
     if nested is not None:
-        raise OptimizationReadSetError.nested_directory(nested)
+        raise CalibrationReadError.nested_directory(nested)
 
     read_files = tuple(
-        OptimizationReadFile(
+        CalibrationReadFile(
             metagenome_id=match.group("metagenome_id"),
             role="single" if match.group("mate") is None else match.group("mate")[1:],
             path=path,
@@ -103,7 +103,7 @@ def construct_optimization_read_sets(
         if path.is_file() and (match := FASTQ_PATTERN.fullmatch(path.name)) is not None
     )
     if not read_files:
-        raise OptimizationReadSetError.no_accepted_fastq_files()
+        raise CalibrationReadError.no_accepted_fastq_files()
 
     ordered_read_files = sorted(
         read_files,
@@ -121,28 +121,28 @@ def construct_optimization_read_sets(
 def construct_read_set(
     design_id: str,
     metagenome_id: str,
-    read_files: tuple[OptimizationReadFile, ...],
+    read_files: tuple[CalibrationReadFile, ...],
 ) -> ResolvedReadSet:
     roles = tuple(read_file.role for read_file in read_files)
     if len(set(roles)) != len(roles):
         duplicate_role = next(role for role in roles if roles.count(role) > 1)
-        raise OptimizationReadSetError.duplicate_files(metagenome_id, duplicate_role)
+        raise CalibrationReadError.duplicate_files(metagenome_id, duplicate_role)
     if "single" in roles and len(roles) != 1:
-        raise OptimizationReadSetError.mixed_layout(metagenome_id)
+        raise CalibrationReadError.mixed_layout(metagenome_id)
     if roles == ("R1",):
-        raise OptimizationReadSetError.missing_mate(metagenome_id, "R2")
+        raise CalibrationReadError.missing_mate(metagenome_id, "R2")
     if roles == ("R2",):
-        raise OptimizationReadSetError.missing_mate(metagenome_id, "R1")
+        raise CalibrationReadError.missing_mate(metagenome_id, "R1")
     if roles == ("single",):
         reads = (read_files[0].path,)
     elif roles == ("R1", "R2"):
         reads = (read_files[0].path, read_files[1].path)
     else:
-        raise OptimizationReadSetError.invalid_files(metagenome_id)
+        raise CalibrationReadError.invalid_files(metagenome_id)
     return ResolvedReadSet(f"{design_id}__{metagenome_id}", design_id, metagenome_id, reads)
 
 
-def construct_optimization_read_manifest(
+def construct_calibration_read_manifest(
     read_sets: Sequence[ResolvedReadSet],
 ) -> pl.LazyFrame:
     return pl.DataFrame(
@@ -165,9 +165,9 @@ def construct_optimization_read_manifest(
 def main(argv: Sequence[str] | None = None) -> None:
     args = parse_args(argv)
     if not args.directory.is_dir():
-        raise OptimizationReadSetError.not_a_directory(args.directory)
-    read_sets = construct_optimization_read_sets(args.design_id, tuple(args.directory.iterdir()))
-    construct_optimization_read_manifest(read_sets).sink_csv(args.manifest_out, separator="\t")
+        raise CalibrationReadError.not_a_directory(args.directory)
+    read_sets = construct_calibration_read_sets(args.design_id, tuple(args.directory.iterdir()))
+    construct_calibration_read_manifest(read_sets).sink_csv(args.manifest_out, separator="\t")
 
 
 if __name__ == "__main__":

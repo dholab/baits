@@ -1,7 +1,7 @@
 nextflow_process {
-    name "Resolve optimization read set process"
-    script "../../modules/local/resolve_optimization_reads/main.nf"
-    process "RESOLVE_OPTIMIZATION_READS"
+    name "Resolve calibration reads process"
+    script "../../modules/local/resolve_calibration_reads/main.nf"
+    process "RESOLVE_CALIBRATION_READS"
 
     test("resolves a paired metagenome from one flat directory") {
         setup {

@@ -4,15 +4,15 @@
 
 ## Overview
 
-`dholab/baits` is a generalization of the idea developed in our study [*Putative Cyclospora cayetanensis detection in wastewater metagenomic datasets*](https://github.com/dholab/cyclospora-in-wastewater-metagenomics), where we identified a set of 1,670 baits that could be used to identify *Cyclospora cayetanensis* in large wastewater mixtures. With `dholab/baits` and the right choice of reference databases, users can identify baits for any taxon.
+`dholab/baits` is a generalization of the idea developed in our study [*Putative Cyclospora cayetanensis detection in wastewater metagenomic datasets*](https://github.com/dholab/cyclospora-in-wastewater-metagenomics). The corrected analysis has 1,670 baits before taxonomic exact-match screening; the final bait set remains pending a new `core_nt` run. With `dholab/baits` and the right choice of reference databases, users can identify baits for any taxon.
 
 `dholab/baits` offers three major operations for each target taxon. First, all k-mer subsequences from the provided source sequences are checked against a "background", which can be any reference in FASTA format. For the aforementioned *Cyclospora* study, the ribosomal rRNA databases SILVA and Rfam together with NCBI GenBank *Cyclospora* sequences comprised the background. Any k-mers from the source sequences that are present in the background are rejected. Give `dholab/baits` source sequences and a background, and it will find the source k-mers that distinguish it from the background.
 
 K-mers that are absent from the background are filtered for low complexity. The survivors can then go through the second operation: an exact, taxonomically informed screening against NCBI Core NT. Core NT can be swapped for another taxonomic BLAST database, and this step can also be skipped. If a database is provided, k-mers matching sequences from any taxon other than the target are rejected.
 
-Third, `dholab/baits` can use provided sequencing reads to estimate how many bait matches are required before off-target hits go to zero. For many sequencing reads, a single bait match may still allow off-target hits. In the *Cyclospora* study, we found that requiring 20 bait matches reduced off-target hits to zero in the tested reads. `dholab/baits` can help you calibrate your own threshold for your own baits and your own data.
+Third, `dholab/baits` can classify provided calibration reads and identify the smallest bait count at which the surviving reads support the bait set's target. The result is evidence for those baits and calibration reads, not a universal threshold. For paired input, Deacon retrieves candidate fragments using bait matches pooled across both mates; `dholab/baits` then counts, classifies, and thresholds each emitted read independently.
 
-In summary, `dholab/baits` allows you to bring your own source sequences, your own background reference, your own BLAST-compatible taxonomic database, and your own calibration reads. In return, it gives you k-mer baits to confidently identify your taxon and the number of bait matches you should require to call a detection "good".
+In summary, `dholab/baits` allows you to bring your own source sequences, your own background reference, your own BLAST-compatible taxonomic database, and your own calibration reads. In return, it gives you baits for your target, the evidence behind each screening decision, and a supported threshold when the calibration reads establish one.
 
 ## Quick Start
 
@@ -43,7 +43,7 @@ A basic run needs source sequences, an NCBI taxonomy ID, and a background FASTA.
 | `--background` | — | FASTA containing sequences that the baits must not match. |
 | `--id` | FASTA basename | Name used for the design and its results directory. |
 | `--taxon_ref_db` | not run | Directory containing an optional taxonomic BLAST database. |
-| `--calibration_reads` | not run | Flat FASTQ directory used to estimate a Deacon threshold. Requires `--taxon_ref_db`. |
+| `--calibration_reads` | not run | Flat FASTQ directory used to calibrate a threshold. Requires `--taxon_ref_db`. |
 | `--kmer_size` | `31` | Length of each candidate k-mer. |
 | `--deacon_window` | `1` | Deacon minimizer window length. |
 | `--entropy_threshold` | `0.6` | Minimum scaled entropy used for low-complexity filtering. |

@@ -1,11 +1,11 @@
 nextflow_process {
-    name "Prepare whole-read BLAST queries process"
+    name "Prepare read BLAST queries process"
     script "../../modules/local/prepare_read_blast_queries/main.nf"
     process "PREPARE_READ_BLAST_QUERIES"
 
     test("deduplicates candidate read sequences for one design") {
         setup {
-            new File("$outputDir/counts.tsv").text = 'metagenome_id\tfragment_id\tmate\tread_length\tdistinct_bait_count\tfragment_distinct_bait_count\tcandidate_sequence_id\nsample\tfragment\t1\t5\t1\t1\tread_1\n'
+            new File("$outputDir/counts.tsv").text = 'metagenome_id\tfragment_id\tmate\tread_length\tbait_count\tcandidate_sequence_id\nsample\tfragment\t1\t5\t1\tread_1\n'
             new File("$outputDir/reads.fasta").text = '>read_1\nACGTA\n'
             new File("$outputDir/status.tsv").text = 'metric\tvalue\nmetagenome_id\tsample\ndeacon_returned_read_count\t1\nduplicate_fragment_count\t0\nzero_bait_read_count\t0\ncandidate_read_count\t1\n'
         }

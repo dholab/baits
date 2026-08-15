@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Prepare strand-deduplicated whole-read BLAST queries."""
+"""Prepare strand-deduplicated read BLAST queries."""
 
 from __future__ import annotations
 
@@ -22,8 +22,7 @@ COUNT_SCHEMA = {
     "fragment_id": pl.String,
     "mate": pl.String,
     "read_length": pl.Int64,
-    "distinct_bait_count": pl.Int64,
-    "fragment_distinct_bait_count": pl.Int64,
+    "bait_count": pl.Int64,
     "candidate_sequence_id": pl.String,
 }
 STATUS_METRICS = (
@@ -34,14 +33,13 @@ STATUS_METRICS = (
     "candidate_read_count",
 )
 PUBLISHED_COUNT_FIELDS = (
-    "metagenome_id", "fragment_id", "mate", "read_length", "distinct_bait_count",
-    "fragment_distinct_bait_count", "representative_id",
+    "metagenome_id", "fragment_id", "mate", "read_length", "bait_count", "representative_id",
 )
-SUMMARY_METRICS = ("design_id", *STATUS_METRICS[1:], "whole_read_blast_query_count")
+SUMMARY_METRICS = ("design_id", *STATUS_METRICS[1:], "read_blast_query_count")
 THRESHOLD_SUMMARY_METRICS = (
     *SUMMARY_METRICS, "target_classified_read_count", "non_target_classified_read_count",
     "tied_read_count", "no_hit_read_count", "calibration_status",
-    "recommended_deacon_absolute_threshold", "specificity_floor", "conclusion",
+    "recommended_threshold", "conclusion",
 )
 BLAST_FIELDS = (
     "qseqid", "qlen", "saccver", "staxids", "pident", "length", "mismatch", "gapopen",
@@ -49,7 +47,6 @@ BLAST_FIELDS = (
 )
 CLASSIFIED_FIELDS = (*PUBLISHED_COUNT_FIELDS, "classification", "best_target_bit_score", "best_non_target_bit_score")
 THRESHOLD_COUNT_FIELDS = ("threshold", "target_read_count", "non_target_read_count", "tied_read_count", "no_hit_read_count")
-THRESHOLD_CURVE_FIELDS = ("threshold", "retained_metagenome_count", "retained_fragment_count")
 COMPLEMENT = str.maketrans("ACGTN", "TGCAN")
 
 
@@ -133,7 +130,7 @@ class PreparationSummary:
     duplicate_fragment_count: int
     zero_bait_read_count: int
     candidate_read_count: int
-    whole_read_blast_query_count: int
+    read_blast_query_count: int
 
 
 @dataclass(frozen=True)
@@ -141,7 +138,6 @@ class TerminalCalibrationEvidence:
     blast_hits: pl.LazyFrame
     classified_reads: pl.LazyFrame
     threshold_read_counts: pl.LazyFrame
-    threshold_curve: pl.LazyFrame
     summary: pl.LazyFrame
 
 
@@ -162,7 +158,7 @@ class BlastQueryPreparation:
 
 
 def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Prepare strand-deduplicated whole-read BLAST queries.")
+    parser = argparse.ArgumentParser(description="Prepare strand-deduplicated read BLAST queries.")
     parser.add_argument("--design-id", required=True)
     parser.add_argument("--counts", type=Path, nargs="+", required=True)
     parser.add_argument("--fastas", type=Path, nargs="+", required=True)
@@ -173,7 +169,6 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--terminal-blast-hits-out", type=Path)
     parser.add_argument("--terminal-classified-reads-out", type=Path)
     parser.add_argument("--terminal-read-counts-out", type=Path)
-    parser.add_argument("--terminal-curve-out", type=Path)
     parser.add_argument("--terminal-summary-out", type=Path, required=True)
     return parser.parse_args(argv)
 
@@ -241,8 +236,7 @@ def candidate_evidence_errors(
         & (pl.col("candidate_sequence_id").str.len_chars() > 0)
         & pl.col("mate").is_in(("", "1", "2"))
         & (pl.col("read_length") > 0)
-        & (pl.col("distinct_bait_count") > 0)
-        & (pl.col("fragment_distinct_bait_count") >= pl.col("distinct_bait_count"))
+        & (pl.col("bait_count") > 0)
     )
     return pl.concat(
         [
@@ -356,7 +350,7 @@ def status_relation(summary: PreparationSummary) -> pl.LazyFrame:
                 str(summary.duplicate_fragment_count),
                 str(summary.zero_bait_read_count),
                 str(summary.candidate_read_count),
-                str(summary.whole_read_blast_query_count),
+                str(summary.read_blast_query_count),
             ],
         },
     ).lazy()
@@ -400,15 +394,14 @@ def construct_blast_query_preparation(*, design_id: str, evidence: Sequence[Meta
                 str(summary.duplicate_fragment_count),
                 str(summary.zero_bait_read_count),
                 str(summary.candidate_read_count),
-                str(summary.whole_read_blast_query_count),
+                str(summary.read_blast_query_count),
                 "0",
                 "0",
                 "0",
                 "0",
                 "NO_CANDIDATE_READS",
                 "",
-                "",
-                "The optimization read set contains no candidate reads.",
+                "The calibration reads contain no candidate reads.",
             ],
         },
     ).lazy()
@@ -416,7 +409,6 @@ def construct_blast_query_preparation(*, design_id: str, evidence: Sequence[Meta
         pl.LazyFrame(schema=dict.fromkeys(BLAST_FIELDS, pl.String)),
         pl.LazyFrame(schema=dict.fromkeys(CLASSIFIED_FIELDS, pl.String)),
         pl.LazyFrame({"threshold": [1], "target_read_count": [0], "non_target_read_count": [0], "tied_read_count": [0], "no_hit_read_count": [0]}),
-        pl.LazyFrame({"threshold": [1], "retained_metagenome_count": [0], "retained_fragment_count": [0]}),
         terminal_summary,
     )
     return BlastQueryPreparation(published, (), summary, terminal)
@@ -435,14 +427,17 @@ def main(argv: Sequence[str] | None = None) -> None:
         if args.terminal_summary_out.exists():
             args.terminal_summary_out.unlink()
         return
-    terminal_paths = (args.terminal_blast_hits_out, args.terminal_classified_reads_out, args.terminal_read_counts_out, args.terminal_curve_out)
+    terminal_paths = (
+        args.terminal_blast_hits_out,
+        args.terminal_classified_reads_out,
+        args.terminal_read_counts_out,
+    )
     if any(path is None for path in terminal_paths):
         raise BlastQueryPreparationError.missing_terminal_paths()
     terminal = preparation.terminal_evidence
     terminal.blast_hits.collect().write_csv(args.terminal_blast_hits_out, separator="\t")
     terminal.classified_reads.collect().write_csv(args.terminal_classified_reads_out, separator="\t")
     terminal.threshold_read_counts.collect().write_csv(args.terminal_read_counts_out, separator="\t")
-    terminal.threshold_curve.collect().write_csv(args.terminal_curve_out, separator="\t")
     terminal.summary.collect().write_csv(args.terminal_summary_out, separator="\t")
     if args.query_out.exists():
         args.query_out.unlink()

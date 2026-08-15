@@ -1,9 +1,9 @@
 nextflow_process {
-    name "BLASTN whole-read classification process"
-    script "../../modules/local/blastn_whole_read_classification/main.nf"
-    process "BLASTN_WHOLE_READ_CLASSIFICATION"
+    name "BLASTN read classification process"
+    script "../../modules/local/blastn_read_classification/main.nf"
+    process "BLASTN_READ_CLASSIFICATION"
 
-    test("writes the accepted whole-read BLAST schema in stub mode") {
+    test("writes the accepted read BLAST schema in stub mode") {
         setup {
             new File("$outputDir/database").mkdirs()
             new File("$outputDir/database/reference.nin").text = "stub"

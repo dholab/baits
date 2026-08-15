@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Classify candidate reads from whole-read BLAST evidence."""
+"""Classify candidate reads from read BLAST evidence."""
 
 from __future__ import annotations
 
@@ -18,8 +18,7 @@ if TYPE_CHECKING:
     from collections.abc import Iterable, Sequence
 
 CANDIDATE_FIELDS = (
-    "metagenome_id", "fragment_id", "mate", "read_length", "distinct_bait_count",
-    "fragment_distinct_bait_count", "representative_id",
+    "metagenome_id", "fragment_id", "mate", "read_length", "bait_count", "representative_id",
 )
 BLAST_FIELDS = (
     "qseqid", "qlen", "saccver", "staxids", "pident", "length", "mismatch", "gapopen",
@@ -31,8 +30,7 @@ CANDIDATE_SCHEMA = {
     "fragment_id": pl.String,
     "mate": pl.String,
     "read_length": pl.Int64,
-    "distinct_bait_count": pl.Int64,
-    "fragment_distinct_bait_count": pl.Int64,
+    "bait_count": pl.Int64,
     "representative_id": pl.String,
 }
 BLAST_SCHEMA = {
@@ -68,19 +66,19 @@ class CandidateReadClassificationError(ValueError):
 
     @classmethod
     def malformed_hits(cls, path: Path) -> CandidateReadClassificationError:
-        return cls(f"Whole-read BLAST hits are malformed: {path}")
+        return cls(f"Read BLAST hits are malformed: {path}")
 
     @classmethod
     def invalid_bitscore(cls) -> CandidateReadClassificationError:
-        return cls("Whole-read BLAST has an invalid bitscore")
+        return cls("Read BLAST has an invalid bitscore")
 
     @classmethod
     def malformed_taxids(cls) -> CandidateReadClassificationError:
-        return cls("Whole-read BLAST has malformed staxids")
+        return cls("Read BLAST has malformed staxids")
 
     @classmethod
     def unknown_query(cls) -> CandidateReadClassificationError:
-        return cls("Whole-read BLAST contains an unknown query")
+        return cls("Read BLAST contains an unknown query")
 
     @classmethod
     def invalid_target_taxid(cls) -> CandidateReadClassificationError:
@@ -88,7 +86,7 @@ class CandidateReadClassificationError(ValueError):
 
 
 def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Classify candidate reads from whole-read BLAST evidence.")
+    parser = argparse.ArgumentParser(description="Classify candidate reads from read BLAST evidence.")
     parser.add_argument("--candidate-read-counts", type=Path, required=True)
     parser.add_argument("--blast-hits", type=Path, required=True)
     parser.add_argument("--target-taxid", required=True)
@@ -130,16 +128,13 @@ def construct_candidate_read_counts(path: Path) -> pl.LazyFrame:
                                 pl.col("fragment_id").is_not_null(),
                                 pl.col("representative_id").is_not_null(),
                                 pl.col("read_length").is_not_null(),
-                                pl.col("distinct_bait_count").is_not_null(),
-                                pl.col("fragment_distinct_bait_count").is_not_null(),
+                                pl.col("bait_count").is_not_null(),
                                 pl.col("metagenome_id").str.len_chars() > 0,
                                 pl.col("fragment_id").str.len_chars() > 0,
                                 pl.col("representative_id").str.len_chars() > 0,
                                 pl.col("mate").is_in(("", "1", "2")),
                                 pl.col("read_length") > 0,
-                                pl.col("distinct_bait_count") > 0,
-                                pl.col("fragment_distinct_bait_count") > 0,
-                                pl.col("fragment_distinct_bait_count") >= pl.col("distinct_bait_count"),
+                                pl.col("bait_count") > 0,
                             )
                         ).fill_null(value=True),
                     ).with_columns(pl.lit("malformed").alias("error")).select("error"),
@@ -184,7 +179,7 @@ class RepresentativeScores:
     best_non_target_bit_score: Decimal | None
 
 
-def construct_whole_read_hits(
+def construct_read_hits(
     path: Path,
     *,
     candidate_representatives: pl.LazyFrame,
@@ -342,7 +337,7 @@ def construct_candidate_read_classifications(
 def main(argv: Sequence[str] | None = None) -> None:
     args = parse_args(argv)
     candidates = construct_candidate_read_counts(args.candidate_read_counts)
-    hits = construct_whole_read_hits(
+    hits = construct_read_hits(
         args.blast_hits,
         candidate_representatives=candidates.select("representative_id").unique(),
         target_taxid=args.target_taxid,
