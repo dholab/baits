@@ -9,7 +9,7 @@ nextflow_pipeline {
                 id = "curated_design"
                 source_sequences = "$baseDir/tests/data/curated_source_sequences.fasta"
                 target_taxid = "88456"
-                interference_background = "$baseDir/tests/data/interference_background.fasta"
+                background = "$baseDir/tests/data/interference_background.fasta"
             }
         }
 
@@ -28,7 +28,7 @@ nextflow_pipeline {
     test("publishes candidate loci and query group status from real BLAST composition") {
         setup {
             new File("$outputDir/discovery_input.csv").text = """\
-id,target_taxid,curated_source_sequences,representative_queries,query_rules,target_assembly,interference_background
+id,target_taxid,curated_source_sequences,representative_queries,query_rules,target_assembly,background
 discovery_design,88456,,$baseDir/tests/data/representative_queries.fasta,$baseDir/tests/data/query_rules.tsv,$baseDir/tests/data/target_assembly.fasta,$baseDir/tests/data/interference_background.fasta
 """
         }
@@ -66,7 +66,7 @@ ATGCGTACGTTAGCCATGACCTGATCGTACGATTCGGAAC
 TTTTTTTTTTTT
 """
             new File("$outputDir/input.csv").text = """\
-id,target_taxid,curated_source_sequences,representative_queries,query_rules,target_assembly,interference_background
+id,target_taxid,curated_source_sequences,representative_queries,query_rules,target_assembly,background
 negative_design,88456,,$outputDir/queries.fasta,$outputDir/rules.tsv,$baseDir/tests/data/target_assembly.fasta,$baseDir/tests/data/interference_background.fasta
 """
         }
@@ -106,7 +106,7 @@ negative_design,88456,,$outputDir/queries.fasta,$outputDir/rules.tsv,$baseDir/te
             new File("$outputDir/rules_b.tsv").text = "query_id\tquery_group\tquery_start\tquery_end\tmin_identity\tmin_query_coverage\nqb\tB\t1\t0\t100\t100\n"
             new File("$outputDir/assembly_b.fasta").text = ">contig_b\nCCCCGTTAACCGGATCTAGGCTAACGATTCGATGGCATACGTAAAA\n"
             new File("$outputDir/multi.csv").text = """\
-id,target_taxid,curated_source_sequences,representative_queries,query_rules,target_assembly,interference_background
+id,target_taxid,curated_source_sequences,representative_queries,query_rules,target_assembly,background
 design_a,88456,,$outputDir/queries_a.fasta,$outputDir/rules_a.tsv,$outputDir/assembly_a.fasta,$baseDir/tests/data/interference_background.fasta
 design_b,88456,,$outputDir/queries_b.fasta,$outputDir/rules_b.tsv,$outputDir/assembly_b.fasta,$baseDir/tests/data/interference_background.fasta
 """

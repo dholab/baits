@@ -8,7 +8,7 @@ nextflow_pipeline {
                 id = "positive"
                 source_sequences = "$baseDir/tests/data/filter_source_sequences.fasta"
                 target_taxid = "88456"
-                interference_background = "$baseDir/tests/data/interference_background.fasta"
+                background = "$baseDir/tests/data/interference_background.fasta"
             }
         }
         then {
@@ -35,7 +35,7 @@ nextflow_pipeline {
                 id = "background_terminal"
                 source_sequences = "$baseDir/tests/data/filter_source_sequences.fasta"
                 target_taxid = "88456"
-                interference_background = "$baseDir/tests/data/filter_source_sequences.fasta"
+                background = "$baseDir/tests/data/filter_source_sequences.fasta"
             }
         }
         then {
@@ -63,7 +63,7 @@ nextflow_pipeline {
                 id = "background_multiplicity"
                 source_sequences = "$baseDir/tests/data/filter_source_sequences.fasta"
                 target_taxid = "88456"
-                interference_background = "$baseDir/tests/data/filter_three_background.fasta"
+                background = "$baseDir/tests/data/filter_three_background.fasta"
             }
         }
         then {
@@ -84,7 +84,7 @@ nextflow_pipeline {
                 id = "same_basename"
                 source_sequences = "$outputDir/source/shared.fasta"
                 target_taxid = "88456"
-                interference_background = "$outputDir/background/shared.fasta"
+                background = "$outputDir/background/shared.fasta"
             }
         }
         then {
@@ -100,7 +100,7 @@ nextflow_pipeline {
                 id = "short_terminal"
                 source_sequences = "$baseDir/tests/data/filter_short_source.fasta"
                 target_taxid = "88456"
-                interference_background = "$baseDir/tests/data/interference_background.fasta"
+                background = "$baseDir/tests/data/interference_background.fasta"
             }
         }
         then {
@@ -131,7 +131,7 @@ nextflow_pipeline {
                 id = "complexity_terminal"
                 source_sequences = "$baseDir/tests/data/filter_low_complexity_source.fasta"
                 target_taxid = "88456"
-                interference_background = "$baseDir/tests/data/interference_background.fasta"
+                background = "$baseDir/tests/data/interference_background.fasta"
             }
         }
         then {
@@ -145,7 +145,7 @@ nextflow_pipeline {
     }
     test("pairs independent designs with their own source sequences") {
         setup {
-            new File("$outputDir/multi.csv").text = """id,target_taxid,curated_source_sequences,representative_queries,query_rules,target_assembly,interference_background
+            new File("$outputDir/multi.csv").text = """id,target_taxid,curated_source_sequences,representative_queries,query_rules,target_assembly,background
 design_a,88456,$baseDir/tests/data/filter_source_sequences.fasta,,,,$baseDir/tests/data/interference_background.fasta
 design_b,88456,$baseDir/tests/data/filter_low_complexity_source.fasta,,,,$baseDir/tests/data/interference_background.fasta
 """
@@ -166,7 +166,7 @@ design_b,88456,$baseDir/tests/data/filter_low_complexity_source.fasta,,,,$baseDi
             new File("$outputDir/taxonomic_reference_db").mkdirs()
             new File("$outputDir/taxonomic_reference.fasta").text = new File("$baseDir/tests/data/filter_source_sequences.fasta").text
             assert ["pixi", "run", "--environment", "dev", "makeblastdb", "-dbtype", "nucl", "-parse_seqids", "-taxid", "88456", "-in", "$outputDir/taxonomic_reference.fasta", "-out", "$outputDir/taxonomic_reference_db/taxonomic"].execute().waitFor() == 0
-            new File("$outputDir/taxonomic_multi.csv").text = """id,target_taxid,curated_source_sequences,representative_queries,query_rules,target_assembly,interference_background
+            new File("$outputDir/taxonomic_multi.csv").text = """id,target_taxid,curated_source_sequences,representative_queries,query_rules,target_assembly,background
 design_a,88456,$baseDir/tests/data/filter_source_sequences.fasta,,,,$baseDir/tests/data/interference_background.fasta
 design_b,88456,$baseDir/tests/data/filter_low_complexity_source.fasta,,,,$baseDir/tests/data/interference_background.fasta
 """
@@ -174,7 +174,7 @@ design_b,88456,$baseDir/tests/data/filter_low_complexity_source.fasta,,,,$baseDi
         when {
             params {
                 input = "$outputDir/taxonomic_multi.csv"
-                taxonomic_reference_db = "$outputDir/taxonomic_reference_db"
+                taxon_ref_db = "$outputDir/taxonomic_reference_db"
             }
         }
         then {
@@ -213,8 +213,8 @@ design_b,88456,$baseDir/tests/data/filter_low_complexity_source.fasta,,,,$baseDi
                 id = "screening_terminal"
                 source_sequences = "$baseDir/tests/data/filter_source_sequences.fasta"
                 target_taxid = "88456"
-                interference_background = "$baseDir/tests/data/interference_background.fasta"
-                taxonomic_reference_db = "$outputDir/rejecting_reference_db"
+                background = "$baseDir/tests/data/interference_background.fasta"
+                taxon_ref_db = "$outputDir/rejecting_reference_db"
             }
         }
         then {

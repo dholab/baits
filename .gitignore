@@ -14,6 +14,9 @@
 !/pixi.lock
 !/uv.lock
 
+!/conf/
+!/conf/*.config
+
 # Bounded source and test layouts
 !/assets/
 !/assets/*.json

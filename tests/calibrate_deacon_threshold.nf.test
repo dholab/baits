@@ -19,9 +19,9 @@ nextflow_pipeline {
                 id = "calibrated"
                 source_sequences = "$outputDir/source.fasta"
                 target_taxid = "88456"
-                interference_background = "$baseDir/tests/data/interference_background.fasta"
-                optimization_read_set = "$outputDir/optimization_reads"
-                taxonomic_reference_db = "$outputDir/taxonomic_reference_db"
+                background = "$baseDir/tests/data/interference_background.fasta"
+                calibration_reads = "$outputDir/optimization_reads"
+                taxon_ref_db = "$outputDir/taxonomic_reference_db"
             }
         }
         then {
@@ -66,9 +66,9 @@ nextflow_pipeline {
                 id = "no_candidates"
                 source_sequences = "$outputDir/source.fasta"
                 target_taxid = "88456"
-                interference_background = "$baseDir/tests/data/interference_background.fasta"
-                optimization_read_set = "$outputDir/optimization_reads"
-                taxonomic_reference_db = "$outputDir/taxonomic_reference_db"
+                background = "$baseDir/tests/data/interference_background.fasta"
+                calibration_reads = "$outputDir/optimization_reads"
+                taxon_ref_db = "$outputDir/taxonomic_reference_db"
             }
         }
         then {
@@ -105,9 +105,9 @@ nextflow_pipeline {
                 id = "screening_terminal"
                 source_sequences = "$outputDir/source.fasta"
                 target_taxid = "88456"
-                interference_background = "$baseDir/tests/data/interference_background.fasta"
-                optimization_read_set = "$outputDir/optimization_reads"
-                taxonomic_reference_db = "$outputDir/taxonomic_reference_db"
+                background = "$baseDir/tests/data/interference_background.fasta"
+                calibration_reads = "$outputDir/optimization_reads"
+                taxon_ref_db = "$outputDir/taxonomic_reference_db"
             }
         }
         then {

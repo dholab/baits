@@ -16,7 +16,7 @@ workflow BUILD_VERIFY_DEACON_INDEX {
     ch_index_build_inputs = ch_index_inputs
         .combine(ch_kmer_size)
         .combine(ch_deacon_window)
-        .map { meta, baits, candidate_kmer_manifest, bait_set_status, interference_background, kmer_size, deacon_window ->
+        .map { meta, baits, candidate_kmer_manifest, bait_set_status, interference_background, index_source, kmer_size, deacon_window ->
             tuple(meta, baits, kmer_size, deacon_window, 0)
         }
     DEACON_INDEX_BAIT_SET(ch_index_build_inputs)
@@ -24,12 +24,12 @@ workflow BUILD_VERIFY_DEACON_INDEX {
     // Round-trip the bait set and interference background at the permissive threshold
     ch_bait_roundtrip_inputs = DEACON_INDEX_BAIT_SET.out.index
         .join(ch_index_inputs)
-        .map { meta, deacon_index, baits, candidate_kmer_manifest, bait_set_status, interference_background ->
+        .map { meta, deacon_index, baits, candidate_kmer_manifest, bait_set_status, interference_background, index_source ->
             tuple(meta, deacon_index, baits)
         }
     ch_background_roundtrip_inputs = DEACON_INDEX_BAIT_SET.out.index
         .join(ch_index_inputs)
-        .map { meta, deacon_index, baits, candidate_kmer_manifest, bait_set_status, interference_background ->
+        .map { meta, deacon_index, baits, candidate_kmer_manifest, bait_set_status, interference_background, index_source ->
             tuple(meta, deacon_index, interference_background)
         }
     DEACON_BAIT_ROUNDTRIP(ch_bait_roundtrip_inputs)
@@ -37,20 +37,21 @@ workflow BUILD_VERIFY_DEACON_INDEX {
 
     // Verify both round trips and finalize the bait set status
     ch_verification_inputs = ch_index_inputs
+        .join(DEACON_INDEX_BAIT_SET.out.index)
         .join(DEACON_BAIT_ROUNDTRIP.out.fasta)
         .join(DEACON_BACKGROUND_ROUNDTRIP.out.fasta)
         .combine(ch_kmer_size)
         .combine(ch_deacon_window)
-        .map { meta, baits, candidate_kmer_manifest, bait_set_status, interference_background, bait_roundtrip, background_roundtrip, kmer_size, deacon_window ->
-            tuple(meta, baits, bait_roundtrip, background_roundtrip, candidate_kmer_manifest, bait_set_status, kmer_size, deacon_window)
+        .map { meta, baits, candidate_kmer_manifest, bait_set_status, interference_background, index_source, deacon_index, bait_roundtrip, background_roundtrip, kmer_size, deacon_window ->
+            tuple(meta, baits, bait_roundtrip, background_roundtrip, candidate_kmer_manifest, bait_set_status, deacon_index, index_source, kmer_size, deacon_window)
         }
     VERIFY_DEACON_INDEX(ch_verification_inputs)
 
     ch_verified_index = ch_index_inputs
-        .join(DEACON_INDEX_BAIT_SET.out.index)
+        .join(VERIFY_DEACON_INDEX.out.index)
         .join(VERIFY_DEACON_INDEX.out.bait_set_status)
-        .map { meta, baits, candidate_kmer_manifest, bait_set_status_draft, interference_background, deacon_index, bait_set_status ->
-            tuple(meta, baits, candidate_kmer_manifest, bait_set_status, deacon_index)
+        .map { meta, baits, candidate_kmer_manifest, bait_set_status_draft, interference_background, index_source, deacon_index, bait_set_status ->
+            tuple(meta, baits, candidate_kmer_manifest, bait_set_status, deacon_index, index_source)
         }
 
     emit:

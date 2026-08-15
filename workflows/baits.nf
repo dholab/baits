@@ -53,25 +53,22 @@ workflow BAITS_MAIN {
         .join(ch_design_context)
         .combine(ch_taxonomic_screening_not_run)
         .map { meta, locally_filtered_baits, candidate_kmer_manifest, bait_set_status, target_taxid, interference_background, not_run ->
-            tuple(meta, locally_filtered_baits, candidate_kmer_manifest, bait_set_status, interference_background)
+            tuple(meta, locally_filtered_baits, candidate_kmer_manifest, bait_set_status, interference_background, 'locally_filtered')
         }
     ch_taxonomically_screened_index_inputs = TAXONOMIC_EXACT_MATCH_SCREENING.out.baits
         .join(ch_design_context)
         .map { meta, taxonomically_screened_baits, candidate_kmer_manifest, bait_set_status, target_taxid, interference_background ->
-            tuple(meta, taxonomically_screened_baits, candidate_kmer_manifest, bait_set_status, interference_background)
+            tuple(meta, taxonomically_screened_baits, candidate_kmer_manifest, bait_set_status, interference_background, 'taxonomically_screened')
         }
-    // These keyed markers restore the bait set branch after index verification.
-    ch_locally_filtered_index_keys = ch_locally_filtered_index_inputs.map { meta, baits, candidate_kmer_manifest, bait_set_status, interference_background -> tuple(meta, true) }
-    ch_taxonomically_screened_index_keys = ch_taxonomically_screened_index_inputs.map { meta, baits, candidate_kmer_manifest, bait_set_status, interference_background -> tuple(meta, true) }
     ch_index_inputs = ch_locally_filtered_index_inputs.mix(ch_taxonomically_screened_index_inputs)
     BUILD_VERIFY_DEACON_INDEX(ch_index_inputs, ch_kmer_size, ch_deacon_window)
 
     ch_locally_filtered_indexes = BUILD_VERIFY_DEACON_INDEX.out.index
-        .join(ch_locally_filtered_index_keys)
-        .map { meta, baits, candidate_kmer_manifest, bait_set_status, deacon_index, selected -> tuple(meta, deacon_index) }
+        .filter { meta, baits, candidate_kmer_manifest, bait_set_status, deacon_index, index_source -> index_source == 'locally_filtered' }
+        .map { meta, baits, candidate_kmer_manifest, bait_set_status, deacon_index, index_source -> tuple(meta, deacon_index) }
     ch_taxonomically_screened_verified_indexes = BUILD_VERIFY_DEACON_INDEX.out.index
-        .join(ch_taxonomically_screened_index_keys)
-        .map { meta, baits, candidate_kmer_manifest, bait_set_status, deacon_index, selected ->
+        .filter { meta, baits, candidate_kmer_manifest, bait_set_status, deacon_index, index_source -> index_source == 'taxonomically_screened' }
+        .map { meta, baits, candidate_kmer_manifest, bait_set_status, deacon_index, index_source ->
             tuple(meta, baits, candidate_kmer_manifest, bait_set_status, deacon_index)
         }
     ch_taxonomically_screened_indexes = ch_taxonomically_screened_verified_indexes

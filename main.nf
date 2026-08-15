@@ -34,8 +34,8 @@ workflow {
             representative_queries: '',
             query_rules: '',
             target_assembly: '',
-            interference_background: params.interference_background,
-            optimization_read_set: params.optimization_read_set,
+            background: params.background,
+            calibration_reads: params.calibration_reads,
         ])
         : Channel.empty()
 
@@ -54,10 +54,10 @@ workflow {
     }
 
     ch_optimization_read_sets = ch_normalized_rows
-        .filter { meta, row -> row.optimization_read_set != null && row.optimization_read_set != '' }
-        .map { meta, row -> tuple(meta, file(row.optimization_read_set)) }
+        .filter { meta, row -> row.calibration_reads != null && row.calibration_reads != '' }
+        .map { meta, row -> tuple(meta, file(row.calibration_reads)) }
     ch_without_optimization_keys = ch_normalized_rows
-        .filter { meta, row -> row.optimization_read_set == null || row.optimization_read_set == '' }
+        .filter { meta, row -> row.calibration_reads == null || row.calibration_reads == '' }
         .map { meta, row -> tuple(meta, true) }
     RESOLVE_OPTIMIZATION_READS(ch_optimization_read_sets)
     ch_optimization_read_records = RESOLVE_OPTIMIZATION_READS.out.manifest
@@ -129,16 +129,16 @@ workflow {
     ch_kmer_size = Channel.value(params.kmer_size)
     ch_deacon_window = Channel.value(params.deacon_window)
     ch_entropy_threshold = Channel.value(params.entropy_threshold)
-    ch_taxonomic_reference_db = params.taxonomic_reference_db
-        ? Channel.value(file(params.taxonomic_reference_db))
+    ch_taxonomic_reference_db = params.taxon_ref_db
+        ? Channel.value(file(params.taxon_ref_db))
         : Channel.empty()
-    ch_taxonomic_screening_not_run = params.taxonomic_reference_db
+    ch_taxonomic_screening_not_run = params.taxon_ref_db
         ? Channel.empty()
         : Channel.value(true)
 
     // Shared design context: [metadata, target taxid, interference background].
     ch_design_context = ch_normalized_rows.map { meta, row ->
-        tuple(meta, row.target_taxid as String, file(row.interference_background))
+        tuple(meta, row.target_taxid as String, file(row.background))
     }
 
     // Source sequence acquisition
@@ -192,138 +192,4 @@ workflow {
         ch_without_optimization_keys,
     )
 
-    // Publication
-    publish:
-    source_sequences = BAITS_MAIN.out.source_sequences
-    candidate_loci = BAITS_MAIN.out.candidate_loci
-    query_blast_hits = BAITS_MAIN.out.query_blast_hits
-    discovery_status = BAITS_MAIN.out.discovery_status
-    provenance = BAITS_MAIN.out.provenance
-    candidate_kmers = BAITS_MAIN.out.candidate_kmers
-    candidate_kmer_occurrences = BAITS_MAIN.out.candidate_kmer_occurrences
-    filtering_status = BAITS_MAIN.out.filtering_status
-    locally_filtered_baits = BAITS_MAIN.out.locally_filtered_baits
-    taxonomic_blast_hits = BAITS_MAIN.out.taxonomic_blast_hits
-    screening_decisions = BAITS_MAIN.out.screening_decisions
-    screening_status = BAITS_MAIN.out.screening_status
-    taxonomically_screened_baits = BAITS_MAIN.out.taxonomically_screened_baits
-    bait_set_status = BAITS_MAIN.out.bait_set_status
-    locally_filtered_deacon_index = BAITS_MAIN.out.locally_filtered_deacon_index
-    taxonomically_screened_deacon_index = BAITS_MAIN.out.taxonomically_screened_deacon_index
-    index_verification_summary = BAITS_MAIN.out.index_verification_summary
-    index_verification_report = BAITS_MAIN.out.index_verification_report
-    taxonomic_reference_database = BAITS_MAIN.out.taxonomic_reference_database
-    candidate_read_counts = BAITS_MAIN.out.candidate_read_counts
-    whole_read_blast_hits = BAITS_MAIN.out.whole_read_blast_hits
-    classified_reads = BAITS_MAIN.out.classified_reads
-    threshold_read_counts = BAITS_MAIN.out.threshold_read_counts
-    threshold_curve = BAITS_MAIN.out.threshold_curve
-    threshold_summary = BAITS_MAIN.out.threshold_summary
-}
-
-output {
-    source_sequences {
-        mode 'copy'
-        path { record -> record[1] >> "${record[0].id}/01_source_sequences/source_sequences.fasta" }
-    }
-    candidate_loci {
-        mode 'copy'
-        path { record -> record[1] >> "${record[0].id}/01_source_sequences/candidate_loci.tsv" }
-    }
-    query_blast_hits {
-        mode 'copy'
-        path { record -> record[1] >> "${record[0].id}/01_source_sequences/query_blast_hits.tsv" }
-    }
-    discovery_status {
-        mode 'copy'
-        path { record -> record[1] >> "${record[0].id}/01_source_sequences/discovery_status.tsv" }
-    }
-    provenance {
-        mode 'copy'
-        path { record ->
-            record[1] >> "${record[0].id}/07_provenance/inputs.tsv"
-            record[2] >> "${record[0].id}/07_provenance/parameters.tsv"
-            record[3] >> "${record[0].id}/07_provenance/software_versions.tsv"
-        }
-    }
-    candidate_kmers {
-        mode 'copy'
-        path { record -> record[1] >> "${record[0].id}/02_candidate_kmers/candidate_kmers.tsv" }
-    }
-    candidate_kmer_occurrences {
-        mode 'copy'
-        path { record -> record[1] >> "${record[0].id}/02_candidate_kmers/candidate_kmer_occurrences.tsv" }
-    }
-    filtering_status {
-        mode 'copy'
-        path { record -> record[1] >> "${record[0].id}/02_candidate_kmers/filtering_status.tsv" }
-    }
-    locally_filtered_baits {
-        mode 'copy'
-        path { record -> record[1] >> "${record[0].id}/04_bait_sets/locally_filtered_baits.fasta" }
-    }
-    taxonomic_blast_hits {
-        mode 'copy'
-        path { record -> record[1] >> "${record[0].id}/03_taxonomic_screening/blast_hits.tsv" }
-    }
-    screening_decisions {
-        mode 'copy'
-        path { record -> record[1] >> "${record[0].id}/03_taxonomic_screening/screening_decisions.tsv" }
-    }
-    screening_status {
-        mode 'copy'
-        path { record -> record[1] >> "${record[0].id}/03_taxonomic_screening/screening_status.tsv" }
-    }
-    taxonomically_screened_baits {
-        mode 'copy'
-        path { record -> record[1] >> "${record[0].id}/04_bait_sets/taxonomically_screened_baits.fasta" }
-    }
-    bait_set_status {
-        mode 'copy'
-        path { record -> record[1] >> "${record[0].id}/04_bait_sets/bait_set_status.tsv" }
-    }
-    locally_filtered_deacon_index {
-        mode 'copy'
-        path { record -> record[1] >> "${record[0].id}/05_deacon_index/locally_filtered.idx" }
-    }
-    taxonomically_screened_deacon_index {
-        mode 'copy'
-        path { record -> record[1] >> "${record[0].id}/05_deacon_index/taxonomically_screened.idx" }
-    }
-    index_verification_summary {
-        mode 'copy'
-        path { record -> record[1] >> "${record[0].id}/05_deacon_index/verification_summary.tsv" }
-    }
-    index_verification_report {
-        mode 'copy'
-        path { record -> record[1] >> "${record[0].id}/05_deacon_index/verification_report.md" }
-    }
-    taxonomic_reference_database {
-        mode 'copy'
-        path { record -> record[1] >> "${record[0].id}/07_provenance/taxonomic_reference_database.txt" }
-    }
-    candidate_read_counts {
-        mode 'copy'
-        path { record -> record[1] >> "${record[0].id}/06_calibration/candidate_read_counts.tsv" }
-    }
-    whole_read_blast_hits {
-        mode 'copy'
-        path { record -> record[1] >> "${record[0].id}/06_calibration/whole_read_blast_hits.tsv" }
-    }
-    classified_reads {
-        mode 'copy'
-        path { record -> record[1] >> "${record[0].id}/06_calibration/classified_reads.tsv" }
-    }
-    threshold_read_counts {
-        mode 'copy'
-        path { record -> record[1] >> "${record[0].id}/06_calibration/threshold_read_counts.tsv" }
-    }
-    threshold_curve {
-        mode 'copy'
-        path { record -> record[1] >> "${record[0].id}/06_calibration/threshold_curve.tsv" }
-    }
-    threshold_summary {
-        mode 'copy'
-        path { record -> record[1] >> "${record[0].id}/06_calibration/threshold_summary.tsv" }
-    }
 }

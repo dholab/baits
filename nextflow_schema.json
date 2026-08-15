@@ -36,14 +36,14 @@
                     "pattern": "^[1-9][0-9]*$",
                     "description": "NCBI Taxonomy identifier for the target taxon."
                 },
-                "interference_background": {
+                "background": {
                     "type": "string",
                     "format": "file-path",
                     "exists": true,
                     "pattern": "^\\S+\\.(fa|fasta|fna)(\\.gz)?$",
                     "description": "Path to the interference background FASTA."
                 },
-                "optimization_read_set": {
+                "calibration_reads": {
                     "type": "string",
                     "format": "directory-path",
                     "exists": true,
@@ -77,13 +77,13 @@
                             {"required": ["id"]},
                             {"required": ["source_sequences"]},
                             {"required": ["target_taxid"]},
-                            {"required": ["interference_background"]},
-                            {"required": ["optimization_read_set"]}
+                            {"required": ["background"]},
+                            {"required": ["calibration_reads"]}
                         ]
                     }
                 },
                 {
-                    "required": ["source_sequences", "target_taxid", "interference_background"],
+                    "required": ["source_sequences", "target_taxid", "background"],
                     "not": {"required": ["input"]}
                 }
             ]
@@ -92,7 +92,7 @@
             "title": "Taxonomic exact-match screening options",
             "type": "object",
             "properties": {
-                "taxonomic_reference_db": {
+                "taxon_ref_db": {
                     "type": "string",
                     "format": "directory-path",
                     "exists": true,

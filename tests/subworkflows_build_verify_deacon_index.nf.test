@@ -14,7 +14,7 @@ nextflow_workflow {
         when {
             workflow {
                 """
-                input[0] = Channel.of([[id: 'design', source_sequence_origin: 'curated_input'], file("\$baseDir/tests/data/taxonomic_locally_filtered_baits.fasta"), file("\$baseDir/tests/data/taxonomic_candidate_kmers.tsv"), file("\$baseDir/tests/data/taxonomic_bait_set_status.tsv"), file("$outputDir/interference_background.fasta.gz")])
+                input[0] = Channel.of([[id: 'design', source_sequence_origin: 'curated_input'], file("\$baseDir/tests/data/taxonomic_locally_filtered_baits.fasta"), file("\$baseDir/tests/data/taxonomic_candidate_kmers.tsv"), file("\$baseDir/tests/data/taxonomic_bait_set_status.tsv"), file("$outputDir/interference_background.fasta.gz"), 'locally_filtered'])
                 input[1] = Channel.value(31)
                 input[2] = Channel.value(1)
                 """
