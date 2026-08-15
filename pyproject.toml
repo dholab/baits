@@ -37,9 +37,9 @@ default = { features = [], solve-group = "default" }
 dev = { features = ["dev"], solve-group = "default" }
 
 [tool.pixi.feature.dev.tasks]
-lint-python = "uv run ruff check bin tests/python"
-test-python = "uv run pytest tests/python"
-typecheck-python = "uv run ty check bin"
+lint-python = "ruff check bin tests/python"
+test-python = "pytest tests/python"
+typecheck-python = "ty check bin"
 
 [tool.ruff.lint]
 select = ["ALL"]

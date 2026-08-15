@@ -102,6 +102,15 @@ Pixi is intended for contributors working from a source checkout. It provides lo
 pixi install --locked
 ```
 
+[`Containerfile`](Containerfile) packages the complete locked development environment and repository source for CI or container-based development:
+
+```bash
+docker build --file Containerfile --tag nrminor/baits:dev .
+docker run --rm --interactive --tty nrminor/baits:dev
+```
+
+Releases publish this development monoimage as `nrminor/baits:<version>`. It is separate from the process-specific images selected by the pipeline's `docker` and `apptainer` profiles.
+
 The repository follows nf-core's modular Nextflow conventions: `main.nf` is the entry point, `workflows/` and `subworkflows/` compose the analysis, and `modules/` contains individual processes. The pipeline reuses nf-core modules where their contracts fit and keeps project-specific processes under `modules/local/`. [nf-schema](https://nextflow-io.github.io/nf-schema/latest/) validates command-line parameters and design CSVs against the schemas under `assets/`.
 
 Inspect the local checkout with:

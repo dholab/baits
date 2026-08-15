@@ -1,0 +1,102 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  checks:
+    name: Locked checks
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Install locked Pixi development environment
+        uses: prefix-dev/setup-pixi@v0.10.1
+        with:
+          pixi-version: v0.76.2
+          environments: dev
+          cache: true
+          locked: true
+
+      - name: Check lock files
+        run: pixi run --environment dev uv lock --check
+
+      - name: Validate Nextflow configurations
+        run: |
+          pixi run --environment dev nextflow config -flat > /dev/null
+          pixi run --environment dev nextflow config -profile docker -flat > /dev/null
+          pixi run --environment dev nextflow config -profile apptainer -flat > /dev/null
+
+      - name: Run Python checks
+        run: |
+          pixi run --environment dev lint-python
+          pixi run --environment dev typecheck-python
+          pixi run --environment dev test-python
+
+      - name: Run Nextflow tests
+        run: pixi run --environment dev nf-test test
+
+  monoimage:
+    name: Build and smoke-test monoimage
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build monoimage
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          file: ./Containerfile
+          push: false
+          load: true
+          tags: nrminor/baits:ci
+          cache-from: type=gha,scope=baits-monoimage
+          cache-to: type=gha,mode=max,scope=baits-monoimage
+
+      - name: Verify development tools and source
+        run: |
+          docker run --rm --env TERM=dumb nrminor/baits:ci \
+            bash -euo pipefail -c '
+              test -f /opt/baits/main.nf
+              test -f /opt/baits/tests/scaffold.nf.test
+              for command_name in \
+                python nextflow blastn meryl deacon nf-test nf-core uv pytest ruff ty; do
+                  command -v "$command_name" > /dev/null
+              done
+              python -c "import Bio, polars"
+              blastn -version
+              meryl --version
+              deacon --version
+              nextflow -version
+              nf-test version
+              nf-core --version
+              uv --version
+              pytest --version
+              ruff --version
+              ty --version
+            '
+
+      - name: Exercise repository checks in the monoimage
+        run: |
+          docker run --rm --env TERM=dumb nrminor/baits:ci \
+            bash -euo pipefail -c '
+              cd /opt/baits
+              pytest tests/python/test_dependency_versions.py
+              nf-test test tests/scaffold.nf.test
+            '

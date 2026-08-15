@@ -3,6 +3,8 @@
 # Project control files
 !/.gitignore
 !/.nf-core.yml
+!/.dockerignore
+!/Containerfile
 !/LICENSE
 !/README.md
 !/main.nf
@@ -13,6 +15,10 @@
 !/pyproject.toml
 !/pixi.lock
 !/uv.lock
+
+!/.github/
+!/.github/workflows/
+!/.github/workflows/*.yml
 
 !/conf/
 !/conf/*.config
