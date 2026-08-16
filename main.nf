@@ -1,5 +1,32 @@
 #!/usr/bin/env nextflow
 
+def resolveCalibrationTargetScope(row) {
+    def targetTaxid = row.target_taxid as String
+    if (!row.calibration_target_taxids) {
+        return [[], [targetTaxid]]
+    }
+
+    def scopeFile = file(row.calibration_target_taxids)
+    def lines = scopeFile.readLines()
+    if (!lines || lines.first() != 'taxid') {
+        error "calibration_target_taxids must have exactly one header: taxid"
+    }
+    def taxids = lines.drop(1)
+    if (!taxids || taxids.any { taxid -> !(taxid ==~ /[1-9][0-9]*/) }) {
+        error "calibration_target_taxids must contain canonical positive taxids"
+    }
+    if (taxids.toSet().size() != taxids.size()) {
+        error "calibration_target_taxids must contain unique taxids"
+    }
+    if (!(targetTaxid in taxids)) {
+        error "calibration_target_taxids must include target_taxid ${targetTaxid}"
+    }
+    def canonicalTaxids = taxids.sort { left, right ->
+        left.size() <=> right.size() ?: left <=> right
+    }
+    return [scopeFile, canonicalTaxids]
+}
+
 include { UTILS_NFSCHEMA_PLUGIN } from './subworkflows/nf-core/utils_nfschema_plugin'
 include { BAITS_MAIN } from './workflows/baits'
 include { RESOLVE_CALIBRATION_READS } from './modules/local/resolve_calibration_reads/main'
@@ -36,6 +63,7 @@ workflow {
             target_assembly: '',
             background: params.background,
             calibration_reads: params.calibration_reads,
+            calibration_target_taxids: params.calibration_target_taxids,
         ])
         : Channel.empty()
 
@@ -50,11 +78,42 @@ workflow {
         if (row.calibration_reads && !params.taxon_ref_db) {
             error "calibration_reads requires taxon_ref_db"
         }
+        if (row.calibration_target_taxids && !row.calibration_reads) {
+            error "calibration_target_taxids requires calibration_reads"
+        }
         tuple(
             [id: row.id, source_sequence_origin: row.curated_source_sequences ? 'curated_input' : 'query_guided_discovery'],
             row,
         )
     }
+
+    ch_calibration_scope_context = ch_normalized_rows
+        .filter { meta, row -> row.calibration_reads != null && row.calibration_reads != '' }
+        .map { meta, row ->
+            def scope = resolveCalibrationTargetScope(row)
+            tuple(meta, scope[0], scope[1])
+        }
+    ch_calibration_target_scopes = ch_calibration_scope_context
+        .map { meta, calibration_target_taxids, canonical_taxids ->
+            tuple(meta, calibration_target_taxids)
+        }
+    ch_calibration_scope_facts = ch_calibration_scope_context
+        .map { meta, calibration_target_taxids, canonical_taxids ->
+            def hasScopeFile = calibration_target_taxids as boolean
+            tuple(
+                meta,
+                [[
+                    input_role: 'calibration_target_scope',
+                    input_id: meta.id,
+                    attribute: 'taxids',
+                    value: canonical_taxids.join(';'),
+                ]],
+                hasScopeFile ? ['calibration_target_scope'] : [],
+                hasScopeFile ? [meta.id] : [],
+                hasScopeFile ? ['file'] : [],
+                hasScopeFile ? [calibration_target_taxids] : [],
+            )
+        }
 
     ch_calibration_read_sets = ch_normalized_rows
         .filter { meta, row -> row.calibration_reads != null && row.calibration_reads != '' }
@@ -124,9 +183,18 @@ workflow {
             )
         }
     ch_calibration_provenance_facts = ch_calibration_read_file_facts
+        .join(ch_calibration_scope_facts)
         .join(ch_calibration_resolver_versions)
-        .map { meta, input_facts, input_file_roles, input_file_ids, input_file_kinds, input_files, software_versions ->
-            tuple(meta, input_facts, input_file_roles, input_file_ids, input_file_kinds, input_files, software_versions)
+        .map { meta, read_facts, read_file_roles, read_file_ids, read_file_kinds, read_files, scope_facts, scope_file_roles, scope_file_ids, scope_file_kinds, scope_files, software_versions ->
+            tuple(
+                meta,
+                read_facts + scope_facts,
+                read_file_roles + scope_file_roles,
+                read_file_ids + scope_file_ids,
+                read_file_kinds + scope_file_kinds,
+                read_files + scope_files,
+                software_versions,
+            )
         }
 
     ch_kmer_size = Channel.value(params.kmer_size)
@@ -191,6 +259,7 @@ workflow {
         ch_taxonomic_reference_db,
         ch_taxonomic_screening_not_run,
         ch_calibration_reads,
+        ch_calibration_target_scopes,
         ch_calibration_provenance_facts,
         ch_without_calibration_keys,
     )

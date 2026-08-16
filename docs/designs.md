@@ -59,7 +59,7 @@ The designs CSV schema enforces one source-sequence path per row. A curated-sequ
 | Curated sequences | `curated_source_sequences` |
 | Designs | `representative_queries`, `query_rules`, and `target_assembly` |
 
-`calibration_reads` is optional with either input system. `background` is required because background cancellation is part of every run.
+`calibration_reads` is optional with either input system. When calibration uses a target-compatible scope broader than `target_taxid`, `calibration_target_taxids` names a one-column TSV with the exact header `taxid`. Its positive unique taxids must include `target_taxid`. The scope changes calibration-read classification only; bait design and taxonomic exact-match screening continue to use `target_taxid`. `background` is required because background cancellation is part of every run.
 
 ## What each input contributes
 
@@ -71,6 +71,7 @@ The designs CSV schema enforces one source-sequence path per row. A curated-sequ
 | `target_assembly` | Provides the assembly intervals found by the representative sequences | Yes, after discovery |
 | `background` | Declares the sequence collection whose exact k-mers must be cancelled | No; it is subtractive |
 | `target_taxid` | Identifies the target taxon for later taxonomic interpretation | No |
+| `calibration_target_taxids` | Optionally declares taxids treated as target-compatible only during calibration | No |
 
 These inputs describe roles, not necessarily disjoint collections of organisms. The important distinction is whether an input generates candidate sequence or rejects it.
 
@@ -85,8 +86,8 @@ Use curated sequence input when you can answer this question directly:
 For example:
 
 ```csv
-id,target_taxid,curated_source_sequences,representative_queries,query_rules,target_assembly,background,calibration_reads
-curated_rrna,88456,data/source_sequences.fasta,,,,data/background.fasta,
+id,target_taxid,curated_source_sequences,representative_queries,query_rules,target_assembly,background,calibration_reads,calibration_target_taxids
+curated_rrna,88456,data/source_sequences.fasta,,,,data/background.fasta,,
 ```
 
 Supplying a curated source sequence is a scientific assertion. A record is curated because a curator accepted it, not because `dholab/baits` proved that it belongs to the target taxon.

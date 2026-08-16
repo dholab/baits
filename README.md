@@ -10,7 +10,7 @@
 
 K-mers that are absent from the background are filtered for low complexity. The survivors can then go through the second operation: an exact, taxonomically informed screening against NCBI Core NT. Core NT can be swapped for another taxonomic BLAST database, and this step can also be skipped. If a database is provided, k-mers matching sequences from any taxon other than the target are rejected.
 
-Third, `dholab/baits` can classify provided calibration reads and identify the smallest bait count at which the surviving reads support the bait set's target. The result is evidence for those baits and calibration reads, not a universal threshold. For paired input, Deacon retrieves candidate fragments using bait matches pooled across both mates; `dholab/baits` then counts, classifies, and thresholds each emitted read independently.
+Third, `dholab/baits` can classify provided calibration reads and identify the smallest bait count at which the surviving reads support the bait set's target. By default, only `target_taxid` is target-compatible during calibration; an optional `calibration_target_taxids` TSV can declare a broader finite scope without changing bait design or taxonomic exact-match screening. The result is evidence for those baits and calibration reads, not a universal threshold. For paired input, Deacon retrieves candidate fragments using bait matches pooled across both mates; `dholab/baits` then counts, classifies, and thresholds each emitted read independently.
 
 In summary, `dholab/baits` allows you to bring your own source sequences, your own background reference, your own BLAST-compatible taxonomic database, and your own calibration reads. In return, it gives you baits for your target, the evidence behind each screening decision, and a supported threshold when the calibration reads establish one.
 
@@ -44,6 +44,7 @@ A basic run needs source sequences, an NCBI taxonomy ID, and a background FASTA.
 | `--id` | FASTA basename | Name used for the design and its results directory. |
 | `--taxon_ref_db` | not run | Directory containing an optional taxonomic BLAST database. |
 | `--calibration_reads` | not run | Flat FASTQ directory used to calibrate a threshold. Requires `--taxon_ref_db`. |
+| `--calibration_target_taxids` | `target_taxid` only | One-column `taxid` TSV declaring target-compatible calibration assignments. Requires `--calibration_reads` and must include `target_taxid`. |
 | `--kmer_size` | `31` | Length of each candidate k-mer. |
 | `--deacon_window` | `1` | Deacon minimizer window length. |
 | `--entropy_threshold` | `0.6` | Minimum scaled entropy used for low-complexity filtering. |
@@ -59,7 +60,16 @@ nextflow run dholab/baits \
     --target_taxid 88456 \
     --background background.fasta \
     --taxon_ref_db /path/to/blast/database \
-    --calibration_reads reads/
+    --calibration_reads reads/ \
+    --calibration_target_taxids calibration_target_taxids.tsv
+```
+
+The scope file has exactly one column. Taxids must be canonical positive decimal identifiers and unique:
+
+```tsv
+taxid
+44417
+88456
 ```
 
 Use `--input designs.csv` instead of the direct source, taxon, and background parameters for multiple designs or query-guided source discovery. Copy and edit [`assets/example_designs.csv`](assets/example_designs.csv), then run:

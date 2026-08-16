@@ -107,4 +107,24 @@ optimized,88456,$baseDir/tests/data/curated_source_sequences.fasta,,,,$baseDir/t
             assert workflow.stdout.join('\n').contains('calibration_reads requires taxon_ref_db')
         }
     }
+
+    test("rejects calibration target taxids without calibration reads") {
+        setup {
+            new File("$outputDir/scope.tsv").text = 'taxid\n88456\n'
+        }
+        when {
+            params {
+                validate_params = false
+                id = "scope_without_reads"
+                source_sequences = "$baseDir/tests/data/curated_source_sequences.fasta"
+                target_taxid = "88456"
+                background = "$baseDir/tests/data/interference_background.fasta"
+                calibration_target_taxids = "$outputDir/scope.tsv"
+            }
+        }
+        then {
+            assert workflow.failed
+            assert workflow.stdout.join('\n').contains('calibration_target_taxids requires calibration_reads')
+        }
+    }
 }

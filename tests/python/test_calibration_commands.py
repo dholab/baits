@@ -19,6 +19,7 @@ from classify_read_hits import (
     construct_candidate_read_classifications,
     construct_candidate_read_counts,
     construct_read_hits,
+    load_calibration_target_taxids,
 )
 from classify_read_hits import main as classify_read_hits_main
 from count_read_baits import (
@@ -38,6 +39,43 @@ from prepare_read_blast_queries import main as prepare_read_blast_queries_main
 
 def write_fastq(path: Path, records: list[tuple[str, str]]) -> None:
     path.write_text("".join(f"@{name}\n{sequence}\n+\n{'I' * len(sequence)}\n" for name, sequence in records))
+
+
+def write_calibration_target_taxids(tmp_path: Path, rows: str) -> Path:
+    path = tmp_path / "calibration_target_taxids.tsv"
+    path.write_text("taxid\n" + rows)
+    return path
+
+
+def test_load_calibration_target_taxids_uses_a_supplied_scope(tmp_path: Path) -> None:
+    scope = write_calibration_target_taxids(tmp_path, "44417\n88456\n")
+
+    assert load_calibration_target_taxids(scope, target_taxid="88456") == frozenset({"44417", "88456"})
+
+
+def test_load_calibration_target_taxids_defaults_to_the_bait_set_target() -> None:
+    assert load_calibration_target_taxids(None, target_taxid="88456") == frozenset({"88456"})
+
+
+@pytest.mark.parametrize(
+    ("content", "error"),
+    [
+        ("target_taxid\n88456\n", "exactly one header"),
+        ("taxid\n88456\n88456\n", "unique"),
+        ("taxid\n088456\n", "canonical positive taxid"),
+        ("taxid\n44417\n", "must include target_taxid 88456"),
+    ],
+)
+def test_load_calibration_target_taxids_rejects_invalid_scopes(
+    tmp_path: Path,
+    content: str,
+    error: str,
+) -> None:
+    scope = tmp_path / "calibration_target_taxids.tsv"
+    scope.write_text(content)
+
+    with pytest.raises(CandidateReadClassificationError, match=error):
+        load_calibration_target_taxids(scope, target_taxid="88456")
 
 
 def read_record(identifier: str, sequence: str) -> SeqRecord:
@@ -463,12 +501,19 @@ def write_classification_hits(tmp_path: Path, rows: str) -> Path:
     return hits
 
 
-def classification_rows(tmp_path: Path, candidate_rows: str, hit_rows: str) -> list[dict[str, object]]:
+def classification_rows(
+    tmp_path: Path,
+    candidate_rows: str,
+    hit_rows: str,
+    *,
+    calibration_target_taxids: frozenset[str] | None = None,
+) -> list[dict[str, object]]:
     candidates = construct_candidate_read_counts(write_classification_candidates(tmp_path, candidate_rows))
     hits = construct_read_hits(
         write_classification_hits(tmp_path, hit_rows),
         candidate_representatives=candidates.select("representative_id").unique(),
         target_taxid="88456",
+        calibration_target_taxids=calibration_target_taxids,
     )
     return construct_candidate_read_classifications(candidates, hits).collect().to_dicts()
 
@@ -495,6 +540,21 @@ def test_construct_candidate_read_classifications_preserves_candidate_order(tmp_
         ("f3", "TIED"),
         ("f4", "NO_HIT"),
     ]
+
+
+def test_construct_read_hits_classifies_against_the_calibration_target_scope(tmp_path: Path) -> None:
+    rows = classification_rows(
+        tmp_path,
+        "sample\tf1\t\t100\t1\tr1\n"
+        "sample\tf2\t\t100\t1\tr2\n"
+        "sample\tf3\t\t100\t1\tr3\n",
+        blast_row("r1", "44417", "100")
+        + blast_row("r2", "123", "100")
+        + blast_row("r3", "44417;123", "100"),
+        calibration_target_taxids=frozenset({"44417", "88456"}),
+    )
+
+    assert [row["classification"] for row in rows] == ["TARGET", "NON_TARGET", "TIED"]
 
 
 def test_construct_candidate_read_classifications_uses_decimal_tie_boundary(tmp_path: Path) -> None:

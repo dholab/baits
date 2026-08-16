@@ -49,6 +49,14 @@
                     "exists": true,
                     "description": "Optional flat FASTQ directory used to calibrate a threshold."
                 },
+                "calibration_target_taxids": {
+                    "type": "string",
+                    "format": "file-path",
+                    "exists": true,
+                    "schema": "assets/schema_calibration_target_taxids.json",
+                    "pattern": "^\\S+\\.tsv$",
+                    "description": "Optional TSV of taxids treated as target-compatible only during calibration. Defaults to target_taxid."
+                },
                 "kmer_size": {
                     "type": "integer",
                     "minimum": 1,
@@ -78,7 +86,8 @@
                             {"required": ["source_sequences"]},
                             {"required": ["target_taxid"]},
                             {"required": ["background"]},
-                            {"required": ["calibration_reads"]}
+                            {"required": ["calibration_reads"]},
+                            {"required": ["calibration_target_taxids"]}
                         ]
                     }
                 },
@@ -137,6 +146,10 @@
         {
             "if": {"required": ["calibration_reads"]},
             "then": {"required": ["taxon_ref_db"]}
+        },
+        {
+            "if": {"required": ["calibration_target_taxids"]},
+            "then": {"required": ["calibration_reads"]}
         }
     ]
 }

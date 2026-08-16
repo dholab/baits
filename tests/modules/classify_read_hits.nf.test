@@ -10,7 +10,24 @@ nextflow_process {
         }
         when {
             process {
-                """input[0] = [[id: 'design'], file("$outputDir/candidates.tsv"), file("$outputDir/hits.tsv"), '88456']"""
+                """input[0] = [[id: 'design'], file("$outputDir/candidates.tsv"), file("$outputDir/hits.tsv"), '88456', []]"""
+            }
+        }
+        then {
+            assert process.success
+            assert file(process.out.classified_reads[0][1]).text.contains('\tTARGET\t10\t')
+        }
+    }
+
+    test("classifies against a supplied calibration target scope") {
+        setup {
+            new File("$outputDir/candidates.tsv").text = 'metagenome_id\tfragment_id\tmate\tread_length\tbait_count\trepresentative_id\nsample\tfragment\t1\t5\t1\trepresentative_000001\n'
+            new File("$outputDir/hits.tsv").text = 'qseqid\tqlen\tsaccver\tstaxids\tpident\tlength\tmismatch\tgapopen\tqstart\tqend\tsstart\tsend\tevalue\tbitscore\tqcovhsp\tstitle\nrepresentative_000001\t5\tgenus_target\t44417\t100\t5\t0\t0\t1\t5\t1\t5\t0\t10\t100\tgenus target\n'
+            new File("$outputDir/scope.tsv").text = 'taxid\n44417\n88456\n'
+        }
+        when {
+            process {
+                """input[0] = [[id: 'design'], file("$outputDir/candidates.tsv"), file("$outputDir/hits.tsv"), '88456', file("$outputDir/scope.tsv")]"""
             }
         }
         then {

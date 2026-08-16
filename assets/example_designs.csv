@@ -1,3 +1,3 @@
-id,target_taxid,curated_source_sequences,representative_queries,query_rules,target_assembly,background,calibration_reads
-curated_design,88456,data/source_sequences.fasta,,,,data/background.fasta,
-query_guided_design,88456,,data/representative_queries.fasta,data/query_rules.tsv,data/target_assembly.fasta,data/background.fasta,data/calibration_reads
+id,target_taxid,curated_source_sequences,representative_queries,query_rules,target_assembly,background,calibration_reads,calibration_target_taxids
+curated_design,88456,data/source_sequences.fasta,,,,data/background.fasta,,
+query_guided_design,88456,,data/representative_queries.fasta,data/query_rules.tsv,data/target_assembly.fasta,data/background.fasta,data/calibration_reads,data/calibration_target_taxids.tsv

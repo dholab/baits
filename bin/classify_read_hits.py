@@ -85,11 +85,41 @@ class CandidateReadClassificationError(ValueError):
         return cls("target_taxid must be a positive integer")
 
 
+def load_calibration_target_taxids(path: Path | None, target_taxid: str) -> frozenset[str]:
+    """Load the calibration target scope, defaulting to the bait-set target taxid."""
+    target_taxid = valid_target_taxid(target_taxid)
+    if path is None:
+        return frozenset({target_taxid})
+
+    with path.open(newline="") as handle:
+        reader = csv.reader(handle, delimiter="\t")
+        header = next(reader, None)
+        if header != ["taxid"]:
+            message = "Calibration target taxids must have exactly one header: taxid"
+            raise CandidateReadClassificationError(message)
+
+        taxids: list[str] = []
+        for line_number, row in enumerate(reader, start=2):
+            if len(row) != 1 or re.fullmatch(r"[1-9][0-9]*", row[0]) is None:
+                message = f"Calibration target taxids row {line_number} must contain one canonical positive taxid"
+                raise CandidateReadClassificationError(message)
+            taxids.append(row[0])
+
+    if len(set(taxids)) != len(taxids):
+        message = "Calibration target taxids must be unique"
+        raise CandidateReadClassificationError(message)
+    if target_taxid not in taxids:
+        message = f"Calibration target taxids must include target_taxid {target_taxid}"
+        raise CandidateReadClassificationError(message)
+    return frozenset(taxids)
+
+
 def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Classify candidate reads from read BLAST evidence.")
     parser.add_argument("--candidate-read-counts", type=Path, required=True)
     parser.add_argument("--blast-hits", type=Path, required=True)
     parser.add_argument("--target-taxid", required=True)
+    parser.add_argument("--calibration-target-taxids", type=Path)
     parser.add_argument("--output", type=Path, required=True)
     return parser.parse_args(argv)
 
@@ -184,8 +214,13 @@ def construct_read_hits(
     *,
     candidate_representatives: pl.LazyFrame,
     target_taxid: str,
+    calibration_target_taxids: frozenset[str] | None = None,
 ) -> pl.LazyFrame:
     target_taxid = valid_target_taxid(target_taxid)
+    target_scope = frozenset({target_taxid}) if calibration_target_taxids is None else calibration_target_taxids
+    if target_taxid not in target_scope or any(valid_target_taxid(taxid) != taxid for taxid in target_scope):
+        message = f"Calibration target taxids must be positive integers and include target_taxid {target_taxid}"
+        raise CandidateReadClassificationError(message)
     try:
         if not has_expected_header(path, BLAST_FIELDS):
             raise CandidateReadClassificationError.malformed_hits(path)
@@ -240,8 +275,10 @@ def construct_read_hits(
             return hits.with_columns(
                 pl.col("_taxids").list.eval(pl.element().str.strip_chars()).alias("_taxids"),
             ).with_columns(
-                pl.col("_taxids").list.contains(target_taxid).alias("_target"),
-                pl.col("_taxids").list.eval(pl.element() != target_taxid).list.any().alias("_non_target"),
+                pl.any_horizontal(
+                    *(pl.col("_taxids").list.contains(taxid) for taxid in sorted(target_scope)),
+                ).alias("_target"),
+                pl.col("_taxids").list.eval(pl.element().is_in(sorted(target_scope)).not_()).list.any().alias("_non_target"),
             ).with_columns(
                 pl.when(pl.col("staxids") == "N/A").then(pl.lit(value=False)).otherwise(pl.col("_target")).alias("_target"),
                 pl.when(pl.col("staxids") == "N/A").then(pl.lit(value=True)).otherwise(pl.col("_non_target")).alias("_non_target"),
@@ -337,10 +374,15 @@ def construct_candidate_read_classifications(
 def main(argv: Sequence[str] | None = None) -> None:
     args = parse_args(argv)
     candidates = construct_candidate_read_counts(args.candidate_read_counts)
+    calibration_target_taxids = load_calibration_target_taxids(
+        args.calibration_target_taxids,
+        args.target_taxid,
+    )
     hits = construct_read_hits(
         args.blast_hits,
         candidate_representatives=candidates.select("representative_id").unique(),
         target_taxid=args.target_taxid,
+        calibration_target_taxids=calibration_target_taxids,
     )
     classified = construct_candidate_read_classifications(candidates, hits).collect()
     classified.write_csv(args.output, separator="\t", null_value="", quote_style="never")

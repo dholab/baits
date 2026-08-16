@@ -19,6 +19,7 @@ workflow BAITS_MAIN {
     ch_taxonomic_reference_db
     ch_taxonomic_screening_not_run
     ch_calibration_reads
+    ch_calibration_target_scopes
     ch_calibration_provenance_facts
     ch_without_calibration_keys
 
@@ -78,8 +79,9 @@ workflow BAITS_MAIN {
     ch_calibration_inputs = ch_calibration_reads
         .combine(ch_taxonomically_screened_verified_indexes, by: 0)
         .combine(ch_design_context, by: 0)
-        .map { meta, read_meta, reads, taxonomically_screened_baits, candidate_kmer_manifest, bait_set_status, deacon_index, target_taxid, interference_background ->
-            tuple(meta, read_meta, reads, taxonomically_screened_baits, bait_set_status, deacon_index, target_taxid)
+        .combine(ch_calibration_target_scopes, by: 0)
+        .map { meta, read_meta, reads, taxonomically_screened_baits, candidate_kmer_manifest, bait_set_status, deacon_index, target_taxid, interference_background, calibration_target_taxids ->
+            tuple(meta, read_meta, reads, taxonomically_screened_baits, bait_set_status, deacon_index, target_taxid, calibration_target_taxids)
         }
     CALIBRATE_THRESHOLD(ch_calibration_inputs, ch_taxonomic_reference_db, ch_kmer_size)
 

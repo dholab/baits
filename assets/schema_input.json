@@ -64,6 +64,14 @@
                 "format": "directory-path",
                 "exists": true,
                 "errorMessage": "calibration_reads must be an existing flat calibration-read FASTQ directory"
+            },
+            "calibration_target_taxids": {
+                "type": ["string", "null"],
+                "format": "file-path",
+                "exists": true,
+                "schema": "assets/schema_calibration_target_taxids.json",
+                "pattern": "^\\S+\\.tsv$",
+                "errorMessage": "calibration_target_taxids must be an existing TSV file"
             }
         },
         "required": ["id", "target_taxid", "background"],
@@ -84,6 +92,18 @@
                     "representative_queries": {"minLength": 1},
                     "query_rules": {"minLength": 1},
                     "target_assembly": {"minLength": 1}
+                }
+            }
+        ],
+        "allOf": [
+            {
+                "if": {
+                    "required": ["calibration_target_taxids"],
+                    "properties": {"calibration_target_taxids": {"type": "string", "minLength": 1}}
+                },
+                "then": {
+                    "required": ["calibration_reads"],
+                    "properties": {"calibration_reads": {"type": "string", "minLength": 1}}
                 }
             }
         ]

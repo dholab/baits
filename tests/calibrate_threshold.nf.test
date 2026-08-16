@@ -93,6 +93,47 @@ nextflow_pipeline {
         }
     }
 
+    test("keeps calibration target scope isolated from bait screening") {
+        setup {
+            def source = 'ACGTTGCATGTCAGTACGATCGTAG' * 4
+            def genusSegment = 'T' * 69
+            def read = source + genusSegment
+            new File("$outputDir/source.fasta").text = ">species_target\n${source}\n"
+            new File("$outputDir/calibration_reads").mkdirs()
+            new File("$outputDir/calibration_reads/sample.fastq").text = "@fragment\n${read}\n+\n${'I' * read.size()}\n"
+            new File("$outputDir/genus_reference.fasta").text = ">genus_target\n${genusSegment}\n"
+            new File("$outputDir/taxonomic_reference_db").mkdirs()
+            new File("$outputDir/scope.tsv").text = 'taxid\n44417\n88456\n'
+            new File("$outputDir/designs.csv").text = """\
+id,target_taxid,curated_source_sequences,representative_queries,query_rules,target_assembly,background,calibration_reads,calibration_target_taxids
+default_scope,88456,$outputDir/source.fasta,,,,$baseDir/tests/data/interference_background.fasta,$outputDir/calibration_reads,
+genus_scope,88456,$outputDir/source.fasta,,,,$baseDir/tests/data/interference_background.fasta,$outputDir/calibration_reads,$outputDir/scope.tsv
+"""
+            assert ["pixi", "run", "--environment", "dev", "makeblastdb", "-dbtype", "nucl", "-parse_seqids", "-taxid", "44417", "-in", "$outputDir/genus_reference.fasta", "-out", "$outputDir/taxonomic_reference_db/taxonomic"].execute().waitFor() == 0
+        }
+        when {
+            params {
+                input = "$outputDir/designs.csv"
+                taxon_ref_db = "$outputDir/taxonomic_reference_db"
+            }
+        }
+        then {
+            assert workflow.success
+            def runDir = new File(outputDir).parent
+            def defaultDesign = new File("$runDir/results/default_scope")
+            def genusDesign = new File("$runDir/results/genus_scope")
+            assert new File(defaultDesign, '04_bait_sets/taxonomically_screened_baits.fasta').bytes == new File(genusDesign, '04_bait_sets/taxonomically_screened_baits.fasta').bytes
+            assert new File(defaultDesign, '06_calibration/classified_reads.tsv').text.contains('\tNON_TARGET\t')
+            assert new File(genusDesign, '06_calibration/classified_reads.tsv').text.contains('\tTARGET\t')
+            def defaultInputs = new File(defaultDesign, '07_provenance/inputs.tsv').text
+            def genusInputs = new File(genusDesign, '07_provenance/inputs.tsv').text
+            assert defaultInputs.contains('calibration_target_scope\tdefault_scope\ttaxids\t88456')
+            assert genusInputs.contains('calibration_target_scope\tgenus_scope\ttaxids\t44417;88456')
+            assert genusInputs.contains('calibration_target_scope\tgenus_scope\tfilename\tscope.tsv')
+            assert genusInputs ==~ /(?s).*calibration_target_scope\tgenus_scope\tsha256\t[0-9a-f]{64}.*/
+        }
+    }
+
     test("does not calibrate when taxonomic exact-match screening yields no baits") {
         setup {
             def sequence = 'ACGTTGCATGTCAGTACGATCGTAG' * 4

@@ -28,6 +28,11 @@ input:
     - target_taxid:
         type: string
         description: Target taxon identifier.
+    - calibration_target_taxids:
+        type: file
+        description: Optional one-column TSV declaring taxids treated as target-compatible during calibration.
+        pattern: "*.tsv"
+        ontologies: []
 output:
   classified_reads:
     - - meta:
