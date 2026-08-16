@@ -20,4 +20,40 @@ nextflow_process {
             assert file(process.out.hits[0][1]).text.startsWith('qseqid\tqlen\tsaccver\tstaxids')
         }
     }
+
+    test("bounds co-best subjects at the configured limit") {
+        setup {
+            def sequence = 'ACGTTGCATGTCAGTACGATCGTAG' * 4
+            def subjects = (1..101).collect { index ->
+                def id = String.format('subject%03d', index)
+                ">${id}\n${sequence}\n"
+            }.join('')
+            def taxidMap = (1..101).collect { index ->
+                def id = String.format('subject%03d', index)
+                "${id}\t88456\n"
+            }.join('')
+            new File("$outputDir/query.fasta").text = ">candidate_read_000001\n${sequence}\n"
+            new File("$outputDir/subjects.fasta").text = subjects
+            new File("$outputDir/taxid_map.tsv").text = taxidMap
+            new File("$outputDir/database").mkdirs()
+            assert ["pixi", "run", "--environment", "dev", "makeblastdb", "-dbtype", "nucl", "-parse_seqids", "-taxid_map", "$outputDir/taxid_map.tsv", "-in", "$outputDir/subjects.fasta", "-out", "$outputDir/database/reference"].execute().waitFor() == 0
+        }
+        when {
+            process {
+                """input[0] = [[id: 'design'], file("$outputDir/query.fasta"), file("$outputDir/database")]"""
+            }
+        }
+        then {
+            assert process.success
+            def subjects = file(process.out.hits[0][1]).readLines().drop(1).collect { row ->
+                def fields = row.split('\t')
+                [accession: fields[2], taxid: fields[3]]
+            }.unique { subject -> subject.accession }
+            assert subjects.size() == 100
+            assert file(process.out.search_parameters[0][1]).readLines() == [
+                'parameter\tvalue',
+                'max_target_seqs\t100',
+            ]
+        }
+    }
 }

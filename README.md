@@ -45,6 +45,7 @@ A basic run needs source sequences, an NCBI taxonomy ID, and a background FASTA.
 | `--taxon_ref_db` | not run | Directory containing an optional taxonomic BLAST database. |
 | `--calibration_reads` | not run | Flat FASTQ directory used to calibrate a threshold. Requires `--taxon_ref_db`. |
 | `--calibration_target_taxids` | `target_taxid` only | One-column `taxid` TSV declaring target-compatible calibration assignments. Requires `--calibration_reads` and must include `target_taxid`. |
+| `--max_blast_targets` | `100` | Maximum subject sequences retained per calibration-read BLAST query. |
 | `--kmer_size` | `31` | Length of each candidate k-mer. |
 | `--deacon_window` | `1` | Deacon minimizer window length. |
 | `--entropy_threshold` | `0.6` | Minimum scaled entropy used for low-complexity filtering. |

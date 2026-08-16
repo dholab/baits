@@ -298,7 +298,7 @@ workflow BAITS_MAIN {
                 [parameter: 'deacon_filter_relative_threshold', value: '0'],
                 [parameter: 'read_blast_dust', value: 'no'],
                 [parameter: 'read_blast_evalue', value: '1e-10'],
-                [parameter: 'read_blast_max_target_seqs', value: '25'],
+                [parameter: 'max_blast_targets', value: params.max_blast_targets.toString()],
                 [parameter: 'read_blast_task', value: 'blastn'],
                 [parameter: 'read_classification_tie_tolerance', value: '0.1'],
             ] : []
@@ -346,6 +346,7 @@ workflow BAITS_MAIN {
     taxonomic_reference_database = TAXONOMIC_EXACT_MATCH_SCREENING.out.reference_database_report
     candidate_read_counts = CALIBRATE_THRESHOLD.out.candidate_read_counts
     read_blast_hits = CALIBRATE_THRESHOLD.out.read_blast_hits
+    read_blast_search_parameters = CALIBRATE_THRESHOLD.out.read_blast_search_parameters
     classified_reads = CALIBRATE_THRESHOLD.out.classified_reads
     threshold_read_counts = CALIBRATE_THRESHOLD.out.threshold_read_counts
     threshold_summary = CALIBRATE_THRESHOLD.out.summary

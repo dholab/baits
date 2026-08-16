@@ -76,6 +76,7 @@ workflow CALIBRATE_THRESHOLD {
     candidate_read_counts = PREPARE_READ_BLAST_QUERIES.out.candidate_read_counts
     read_blast_hits = BLASTN_READ_CLASSIFICATION.out.hits
         .mix(PREPARE_READ_BLAST_QUERIES.out.terminal_blast_hits)
+    read_blast_search_parameters = BLASTN_READ_CLASSIFICATION.out.search_parameters
     classified_reads = CLASSIFY_READ_HITS.out.classified_reads
         .mix(PREPARE_READ_BLAST_QUERIES.out.terminal_classified_reads)
     threshold_read_counts = CALIBRATE_THRESHOLD_EVIDENCE.out.read_counts

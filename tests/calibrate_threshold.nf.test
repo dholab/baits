@@ -22,6 +22,7 @@ nextflow_pipeline {
                 background = "$baseDir/tests/data/interference_background.fasta"
                 calibration_reads = "$outputDir/calibration_reads"
                 taxon_ref_db = "$outputDir/taxonomic_reference_db"
+                max_blast_targets = 7
             }
         }
         then {
@@ -31,6 +32,10 @@ nextflow_pipeline {
             assert new File(design, '06_calibration/candidate_read_counts.tsv').exists()
             assert new File(design, '06_calibration/candidate_read_counts.tsv').text.contains('sample\tfragment\t1\t')
             assert new File(design, '06_calibration/read_blast_hits.tsv').exists()
+            assert new File(design, '06_calibration/read_blast_search_parameters.tsv').readLines() == [
+                'parameter\tvalue',
+                'max_target_seqs\t7',
+            ]
             assert new File(design, '06_calibration/classified_reads.tsv').text.contains('sample\tfragment\t1\t')
             assert new File(design, '06_calibration/classified_reads.tsv').text.contains('\tTARGET\t')
             assert new File(design, '06_calibration/threshold_read_counts.tsv').exists()
@@ -49,6 +54,7 @@ nextflow_pipeline {
             assert inputs.contains('calibration_read\tcalibrated__sample:R2\tmetagenome_id\tsample')
             assert inputs.readLines().count { it ==~ /calibration_read\tcalibrated__sample:R[12]\tsha256\t[0-9a-f]{64}/ } == 2
             assert new File(design, '07_provenance/parameters.tsv').text.contains('read_classification_tie_tolerance\t0.1')
+            assert new File(design, '07_provenance/parameters.tsv').text.contains('max_blast_targets\t7')
         }
     }
 

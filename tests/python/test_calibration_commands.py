@@ -557,6 +557,22 @@ def test_construct_read_hits_classifies_against_the_calibration_target_scope(tmp
     assert [row["classification"] for row in rows] == ["TARGET", "NON_TARGET", "TIED"]
 
 
+def test_construct_read_hits_keeps_the_26th_co_best_subject_decisive(tmp_path: Path) -> None:
+    target_hits = "".join(
+        blast_row("r1", "88456", "100").replace("accession", f"target_{index:02d}")
+        for index in range(1, 26)
+    )
+    rows = classification_rows(
+        tmp_path,
+        "sample\tf\t\t100\t1\tr1\n",
+        target_hits + blast_row("r1", "123", "100").replace("accession", "non_target_26"),
+    )
+
+    assert rows[0]["classification"] == "TIED"
+    assert rows[0]["best_target_bit_score"] == "100"
+    assert rows[0]["best_non_target_bit_score"] == "100"
+
+
 def test_construct_candidate_read_classifications_uses_decimal_tie_boundary(tmp_path: Path) -> None:
     rows = classification_rows(
         tmp_path,

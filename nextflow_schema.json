@@ -57,6 +57,12 @@
                     "pattern": "^\\S+\\.tsv$",
                     "description": "Optional TSV of taxids treated as target-compatible only during calibration. Defaults to target_taxid."
                 },
+                "max_blast_targets": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "default": 100,
+                    "description": "Maximum subject sequences retained per calibration-read BLAST query."
+                },
                 "kmer_size": {
                     "type": "integer",
                     "minimum": 1,
