@@ -37,7 +37,7 @@ def test_every_process_resource_label_has_effective_portable_defaults() -> None:
     expected = {
         "process_low": {"cpus": "1", "memory": "'2 GB'", "time": "'2h'"},
         "process_medium": {"cpus": "2", "memory": "'4 GB'", "time": "'8h'"},
-        "process_high": {"cpus": "4", "memory": "'8 GB'", "time": "'24h'"},
+        "process_high": {"cpus": "2", "memory": "'4 GB'", "time": "'24h'"},
     }
 
     assert declared_process_labels() == expected.keys()

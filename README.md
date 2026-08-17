@@ -56,7 +56,7 @@ Every process has a portable resource baseline. These requests are conservative 
 |---|---:|---:|---:|
 | `process_low` | 1 | 2 GB | 2 hours |
 | `process_medium` | 2 | 4 GB | 8 hours |
-| `process_high` | 4 | 8 GB | 24 hours |
+| `process_high` | 2 | 4 GB | 24 hours |
 
 BLAST searches, Meryl counting, and Deacon read filtering consume their allocated CPUs. `BLAST_MAKEBLASTDB` remains single-core because `makeblastdb` does not provide a corresponding thread-count option. A site configuration can override any baseline without modifying the pipeline:
 
