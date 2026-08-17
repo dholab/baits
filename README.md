@@ -50,6 +50,28 @@ A basic run needs source sequences, an NCBI taxonomy ID, and a background FASTA.
 | `--deacon_window` | `1` | Deacon minimizer window length. |
 | `--entropy_threshold` | `0.6` | Minimum scaled entropy used for low-complexity filtering. |
 
+Every process has a portable resource baseline. These requests are conservative starting points, not claims that one allocation is optimal for every dataset or executor:
+
+| Process label | CPUs | Memory | Time |
+|---|---:|---:|---:|
+| `process_low` | 1 | 2 GB | 2 hours |
+| `process_medium` | 2 | 4 GB | 8 hours |
+| `process_high` | 4 | 8 GB | 24 hours |
+
+BLAST searches, Meryl counting, and Deacon read filtering consume their allocated CPUs. `BLAST_MAKEBLASTDB` remains single-core because `makeblastdb` does not provide a corresponding thread-count option. A site configuration can override any baseline without modifying the pipeline:
+
+```groovy
+process {
+    withLabel: process_medium {
+        cpus = 4
+        memory = '8 GB'
+        time = '12h'
+    }
+}
+```
+
+Use Nextflow trace and report output from representative runs to tune requests for the actual source, background, taxonomic reference database, calibration reads, and executor. Keep queue, accounting, scratch, transfer, and container-cache policy in the site configuration.
+
 For a complete direct run with taxonomic screening and threshold calibration:
 
 ```bash

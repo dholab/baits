@@ -50,6 +50,7 @@ process BLASTN_READ_CLASSIFICATION {
         -query ${queries} \
         -db "\$db_prefix" \
         -task blastn \
+        -num_threads ${task.cpus} \
         -evalue 1e-10 \
         -max_target_seqs ${params.max_blast_targets} \
         -dust no \

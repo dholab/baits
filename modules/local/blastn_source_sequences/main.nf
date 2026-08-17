@@ -24,6 +24,7 @@ process BLASTN_SOURCE_SEQUENCES {
         -query ${fasta} \
         -db "\$db_prefix" \
         -task megablast \
+        -num_threads ${task.cpus} \
         -outfmt '6 qseqid qlen qstart qend sseqid sstart send length pident' \
         -out query_blast_hits.txt
     """

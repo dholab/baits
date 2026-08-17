@@ -53,6 +53,7 @@ process BLASTN_TAXONOMIC_SCREENING {
         -query ${baits} \\
         -db "\$db_prefix" \\
         -task blastn \\
+        -num_threads ${task.cpus} \\
         -word_size ${kmer_size} \\
         -ungapped \\
         -perc_identity 100 \\

@@ -54,6 +54,8 @@ nextflow_process {
                 'parameter\tvalue',
                 'max_target_seqs\t100',
             ]
+            def command = new File(file(process.out.hits[0][1]).parent, '.command.sh').text
+            assert command.contains('-num_threads 2')
         }
     }
 }

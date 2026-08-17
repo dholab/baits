@@ -23,4 +23,24 @@ nextflow_process {
             assert process.out.reported_blast[0][1] == 'blast'
         }
     }
+
+    test("uses every allocated CPU for source discovery") {
+        setup {
+            def sequence = 'ACGTTGCATGTCAGTACGATCGTAG' * 4
+            new File("$outputDir/query.fasta").text = ">query\n${sequence}\n"
+            new File("$outputDir/reference.fasta").text = ">reference\n${sequence}\n"
+            new File("$outputDir/database").mkdirs()
+            assert ["pixi", "run", "--environment", "dev", "makeblastdb", "-dbtype", "nucl", "-in", "$outputDir/reference.fasta", "-out", "$outputDir/database/reference"].execute().waitFor() == 0
+        }
+        when {
+            process {
+                """input[0] = [[id: 'design'], file("$outputDir/query.fasta"), file("$outputDir/database")]"""
+            }
+        }
+        then {
+            assert process.success
+            def command = new File(file(process.out.txt[0][1]).parent, '.command.sh').text
+            assert command.contains('-num_threads 2')
+        }
+    }
 }
