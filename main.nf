@@ -1,5 +1,31 @@
 #!/usr/bin/env nextflow
 
+def validateInputMode(pipelineParams) {
+    if (pipelineParams.help || pipelineParams.help_full || pipelineParams.version || !pipelineParams.input) {
+        return
+    }
+
+    def directOnlyParameters = [
+        'id',
+        'source_sequences',
+        'target_taxid',
+        'background',
+        'calibration_reads',
+        'calibration_target_taxids',
+    ]
+    def incompatible = directOnlyParameters.findAll { parameter ->
+        def value = pipelineParams[parameter]
+        value != null && value != '' && value != false
+    }
+    if (incompatible) {
+        def flags = incompatible.collect { parameter -> "--${parameter}" }.join(', ')
+        error """\
+--input selects design-CSV mode and cannot be combined with: ${flags}
+Put design-specific values in each applicable CSV row; --taxon_ref_db remains a run-level parameter.
+""".stripIndent().trim()
+    }
+}
+
 def resolveCalibrationTargetScope(row) {
     def targetTaxid = row.target_taxid as String
     if (!row.calibration_target_taxids) {
@@ -33,6 +59,8 @@ include { RESOLVE_CALIBRATION_READS } from './modules/local/resolve_calibration_
 
 workflow {
     main:
+
+    validateInputMode(params)
 
     if (params.version) {
         println "${workflow.manifest.name} v${workflow.manifest.version}"

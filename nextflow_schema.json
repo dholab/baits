@@ -17,37 +17,38 @@
                     "schema": "assets/schema_input.json",
                     "mimetype": "text/csv",
                     "pattern": "^\\S+\\.csv$",
-                    "description": "Path to the main samplesheet."
+                    "description": "Path to the main samplesheet; selects design-CSV mode.",
+                    "help_text": "When --input is supplied, put id, source-sequence inputs, target_taxid, background, calibration_reads, and calibration_target_taxids in each applicable CSV row. Do not also supply their direct-run CLI parameters."
                 },
                 "id": {
                     "type": "string",
                     "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$",
-                    "description": "Optional identifier for one direct curated run. The source sequence FASTA name is used when this parameter is absent."
+                    "description": "Direct-run identifier; with --input, set id in each CSV row."
                 },
                 "source_sequences": {
                     "type": "string",
                     "format": "file-path",
                     "exists": true,
                     "pattern": "^\\S+\\.(fa|fasta|fna)(\\.gz)?$",
-                    "description": "Path to one curated source sequence FASTA."
+                    "description": "Direct-run source FASTA; with --input, use the curated_source_sequences CSV column."
                 },
                 "target_taxid": {
                     "type": "string",
                     "pattern": "^[1-9][0-9]*$",
-                    "description": "NCBI Taxonomy identifier for the target taxon."
+                    "description": "Direct-run target taxid; with --input, set target_taxid in each CSV row."
                 },
                 "background": {
                     "type": "string",
                     "format": "file-path",
                     "exists": true,
                     "pattern": "^\\S+\\.(fa|fasta|fna)(\\.gz)?$",
-                    "description": "Path to the background FASTA used for exact-match cancellation."
+                    "description": "Direct-run background FASTA; with --input, set background in each CSV row."
                 },
                 "calibration_reads": {
                     "type": "string",
                     "format": "directory-path",
                     "exists": true,
-                    "description": "Optional flat FASTQ directory used to calibrate a threshold."
+                    "description": "Direct-run calibration FASTQ directory; with --input, set calibration_reads in each applicable CSV row."
                 },
                 "calibration_target_taxids": {
                     "type": "string",
@@ -55,7 +56,7 @@
                     "exists": true,
                     "schema": "assets/schema_calibration_target_taxids.json",
                     "pattern": "^\\S+\\.tsv$",
-                    "description": "Optional TSV of taxids treated as target-compatible only during calibration. Defaults to target_taxid."
+                    "description": "Direct-run calibration target-scope TSV; with --input, set calibration_target_taxids in each applicable CSV row. Defaults to target_taxid."
                 },
                 "max_blast_targets": {
                     "type": "integer",

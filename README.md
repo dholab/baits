@@ -37,18 +37,20 @@ A basic run needs source sequences, an NCBI taxonomy ID, and a background FASTA.
 
 | Parameter | Default | Purpose |
 |---|---|---|
-| `--input` | — | Design CSV for multiple designs or query-guided discovery; replaces the direct-run inputs below. |
-| `--source_sequences` | — | Source-sequence FASTA for one direct run. |
-| `--target_taxid` | — | NCBI taxonomy ID for the target taxon. |
-| `--background` | — | FASTA containing sequences that the baits must not match. |
-| `--id` | FASTA basename | Name used for the design and its results directory. |
+| `--input` | — | Design CSV for one or more designs; replaces all direct-run inputs below. |
+| `--source_sequences` | — | Direct-run source-sequence FASTA. |
+| `--target_taxid` | — | Direct-run NCBI taxonomy ID for the target taxon. |
+| `--background` | — | Direct-run FASTA containing sequences that the baits must not match. |
+| `--id` | FASTA basename | Direct-run name used for the design and its results directory. |
 | `--taxon_ref_db` | not run | Directory containing an optional taxonomic BLAST database. |
-| `--calibration_reads` | not run | Flat FASTQ directory used to calibrate a threshold. Requires `--taxon_ref_db`. |
-| `--calibration_target_taxids` | `target_taxid` only | One-column `taxid` TSV declaring target-compatible calibration assignments. Requires `--calibration_reads` and must include `target_taxid`. |
+| `--calibration_reads` | not run | Direct-run flat FASTQ directory used to calibrate a threshold. Requires `--taxon_ref_db`. |
+| `--calibration_target_taxids` | `target_taxid` only | Direct-run `taxid` TSV declaring target-compatible calibration assignments. Requires `--calibration_reads` and must include `target_taxid`. |
 | `--max_blast_targets` | `100` | Maximum subject sequences retained per calibration-read BLAST query. |
 | `--kmer_size` | `31` | Length of each candidate k-mer. |
 | `--deacon_window` | `1` | Deacon minimizer window length. |
 | `--entropy_threshold` | `0.6` | Minimum scaled entropy used for low-complexity filtering. |
+
+`--input` selects design-CSV mode and cannot be combined with `--id`, `--source_sequences`, `--target_taxid`, `--background`, `--calibration_reads`, or `--calibration_target_taxids`. Put those values in each applicable CSV row instead. Run-level parameters such as `--taxon_ref_db`, `--kmer_size`, `--deacon_window`, and `--entropy_threshold` still apply to every design in the run.
 
 Every process has a portable resource baseline. These requests are conservative starting points, not claims that one allocation is optimal for every dataset or executor:
 

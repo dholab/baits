@@ -51,6 +51,29 @@ discovery,88456,,$baseDir/tests/data/representative_queries.fasta,$baseDir/tests
         }
     }
 
+    test("explains that direct calibration reads cannot override a design CSV") {
+        setup {
+            new File("$outputDir/calibration_reads").mkdirs()
+            new File("$outputDir/input.csv").text = """\
+id,target_taxid,curated_source_sequences,representative_queries,query_rules,target_assembly,background
+curated,88456,$baseDir/tests/data/curated_source_sequences.fasta,,,,$baseDir/tests/data/interference_background.fasta
+"""
+        }
+        when {
+            params {
+                input = "$outputDir/input.csv"
+                calibration_reads = "$outputDir/calibration_reads"
+            }
+        }
+        then {
+            assert workflow.failed
+            def output = workflow.stdout.join('\n')
+            assert output.contains('--input selects design-CSV mode and cannot be combined with: --calibration_reads')
+            assert output.contains('Put design-specific values in each applicable CSV row')
+            assert !output.contains('Missing required parameter(s): source_sequences, target_taxid, background')
+        }
+    }
+
     test("rejects a row that mixes curated and query-guided inputs") {
         setup {
             new File("$outputDir/mixed_input.csv").text = """\
