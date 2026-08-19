@@ -1,17 +1,20 @@
 import gzip
+import re
 from pathlib import Path
 
 import pytest
 from resolve_calibration_reads import (
     CalibrationReadError,
-    ResolvedReadSet,
+    ResolvedReadSource,
     construct_calibration_read_manifest,
-    construct_calibration_read_sets,
+    construct_calibration_read_sources,
     main,
 )
 
 
-def test_construct_calibration_read_sets_orders_valid_layouts(tmp_path: Path) -> None:
+def test_construct_calibration_read_sources_treats_every_fastq_as_an_independent_source(
+    tmp_path: Path,
+) -> None:
     reads = tmp_path / "calibration_reads"
     reads.mkdir()
     alpha_read_1 = reads / "alpha_R1.fastq"
@@ -22,70 +25,128 @@ def test_construct_calibration_read_sets_orders_valid_layouts(tmp_path: Path) ->
     beta_read.write_text("@single\nGATCC\n+\nIIIII\n")
     (reads / "README.txt").write_text("ignored\n")
 
-    read_sets = construct_calibration_read_sets("design", tuple(reads.iterdir()))
+    read_sources = construct_calibration_read_sources("design", tuple(reads.iterdir()))
 
-    assert read_sets == (
-        ResolvedReadSet("design__alpha", "design", "alpha", (alpha_read_1, alpha_read_2)),
-        ResolvedReadSet("design__beta", "design", "beta", (beta_read,)),
+    assert read_sources == (
+        ResolvedReadSource("design__alpha_R1", "design", "alpha_R1", alpha_read_1),
+        ResolvedReadSource("design__alpha_R2", "design", "alpha_R2", alpha_read_2),
+        ResolvedReadSource("design__beta", "design", "beta", beta_read),
     )
-    assert construct_calibration_read_manifest(read_sets).collect().to_dicts() == [
+    assert construct_calibration_read_manifest(read_sources).collect().to_dicts() == [
         {
-            "id": "design__alpha",
+            "id": "design__alpha_R1",
             "design_id": "design",
-            "metagenome_id": "alpha",
-            "read_1": "alpha_R1.fastq",
-            "read_2": "alpha_R2.fastq.gz",
+            "metagenome_id": "alpha_R1",
+            "read": "alpha_R1.fastq",
+        },
+        {
+            "id": "design__alpha_R2",
+            "design_id": "design",
+            "metagenome_id": "alpha_R2",
+            "read": "alpha_R2.fastq.gz",
         },
         {
             "id": "design__beta",
             "design_id": "design",
             "metagenome_id": "beta",
-            "read_1": "beta.fq",
-            "read_2": "",
+            "read": "beta.fq",
         },
     ]
 
 
-def test_construct_calibration_read_sets_rejects_mixed_layouts(tmp_path: Path) -> None:
+def test_construct_calibration_read_sources_accepts_mate_like_names_without_pairing(
+    tmp_path: Path,
+) -> None:
     reads = tmp_path / "calibration_reads"
     reads.mkdir()
     (reads / "sample.fastq").touch()
     (reads / "sample_R1.fastq").touch()
     (reads / "sample_R2.fastq").touch()
 
-    with pytest.raises(CalibrationReadError, match="mix single-end and paired"):
-        construct_calibration_read_sets("design", tuple(reads.iterdir()))
+    assert construct_calibration_read_sources("design", tuple(reads.iterdir())) == (
+        ResolvedReadSource(
+            "design__sample",
+            "design",
+            "sample",
+            reads / "sample.fastq",
+        ),
+        ResolvedReadSource(
+            "design__sample_R1",
+            "design",
+            "sample_R1",
+            reads / "sample_R1.fastq",
+        ),
+        ResolvedReadSource(
+            "design__sample_R2",
+            "design",
+            "sample_R2",
+            reads / "sample_R2.fastq",
+        ),
+    )
 
 
-def test_construct_calibration_read_sets_rejects_a_missing_mate(tmp_path: Path) -> None:
+def test_construct_calibration_read_sources_disambiguates_equal_stems(
+    tmp_path: Path,
+) -> None:
     reads = tmp_path / "calibration_reads"
     reads.mkdir()
-    (reads / "sample_R1.fastq").touch()
+    plain = reads / "sample.fastq"
+    compressed = reads / "sample.fastq.gz"
+    plain.touch()
+    compressed.touch()
 
-    with pytest.raises(CalibrationReadError, match="missing R2"):
-        construct_calibration_read_sets("design", tuple(reads.iterdir()))
+    assert construct_calibration_read_sources("design", tuple(reads.iterdir())) == (
+        ResolvedReadSource("design__sample.fastq", "design", "sample.fastq", plain),
+        ResolvedReadSource(
+            "design__sample.fastq.gz",
+            "design",
+            "sample.fastq.gz",
+            compressed,
+        ),
+    )
 
 
-def test_construct_calibration_read_sets_rejects_duplicate_roles(tmp_path: Path) -> None:
+def test_construct_calibration_read_sources_keeps_final_keys_unique(tmp_path: Path) -> None:
     reads = tmp_path / "calibration_reads"
     reads.mkdir()
-    (reads / "sample.fastq").touch()
-    (reads / "sample.fastq.gz").touch()
+    for name in ("sample.fastq", "sample.fastq.gz", "sample.fastq.fastq"):
+        (reads / name).touch()
 
-    with pytest.raises(CalibrationReadError, match="duplicate files"):
-        construct_calibration_read_sets("design", tuple(reads.iterdir()))
+    sources = construct_calibration_read_sources("design", tuple(reads.iterdir()))
+
+    source_ids = [source.read_source_id for source in sources]
+    assert len(set(source_ids)) == 3
+    assert all(re.fullmatch(r"design__[A-Za-z0-9][A-Za-z0-9._-]*", value) for value in source_ids)
 
 
-def test_construct_calibration_read_sets_rejects_nested_directories(tmp_path: Path) -> None:
+def test_construct_calibration_read_sources_makes_unsafe_filenames_safe(
+    tmp_path: Path,
+) -> None:
+    reads = tmp_path / "calibration reads"
+    reads.mkdir()
+    filenames = ("-leading.fastq", "sample one.fastq", "sample;touch PWN.fastq")
+    for name in filenames:
+        (reads / name).touch()
+
+    sources = construct_calibration_read_sources("design", tuple(reads.iterdir()))
+
+    assert {source.read.name for source in sources} == set(filenames)
+    assert all(
+        re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._-]*", source.metagenome_id)
+        for source in sources
+    )
+
+
+def test_construct_calibration_read_sources_rejects_nested_directories(tmp_path: Path) -> None:
     reads = tmp_path / "calibration_reads"
     reads.mkdir()
     (reads / "nested").mkdir()
 
     with pytest.raises(CalibrationReadError, match="nested directory"):
-        construct_calibration_read_sets("design", tuple(reads.iterdir()))
+        construct_calibration_read_sources("design", tuple(reads.iterdir()))
 
 
-def test_construct_calibration_read_sets_rejects_no_accepted_fastq_files(
+def test_construct_calibration_read_sources_rejects_no_accepted_fastq_files(
     tmp_path: Path,
 ) -> None:
     reads = tmp_path / "calibration_reads"
@@ -93,10 +154,10 @@ def test_construct_calibration_read_sets_rejects_no_accepted_fastq_files(
     (reads / "README.txt").touch()
 
     with pytest.raises(CalibrationReadError, match="no accepted FASTQ files"):
-        construct_calibration_read_sets("design", tuple(reads.iterdir()))
+        construct_calibration_read_sources("design", tuple(reads.iterdir()))
 
 
-def test_construct_calibration_read_sets_ignores_unrelated_regular_files(
+def test_construct_calibration_read_sources_ignores_unrelated_regular_files(
     tmp_path: Path,
 ) -> None:
     reads = tmp_path / "calibration_reads"
@@ -105,27 +166,24 @@ def test_construct_calibration_read_sets_ignores_unrelated_regular_files(
     read.touch()
     (reads / "README.txt").touch()
 
-    assert construct_calibration_read_sets("design", tuple(reads.iterdir())) == (
-        ResolvedReadSet("design__sample", "design", "sample", (read,)),
+    assert construct_calibration_read_sources("design", tuple(reads.iterdir())) == (
+        ResolvedReadSource("design__sample", "design", "sample", read),
     )
 
 
-def test_construct_calibration_read_sets_preserves_dots_and_dashes_in_ids(
+def test_construct_calibration_read_sources_preserves_dots_and_dashes_in_ids(
     tmp_path: Path,
 ) -> None:
     reads = tmp_path / "calibration_reads"
     reads.mkdir()
     read = reads / "sample.2026-08_R1.fq"
     read.touch()
-    mate = reads / "sample.2026-08_R2.fq"
-    mate.touch()
-
-    assert construct_calibration_read_sets("design", tuple(reads.iterdir())) == (
-        ResolvedReadSet(
-            "design__sample.2026-08",
+    assert construct_calibration_read_sources("design", tuple(reads.iterdir())) == (
+        ResolvedReadSource(
+            "design__sample.2026-08_R1",
             "design",
-            "sample.2026-08",
-            (read, mate),
+            "sample.2026-08_R1",
+            read,
         ),
     )
 
@@ -147,7 +205,7 @@ def test_main_writes_exact_calibration_read_headers(tmp_path: Path) -> None:
         ),
     )
 
-    assert manifest.read_text() == 'id\tdesign_id\tmetagenome_id\tread_1\tread_2\ndesign__sample\tdesign\tsample\tsample.fastq\t""\n'
+    assert manifest.read_text() == "id\tdesign_id\tmetagenome_id\tread\ndesign__sample\tdesign\tsample\tsample.fastq\n"
 
 
 def test_main_rejects_a_regular_file_as_a_calibration_read_directory(

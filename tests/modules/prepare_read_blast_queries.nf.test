@@ -3,15 +3,16 @@ nextflow_process {
     script "../../modules/local/prepare_read_blast_queries/main.nf"
     process "PREPARE_READ_BLAST_QUERIES"
 
-    test("deduplicates candidate read sequences for one design") {
+    test("preserves read rows while consuming globally unique queries") {
         setup {
-            new File("$outputDir/counts.tsv").text = 'metagenome_id\tfragment_id\tmate\tread_length\tbait_count\tcandidate_sequence_id\nsample\tfragment\t1\t5\t1\tread_1\n'
-            new File("$outputDir/reads.fasta").text = '>read_1\nACGTA\n'
-            new File("$outputDir/status.tsv").text = 'metric\tvalue\nmetagenome_id\tsample\ndeacon_returned_read_count\t1\nduplicate_fragment_count\t0\nzero_bait_read_count\t0\ncandidate_read_count\t1\n'
+            def representative = 'sequence_8be635b3b461bfc5d03b08aa3ee554d044abedfa1ee7dc70ee5fbf7f665ae219'
+            new File("$outputDir/design__sample.counted_reads.tsv").text = "metagenome_id\tread_id\tread_length\tbait_count\trepresentative_id\nsample\tread_000000000001\t5\t1\t${representative}\nsample\tread_000000000002\t5\t1\t${representative}\n"
+            new File("$outputDir/unique.fasta").text = ">${representative}\nACGTA\n"
+            new File("$outputDir/design__sample.candidate_read_status.tsv").text = 'metric\tvalue\nmetagenome_id\tsample\ndeacon_returned_read_count\t2\ncandidate_read_count\t2\n'
         }
         when {
             process {
-                """input[0] = [[id: 'design'], [file("$outputDir/counts.tsv")], [file("$outputDir/reads.fasta")], [file("$outputDir/status.tsv")]]"""
+                """input[0] = [[id: 'design'], [file("$outputDir/design__sample.counted_reads.tsv")], [file("$outputDir/design__sample.candidate_read_status.tsv")], file("$outputDir/unique.fasta")]"""
             }
         }
         then {
@@ -19,7 +20,8 @@ nextflow_process {
             assert process.out.candidate_read_counts.size() == 1
             assert process.out.queries.size() == 1
             assert process.out.terminal_summary.size() == 0
-            assert file(process.out.candidate_read_counts[0][1]).text.contains('representative_000001')
+            assert file(process.out.candidate_read_counts[0][1]).readLines().size() == 3
+            assert file(process.out.preparation_summary[0][1]).text.contains('duplicate_sequence_count\t1')
         }
     }
 }

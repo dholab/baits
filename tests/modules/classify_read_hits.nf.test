@@ -5,7 +5,7 @@ nextflow_process {
 
     test("classifies one target-classified read") {
         setup {
-            new File("$outputDir/candidates.tsv").text = 'metagenome_id\tfragment_id\tmate\tread_length\tbait_count\trepresentative_id\nsample\tfragment\t1\t5\t1\trepresentative_000001\n'
+            new File("$outputDir/candidates.tsv").text = 'metagenome_id\tread_id\tread_length\tbait_count\trepresentative_id\nsample\tread_000000000001\t5\t1\trepresentative_000001\n'
             new File("$outputDir/hits.tsv").text = 'qseqid\tqlen\tsaccver\tstaxids\tpident\tlength\tmismatch\tgapopen\tqstart\tqend\tsstart\tsend\tevalue\tbitscore\tqcovhsp\tstitle\nrepresentative_000001\t5\ttarget\t88456\t100\t5\t0\t0\t1\t5\t1\t5\t0\t10\t100\ttarget\n'
         }
         when {
@@ -21,7 +21,7 @@ nextflow_process {
 
     test("classifies against a supplied calibration target scope") {
         setup {
-            new File("$outputDir/candidates.tsv").text = 'metagenome_id\tfragment_id\tmate\tread_length\tbait_count\trepresentative_id\nsample\tfragment\t1\t5\t1\trepresentative_000001\n'
+            new File("$outputDir/candidates.tsv").text = 'metagenome_id\tread_id\tread_length\tbait_count\trepresentative_id\nsample\tread_000000000001\t5\t1\trepresentative_000001\n'
             new File("$outputDir/hits.tsv").text = 'qseqid\tqlen\tsaccver\tstaxids\tpident\tlength\tmismatch\tgapopen\tqstart\tqend\tsstart\tsend\tevalue\tbitscore\tqcovhsp\tstitle\nrepresentative_000001\t5\tgenus_target\t44417\t100\t5\t0\t0\t1\t5\t1\t5\t0\t10\t100\tgenus target\n'
             new File("$outputDir/scope.tsv").text = 'taxid\n44417\n88456\n'
         }

@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/nf-core/modules/master/modules/meta-schema.json
 name: resolve_calibration_reads
-description: Resolve one flat calibration-read directory into metagenomes.
+description: Resolve each FASTQ in one flat calibration-read directory as an independent source.
 keywords:
   - fastq
   - metagenomics

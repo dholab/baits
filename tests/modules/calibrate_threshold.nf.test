@@ -5,8 +5,8 @@ nextflow_process {
 
     test("writes a recommended threshold") {
         setup {
-            new File("$outputDir/classified.tsv").text = 'metagenome_id\tfragment_id\tmate\tread_length\tbait_count\trepresentative_id\tclassification\tbest_target_bit_score\tbest_non_target_bit_score\nsample\tfragment\t1\t5\t1\trepresentative_000001\tTARGET\t10\t\n'
-            new File("$outputDir/preparation.tsv").text = 'metric\tvalue\ndesign_id\tdesign\ndeacon_returned_read_count\t1\nduplicate_fragment_count\t0\nzero_bait_read_count\t0\ncandidate_read_count\t1\nread_blast_query_count\t1\n'
+            new File("$outputDir/classified.tsv").text = 'metagenome_id\tread_id\tread_length\tbait_count\trepresentative_id\tclassification\tbest_target_bit_score\tbest_non_target_bit_score\nsample\tread_000000000001\t5\t1\trepresentative_000001\tTARGET\t10\t\n'
+            new File("$outputDir/preparation.tsv").text = 'metric\tvalue\ndesign_id\tdesign\ndeacon_returned_read_count\t1\ncandidate_read_count\t1\nduplicate_sequence_count\t0\nread_blast_query_count\t1\n'
         }
         when {
             process {

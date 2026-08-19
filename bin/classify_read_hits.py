@@ -18,7 +18,7 @@ if TYPE_CHECKING:
     from collections.abc import Iterable, Sequence
 
 CANDIDATE_FIELDS = (
-    "metagenome_id", "fragment_id", "mate", "read_length", "bait_count", "representative_id",
+    "metagenome_id", "read_id", "read_length", "bait_count", "representative_id",
 )
 BLAST_FIELDS = (
     "qseqid", "qlen", "saccver", "staxids", "pident", "length", "mismatch", "gapopen",
@@ -27,8 +27,7 @@ BLAST_FIELDS = (
 CLASSIFIED_FIELDS = (*CANDIDATE_FIELDS, "classification", "best_target_bit_score", "best_non_target_bit_score")
 CANDIDATE_SCHEMA = {
     "metagenome_id": pl.String,
-    "fragment_id": pl.String,
-    "mate": pl.String,
+    "read_id": pl.String,
     "read_length": pl.Int64,
     "bait_count": pl.Int64,
     "representative_id": pl.String,
@@ -147,7 +146,7 @@ def construct_candidate_read_counts(path: Path) -> pl.LazyFrame:
             schema=CANDIDATE_SCHEMA,
             null_values=[],
             raise_if_empty=False,
-        ).with_columns(pl.col("mate").fill_null("")).with_row_index("_candidate_order")
+        ).with_row_index("_candidate_order")
         error = first_error(
             pl.concat(
                 [
@@ -155,20 +154,19 @@ def construct_candidate_read_counts(path: Path) -> pl.LazyFrame:
                         ~(
                             pl.all_horizontal(
                                 pl.col("metagenome_id").is_not_null(),
-                                pl.col("fragment_id").is_not_null(),
+                                pl.col("read_id").is_not_null(),
                                 pl.col("representative_id").is_not_null(),
                                 pl.col("read_length").is_not_null(),
                                 pl.col("bait_count").is_not_null(),
                                 pl.col("metagenome_id").str.len_chars() > 0,
-                                pl.col("fragment_id").str.len_chars() > 0,
+                                pl.col("read_id").str.len_chars() > 0,
                                 pl.col("representative_id").str.len_chars() > 0,
-                                pl.col("mate").is_in(("", "1", "2")),
                                 pl.col("read_length") > 0,
                                 pl.col("bait_count") > 0,
                             )
                         ).fill_null(value=True),
                     ).with_columns(pl.lit("malformed").alias("error")).select("error"),
-                    candidates.group_by("metagenome_id", "fragment_id", "mate").len().filter(
+                    candidates.group_by("metagenome_id", "read_id").len().filter(
                         pl.col("len") > 1,
                     ).with_columns(pl.lit("duplicate_identity").alias("error")).select("error"),
                 ],

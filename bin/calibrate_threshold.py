@@ -16,13 +16,13 @@ if TYPE_CHECKING:
     from collections.abc import Sequence
 
 CLASSIFIED_FIELDS = (
-    "metagenome_id", "fragment_id", "mate", "read_length", "bait_count",
+    "metagenome_id", "read_id", "read_length", "bait_count",
     "representative_id", "classification",
     "best_target_bit_score", "best_non_target_bit_score",
 )
 PREPARATION_METRICS = (
-    "design_id", "deacon_returned_read_count", "duplicate_fragment_count",
-    "zero_bait_read_count", "candidate_read_count", "read_blast_query_count",
+    "design_id", "deacon_returned_read_count", "candidate_read_count",
+    "duplicate_sequence_count", "read_blast_query_count",
 )
 SUMMARY_METRICS = (
     *PREPARATION_METRICS, "target_classified_read_count", "non_target_classified_read_count",
@@ -35,8 +35,7 @@ READ_COUNT_FIELDS = (
 )
 CLASSIFIED_SCHEMA = {
     "metagenome_id": pl.String,
-    "fragment_id": pl.String,
-    "mate": pl.String,
+    "read_id": pl.String,
     "read_length": pl.Int64,
     "bait_count": pl.Int64,
     "representative_id": pl.String,
@@ -83,9 +82,8 @@ class CalibrationStatus(StrEnum):
 class PreparationSummary:
     design_id: str
     deacon_returned_read_count: int
-    duplicate_fragment_count: int
-    zero_bait_read_count: int
     candidate_read_count: int
+    duplicate_sequence_count: int
     read_blast_query_count: int
 
 
@@ -129,15 +127,14 @@ def has_expected_header(path: Path, fields: tuple[str, ...]) -> bool:
 def classified_read_errors(reads: pl.LazyFrame) -> pl.LazyFrame:
     valid_row = pl.all_horizontal(
         pl.col("metagenome_id").is_not_null(),
-        pl.col("fragment_id").is_not_null(),
+        pl.col("read_id").is_not_null(),
         pl.col("representative_id").is_not_null(),
         pl.col("classification").is_not_null(),
         pl.col("read_length").is_not_null(),
         pl.col("bait_count").is_not_null(),
         pl.col("metagenome_id").str.strip_chars().str.len_chars() > 0,
-        pl.col("fragment_id").str.strip_chars().str.len_chars() > 0,
+        pl.col("read_id").str.strip_chars().str.len_chars() > 0,
         pl.col("representative_id").str.strip_chars().str.len_chars() > 0,
-        pl.col("mate").is_in(("", "1", "2")),
         pl.col("read_length") > 0,
         pl.col("bait_count") > 0,
         pl.col("classification").is_in(("TARGET", "NON_TARGET", "TIED", "NO_HIT")),
@@ -147,7 +144,7 @@ def classified_read_errors(reads: pl.LazyFrame) -> pl.LazyFrame:
             reads.filter(~valid_row.fill_null(value=False)).with_columns(
                 pl.lit("malformed").alias("error"),
             ).select("error"),
-            reads.group_by("metagenome_id", "fragment_id", "mate").len().filter(
+            reads.group_by("metagenome_id", "read_id").len().filter(
                 pl.col("len") > 1,
             ).with_columns(pl.lit("duplicate_identity").alias("error")).select("error"),
         ],
@@ -165,7 +162,7 @@ def construct_classified_reads(path: Path) -> pl.LazyFrame:
             schema=CLASSIFIED_SCHEMA,
             null_values=[],
             raise_if_empty=False,
-        ).with_columns(pl.col("mate").fill_null(""))
+        )
         error = first_error(classified_read_errors(reads))
         count = reads.select(pl.len()).collect().item()
     except pl.exceptions.PolarsError as exception:
@@ -243,9 +240,8 @@ def summary_relation(preparation: PreparationSummary, totals: pl.DataFrame, conc
                 preparation.design_id,
                 *(str(value) for value in (
                     preparation.deacon_returned_read_count,
-                    preparation.duplicate_fragment_count,
-                    preparation.zero_bait_read_count,
                     preparation.candidate_read_count,
+                    preparation.duplicate_sequence_count,
                     preparation.read_blast_query_count,
                 )),
                 *(str(totals.item(0, field)) for field in READ_COUNT_FIELDS[1:]),
@@ -261,26 +257,31 @@ def construct_threshold_calibration(
     classified_reads: pl.LazyFrame,
     preparation: PreparationSummary,
 ) -> ThresholdCalibration:
-    reads = classified_reads.collect()
-    if reads.height != preparation.candidate_read_count:
+    grouped_counts = classified_reads.group_by("bait_count").agg(
+        pl.len().alias("candidate_read_count"),
+        (pl.col("classification") == "TARGET").sum().alias("target_read_count"),
+        (pl.col("classification") == "NON_TARGET").sum().alias("non_target_read_count"),
+        (pl.col("classification") == "TIED").sum().alias("tied_read_count"),
+        (pl.col("classification") == "NO_HIT").sum().alias("no_hit_read_count"),
+    ).collect()
+    if grouped_counts.get_column("candidate_read_count").sum() != preparation.candidate_read_count:
         raise DeaconThresholdCalibrationError.candidate_count_mismatch()
-    maximum = cast("int", reads.get_column("bait_count").max())
-    thresholds = pl.DataFrame({"threshold": range(1, maximum + 2)}).lazy()
-    evidence = reads.lazy()
-    retained = thresholds.join(evidence, how="cross").filter(
-        pl.col("bait_count") >= pl.col("threshold"),
+    maximum = cast("int", grouped_counts.get_column("bait_count").max())
+    exact_counts = {
+        cast("int", row[0]): tuple(cast("int", value) for value in row[2:])
+        for row in grouped_counts.iter_rows()
+    }
+    running = [0, 0, 0, 0]
+    rows: list[tuple[int, int, int, int, int]] = [(maximum + 1, 0, 0, 0, 0)]
+    for threshold in range(maximum, 0, -1):
+        counts = exact_counts.get(threshold, (0, 0, 0, 0))
+        running = [total + count for total, count in zip(running, counts, strict=True)]
+        rows.append((threshold, running[0], running[1], running[2], running[3]))
+    materialized_counts = pl.DataFrame(
+        reversed(rows),
+        schema=dict.fromkeys(READ_COUNT_FIELDS, pl.Int64),
+        orient="row",
     )
-    read_counts = thresholds.join(
-        retained.group_by("threshold").agg(
-            (pl.col("classification") == "TARGET").sum().alias("target_read_count"),
-            (pl.col("classification") == "NON_TARGET").sum().alias("non_target_read_count"),
-            (pl.col("classification") == "TIED").sum().alias("tied_read_count"),
-            (pl.col("classification") == "NO_HIT").sum().alias("no_hit_read_count"),
-        ),
-        on="threshold",
-        how="left",
-    ).with_columns(pl.all().exclude("threshold").fill_null(0)).select(READ_COUNT_FIELDS).sort("threshold")
-    materialized_counts = read_counts.collect()
     conclusion = conclusion_from_counts(materialized_counts)
     summary = summary_relation(preparation, materialized_counts.head(1), conclusion)
     return ThresholdCalibration(materialized_counts.lazy(), summary, conclusion)

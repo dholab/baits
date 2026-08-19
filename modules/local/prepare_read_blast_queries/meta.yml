@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/nf-core/modules/master/modules/meta-schema.json
 name: prepare_read_blast_queries
-description: Prepare strand-deduplicated read BLAST queries for one design.
+description: Combine streamed read counts with globally deduplicated BLAST queries.
 keywords:
   - blast
   - reads
@@ -22,13 +22,13 @@ input:
         type: file
         description: Per-metagenome internal candidate read count tables.
         ontologies: []
-    - fastas:
-        type: file
-        description: Per-metagenome canonical candidate read FASTAs.
-        ontologies: []
     - statuses:
         type: file
-        description: Per-metagenome candidate read preparation statuses.
+        description: Per-source candidate read preparation statuses.
+        ontologies: []
+    - unique_fasta:
+        type: file
+        description: Globally deduplicated canonical candidate sequences.
         ontologies: []
 output:
   candidate_read_counts:
@@ -57,7 +57,7 @@ output:
           description: Design metadata.
       - read_queries.fasta:
           type: file
-          description: Optional strand-deduplicated read BLAST query FASTA.
+          description: Optional globally deduplicated read BLAST query FASTA.
           pattern: read_queries.fasta
           ontologies: []
   terminal_blast_hits:
@@ -78,6 +78,16 @@ output:
           type: file
           description: Empty classified-read table when there are no candidate reads.
           pattern: classified_reads.tsv
+          ontologies:
+            - edam: http://edamontology.org/format_3475 # TSV
+  terminal_search_parameters:
+    - - meta:
+          type: map
+          description: Design metadata.
+      - read_blast_search_parameters.tsv:
+          type: file
+          description: Empty search-parameter table when no read BLAST runs.
+          pattern: read_blast_search_parameters.tsv
           ontologies:
             - edam: http://edamontology.org/format_3475 # TSV
   terminal_read_counts:
@@ -110,16 +120,6 @@ output:
       - python -c 'import Bio; print(Bio.__version__)':
           type: eval
           description: Runtime Biopython version.
-  versions_polars:
-    - - ${task.process}:
-          type: string
-          description: Process name.
-      - polars:
-          type: string
-          description: Tool name.
-      - python -c 'import polars; print(polars.__version__)':
-          type: eval
-          description: Runtime Polars version.
 topics:
   versions:
     - - ${task.process}:
@@ -131,14 +131,5 @@ topics:
       - python -c 'import Bio; print(Bio.__version__)':
           type: eval
           description: Runtime Biopython version.
-    - - ${task.process}:
-          type: string
-          description: Process name.
-      - polars:
-          type: string
-          description: Tool name.
-      - python -c 'import polars; print(polars.__version__)':
-          type: eval
-          description: Runtime Polars version.
 authors:
   - dholab/baits

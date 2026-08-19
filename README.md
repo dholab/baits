@@ -10,9 +10,9 @@
 
 K-mers that are absent from the background are filtered for low complexity. The survivors can then go through the second operation: an exact, taxonomically informed screening against NCBI Core NT. Core NT can be swapped for another taxonomic BLAST database, and this step can also be skipped. If a database is provided, k-mers matching sequences from any taxon other than the target are rejected.
 
-Third, `dholab/baits` can classify provided calibration reads and identify the smallest bait count at which the surviving reads support the bait set's target. By default, only `target_taxid` is target-compatible during calibration; an optional `calibration_target_taxids` TSV can declare a broader finite scope without changing bait design or taxonomic exact-match screening. The result is evidence for those baits and calibration reads, not a universal threshold. For paired input, Deacon retrieves candidate fragments using bait matches pooled across both mates; `dholab/baits` then counts, classifies, and thresholds each emitted read independently.
+Third, `dholab/baits` can use provided sequencing reads to estimate how many bait matches are required before off-target hits go to zero. For many sequencing reads, a single bait match may still allow off-target hits. In the *Cyclospora* study, we found that requiring 20 bait matches reduced off-target hits to zero in the tested reads. `dholab/baits` can help you calibrate your own threshold for your own baits and your own data.
 
-In summary, `dholab/baits` allows you to bring your own source sequences, your own background reference, your own BLAST-compatible taxonomic database, and your own calibration reads. In return, it gives you baits for your target, the evidence behind each screening decision, and a supported threshold when the calibration reads establish one.
+In summary, `dholab/baits` allows you to bring your own source sequences, your own background reference, your own BLAST-compatible taxonomic database, and your own calibration reads. In return, it gives you baits for your target, the evidence behind each screening decision, and the number of bait matches you should require to call a detection "good".
 
 ## Quick Start
 

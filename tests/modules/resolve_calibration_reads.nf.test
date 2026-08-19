@@ -3,7 +3,7 @@ nextflow_process {
     script "../../modules/local/resolve_calibration_reads/main.nf"
     process "RESOLVE_CALIBRATION_READS"
 
-    test("resolves a paired metagenome from one flat directory") {
+    test("resolves every FASTQ as an independent calibration source") {
         setup {
             new File("$outputDir/reads").mkdirs()
             new File("$outputDir/reads/sample_R1.fastq").text = '@fragment/1\nACGTA\n+\nIIIII\n'
@@ -18,7 +18,7 @@ nextflow_process {
         then {
             assert process.success
             assert process.out.manifest.size() == 1
-            assert file(process.out.manifest[0][1]).text == 'id\tdesign_id\tmetagenome_id\tread_1\tread_2\ndesign__sample\tdesign\tsample\tsample_R1.fastq\tsample_R2.fastq\n'
+            assert file(process.out.manifest[0][1]).text == 'id\tdesign_id\tmetagenome_id\tread\ndesign__sample_R1\tdesign\tsample_R1\tsample_R1.fastq\ndesign__sample_R2\tdesign\tsample_R2\tsample_R2.fastq\n'
             assert process.out.reported_python[0][0] == [id: 'design', source_sequence_origin: 'curated_input']
             assert process.out.reported_python[0][1] == 'python'
             assert process.out.reported_python[0][2] == '3.12.13'

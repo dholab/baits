@@ -159,23 +159,17 @@ workflow {
                 design_id: row.design_id,
                 metagenome_id: row.metagenome_id,
             ]
-            def reads = [row.read_1, row.read_2]
-                .findAll { read_name -> read_name }
-                .collect { read_name -> file(calibration_read_set.resolve(read_name)) }
-            tuple(design_meta, read_meta, reads)
+            def read = file(calibration_read_set.resolve(row.read))
+            tuple(design_meta, read_meta, read)
         }
     // Aggregate [facts, roles, IDs, kinds, files] for each design's read files.
     ch_calibration_read_file_facts = ch_calibration_read_records
         .map { design_meta, row, calibration_read_set ->
-            def readNames = [row.read_1, row.read_2].findAll { readName -> readName }
-            def mates = readNames.size() == 1 ? ['single'] : ['R1', 'R2']
-            def inputIds = mates.collect { mate ->
-                mate == 'single' ? row.id : "${row.id}:${mate}"
-            }
+            def readNames = [row.read]
+            def inputIds = [row.id]
             def inputFacts = inputIds.indices.collectMany { index ->
                 [
                     [input_role: 'calibration_read', input_id: inputIds[index], attribute: 'metagenome_id', value: row.metagenome_id],
-                    [input_role: 'calibration_read', input_id: inputIds[index], attribute: 'mate', value: mates[index]],
                 ]
             }
             def reads = readNames.collect { readName -> file(calibration_read_set.resolve(readName)) }

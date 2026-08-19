@@ -25,9 +25,9 @@ input:
         type: file
         description: Taxonomically screened bait FASTA.
         ontologies: []
-    - reads:
+    - read:
         type: file
-        description: Candidate read FASTQ files emitted by Deacon.
+        description: Candidate read FASTA emitted by Deacon.
         ontologies: []
     - kmer_size:
         type: integer
@@ -55,7 +55,7 @@ output:
           description: Metagenome metadata.
       - "${read_meta.id}.candidate_reads.fasta":
           type: file
-          description: Canonical candidate read sequences after fragment deduplication.
+          description: Canonical candidate read observations for global sequence deduplication.
           pattern: "*.candidate_reads.fasta"
           ontologies: []
   status:
@@ -81,16 +81,6 @@ output:
       - python -c 'import Bio; print(Bio.__version__)':
           type: eval
           description: Runtime Biopython version.
-  versions_polars:
-    - - ${task.process}:
-          type: string
-          description: Process name.
-      - polars:
-          type: string
-          description: Tool name.
-      - python -c 'import polars; print(polars.__version__)':
-          type: eval
-          description: Runtime Polars version.
 topics:
   versions:
     - - ${task.process}:
@@ -102,14 +92,5 @@ topics:
       - python -c 'import Bio; print(Bio.__version__)':
           type: eval
           description: Runtime Biopython version.
-    - - ${task.process}:
-          type: string
-          description: Process name.
-      - polars:
-          type: string
-          description: Tool name.
-      - python -c 'import polars; print(polars.__version__)':
-          type: eval
-          description: Runtime Polars version.
 authors:
   - dholab/baits

@@ -30,9 +30,9 @@ input:
         pattern: "*.idx"
         ontologies:
           - edam: "http://edamontology.org/data_3210" # Genome index
-    - reads:
+    - read:
         type: file
-        description: One single-end FASTQ or two paired-end FASTQ files.
+        description: One FASTQ file whose records are filtered independently.
         pattern: "*.{fastq,fastq.gz,fqs,fqs.gz,fq,fq.gz}"
         ontologies:
           - edam: "http://edamontology.org/format_1930" # FASTQ
@@ -44,16 +44,16 @@ input:
         description: Minimum relative proportion of distinct minimizer hits.
 
 output:
-  fastq_filtered:
+  fasta_filtered:
     - - meta:
           type: map
           description: Metagenome metadata.
-      - "${prefix}*.fq.gz":
+      - "${prefix}.fasta.gz":
           type: file
-          description: One single-end or two paired-end filtered FASTQ files.
-          pattern: "*.fq.gz"
+          description: Candidate sequences emitted as compressed FASTA.
+          pattern: "*.fasta.gz"
           ontologies:
-            - edam: "http://edamontology.org/format_1930" # FASTQ
+            - edam: "http://edamontology.org/format_1929" # FASTA
   log:
     - - meta:
           type: map

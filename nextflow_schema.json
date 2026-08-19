@@ -48,7 +48,7 @@
                     "type": "string",
                     "format": "directory-path",
                     "exists": true,
-                    "description": "Direct-run calibration FASTQ directory; with --input, set calibration_reads in each applicable CSV row."
+                    "description": "Directory of FASTQ files to calibrate a recommended baits threshold; with --input, set calibration_reads in each applicable CSV row."
                 },
                 "calibration_target_taxids": {
                     "type": "string",

@@ -112,6 +112,14 @@
 !/modules/nf-core/blast/makeblastdb/tests/*.config
 !/modules/nf-core/blast/makeblastdb/tests/*.nf.test
 !/modules/nf-core/blast/makeblastdb/tests/*.snap
+!/modules/nf-core/find/
+!/modules/nf-core/find/concatenate/
+!/modules/nf-core/find/concatenate/*.nf
+!/modules/nf-core/find/concatenate/*.yml
+!/modules/nf-core/find/concatenate/tests/
+!/modules/nf-core/find/concatenate/tests/*.config
+!/modules/nf-core/find/concatenate/tests/*.nf.test
+!/modules/nf-core/find/concatenate/tests/*.snap
 !/modules/nf-core/meryl/
 !/modules/nf-core/meryl/count/
 !/modules/nf-core/meryl/count/*.nf
@@ -120,6 +128,14 @@
 !/modules/nf-core/meryl/count/tests/*.config
 !/modules/nf-core/meryl/count/tests/*.nf.test
 !/modules/nf-core/meryl/count/tests/*.snap
+!/modules/nf-core/seqkit/
+!/modules/nf-core/seqkit/rmdup/
+!/modules/nf-core/seqkit/rmdup/*.nf
+!/modules/nf-core/seqkit/rmdup/*.yml
+!/modules/nf-core/seqkit/rmdup/tests/
+!/modules/nf-core/seqkit/rmdup/tests/*.config
+!/modules/nf-core/seqkit/rmdup/tests/*.nf.test
+!/modules/nf-core/seqkit/rmdup/tests/*.snap
 
 !/subworkflows/
 !/subworkflows/local/

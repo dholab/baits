@@ -1,5 +1,7 @@
 include { DEACON_FILTER_READS as DEACON_RETRIEVE_CALIBRATION_READS } from '../../../modules/local/deacon_filter_reads/main'
 include { COUNT_READ_BAITS } from '../../../modules/local/count_read_baits/main'
+include { FIND_CONCATENATE } from '../../../modules/nf-core/find/concatenate/main'
+include { SEQKIT_RMDUP } from '../../../modules/nf-core/seqkit/rmdup/main'
 include { PREPARE_READ_BLAST_QUERIES } from '../../../modules/local/prepare_read_blast_queries/main'
 include { BLASTN_READ_CLASSIFICATION } from '../../../modules/local/blastn_read_classification/main'
 include { CLASSIFY_READ_HITS } from '../../../modules/local/classify_read_hits/main'
@@ -29,7 +31,7 @@ workflow CALIBRATE_THRESHOLD {
     DEACON_RETRIEVE_CALIBRATION_READS(ch_deacon_inputs)
 
     // Count baits on each individual read
-    ch_recount_inputs = DEACON_RETRIEVE_CALIBRATION_READS.out.fastq_filtered
+    ch_recount_inputs = DEACON_RETRIEVE_CALIBRATION_READS.out.fasta_filtered
         .join(ch_read_context)
         .combine(ch_kmer_size)
         .map { read_meta, candidate_reads, design_meta, baits, bait_set_status, target_taxid, calibration_target_taxids, kmer_size ->
@@ -47,9 +49,17 @@ workflow CALIBRATE_THRESHOLD {
     ch_grouped_statuses = COUNT_READ_BAITS.out.status
         .map { design_meta, read_meta, status -> tuple(design_meta, status) }
         .groupTuple(by: 0)
+    FIND_CONCATENATE(ch_grouped_fastas)
+    SEQKIT_RMDUP(FIND_CONCATENATE.out.file_out)
+    ch_seqkit_version = SEQKIT_RMDUP.out.versions_seqkit
+        .map { process, component, version -> version }
+        .first()
+    ch_reported_seqkit = SEQKIT_RMDUP.out.fastx
+        .combine(ch_seqkit_version)
+        .map { meta, fasta, version -> tuple(meta, 'seqkit', version) }
     ch_preparation_inputs = ch_grouped_counts
-        .join(ch_grouped_fastas)
         .join(ch_grouped_statuses)
+        .join(SEQKIT_RMDUP.out.fastx)
     PREPARE_READ_BLAST_QUERIES(ch_preparation_inputs)
 
     // Classify each candidate read from its representative's best alignments
@@ -77,6 +87,7 @@ workflow CALIBRATE_THRESHOLD {
     read_blast_hits = BLASTN_READ_CLASSIFICATION.out.hits
         .mix(PREPARE_READ_BLAST_QUERIES.out.terminal_blast_hits)
     read_blast_search_parameters = BLASTN_READ_CLASSIFICATION.out.search_parameters
+        .mix(PREPARE_READ_BLAST_QUERIES.out.terminal_search_parameters)
     classified_reads = CLASSIFY_READ_HITS.out.classified_reads
         .mix(PREPARE_READ_BLAST_QUERIES.out.terminal_classified_reads)
     threshold_read_counts = CALIBRATE_THRESHOLD_EVIDENCE.out.read_counts
@@ -84,11 +95,14 @@ workflow CALIBRATE_THRESHOLD {
     summary = PREPARE_READ_BLAST_QUERIES.out.terminal_summary
         .mix(CALIBRATE_THRESHOLD_EVIDENCE.out.summary)
     reported_blast = BLASTN_READ_CLASSIFICATION.out.reported_blast
+    reported_seqkit = ch_reported_seqkit
     versions = DEACON_RETRIEVE_CALIBRATION_READS.out.versions_deacon
         .mix(COUNT_READ_BAITS.out.versions_biopython)
-        .mix(COUNT_READ_BAITS.out.versions_polars)
         .mix(PREPARE_READ_BLAST_QUERIES.out.versions_biopython)
-        .mix(PREPARE_READ_BLAST_QUERIES.out.versions_polars)
+        .mix(FIND_CONCATENATE.out.versions_find)
+        .mix(FIND_CONCATENATE.out.versions_pigz)
+        .mix(FIND_CONCATENATE.out.versions_coreutils)
+        .mix(SEQKIT_RMDUP.out.versions_seqkit)
         .mix(BLASTN_READ_CLASSIFICATION.out.versions_blast)
         .mix(CLASSIFY_READ_HITS.out.versions_python)
         .mix(CLASSIFY_READ_HITS.out.versions_polars)

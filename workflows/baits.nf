@@ -272,9 +272,12 @@ workflow BAITS_MAIN {
         .map { meta, input_facts, input_file_roles, input_file_ids, input_file_kinds, input_files, parameters, software_versions, without_calibration ->
             tuple(meta, input_facts, input_file_roles, input_file_ids, input_file_kinds, input_files, parameters, software_versions)
         }
+    ch_reported_seqkit_versions = CALIBRATE_THRESHOLD.out.reported_seqkit
+        .map { meta, component, version -> tuple(meta, [[component: component, version: version]]) }
     ch_with_calibration_provenance_facts = ch_provenance_facts
         .join(ch_calibration_provenance_facts)
-        .map { meta, input_facts, input_file_roles, input_file_ids, input_file_kinds, input_files, parameters, software_versions, calibration_input_facts, calibration_file_roles, calibration_file_ids, calibration_file_kinds, calibration_files, calibration_versions ->
+        .join(ch_reported_seqkit_versions, remainder: true)
+        .map { meta, input_facts, input_file_roles, input_file_ids, input_file_kinds, input_files, parameters, software_versions, calibration_input_facts, calibration_file_roles, calibration_file_ids, calibration_file_kinds, calibration_files, calibration_versions, seqkit_versions ->
             tuple(
                 meta,
                 input_facts + calibration_input_facts,
@@ -283,7 +286,7 @@ workflow BAITS_MAIN {
                 input_file_kinds + calibration_file_kinds,
                 input_files + calibration_files,
                 parameters,
-                software_versions + calibration_versions,
+                software_versions + calibration_versions + (seqkit_versions ?: []),
             )
         }
 
