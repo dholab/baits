@@ -52,27 +52,33 @@ A basic run needs source sequences, an NCBI taxonomy ID, and a background FASTA.
 
 `--input` selects design-CSV mode and cannot be combined with `--id`, `--source_sequences`, `--target_taxid`, `--background`, `--calibration_reads`, or `--calibration_target_taxids`. Put those values in each applicable CSV row instead. Run-level parameters such as `--taxon_ref_db`, `--kmer_size`, `--deacon_window`, and `--entropy_threshold` still apply to every design in the run.
 
-Every process has a portable resource baseline. These requests are conservative starting points, not claims that one allocation is optimal for every dataset or executor:
+Every process has an HPC-oriented production baseline. CI and local fixture tests select the separate `test` profile, so runner capacity does not constrain production requests:
 
-| Process label | CPUs | Memory | Time |
-|---|---:|---:|---:|
-| `process_low` | 1 | 2 GB | 2 hours |
-| `process_medium` | 2 | 4 GB | 8 hours |
-| `process_high` | 2 | 4 GB | 24 hours |
+| Process label | CPUs | Memory | Disk | Time |
+|---|---:|---:|---:|---:|
+| `process_low` | 1 | 4 GB | 20 GB | 4 hours |
+| `process_medium` | 6 | 16 GB | 100 GB | 12 hours |
+| `process_high` | 20 | 64 GB | 300 GB | 24 hours |
+| `process_extra_high` | 20 | 64 GB | 500 GB | 48 hours |
 
-BLAST searches, Meryl counting, and Deacon read filtering consume their allocated CPUs. `BLAST_MAKEBLASTDB` remains single-core because `makeblastdb` does not provide a corresponding thread-count option. A site configuration can override any baseline without modifying the pipeline:
+The two taxonomic-reference BLAST searches use `process_extra_high`; source-discovery BLAST remains `process_medium`, and Meryl counting uses `process_high`. BLAST searches, Meryl counting, and Deacon read filtering consume their allocated CPUs. `BLAST_MAKEBLASTDB` remains single-core because `makeblastdb` does not provide a corresponding thread-count option.
+
+The `test` profile reduces every tier to at most 2 CPUs, 4 GB memory, and 5 GB disk. Compose it with a runtime profile only for CI or fixture work, for example `-profile docker,test`. Do not use it for a production taxonomic-reference search.
+
+A site configuration can override any production baseline without modifying the pipeline:
 
 ```groovy
 process {
-    withLabel: process_medium {
-        cpus = 4
-        memory = '8 GB'
-        time = '12h'
+    withLabel: process_extra_high {
+        cpus = 24
+        memory = '96 GB'
+        disk = '600 GB'
+        time = '36h'
     }
 }
 ```
 
-Use Nextflow trace and report output from representative runs to tune requests for the actual source, background, taxonomic reference database, calibration reads, and executor. Keep queue, accounting, scratch, transfer, and container-cache policy in the site configuration.
+These production values are initial capacity envelopes, not measured optima. Use Nextflow trace and report output from representative runs to tune requests for the actual source, background, taxonomic reference database, calibration reads, and executor. Keep queue, accounting, scratch, transfer, and container-cache policy in the site configuration.
 
 For a complete direct run with taxonomic screening and threshold calibration:
 

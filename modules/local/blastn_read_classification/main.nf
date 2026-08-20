@@ -1,6 +1,6 @@
 process BLASTN_READ_CLASSIFICATION {
     tag "${meta.id}"
-    label 'process_medium'
+    label 'process_extra_high'
 
     conda "${moduleDir}/environment.yml"
     container 'community.wave.seqera.io/library/blast:2.16.0--540f4b669b0a0ddd@sha256:f327d58dbb16c7ce228ce7079262a5e42d388ce47161397baa0d7e4313a452b7'
