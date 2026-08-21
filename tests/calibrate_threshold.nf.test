@@ -42,6 +42,7 @@ nextflow_pipeline {
             assert new File(design, '06_calibration/read_blast_search_parameters.tsv').readLines() == [
                 'parameter\tvalue',
                 'max_target_seqs\t7',
+                'query_file_count\t1',
             ]
             assert new File(design, '06_calibration/classified_reads.tsv').readLines().size() == 4
             assert new File(design, '06_calibration/classified_reads.tsv').text.contains('sample_R2\tread_000000000001\t')

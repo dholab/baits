@@ -24,6 +24,11 @@
             "branch": "master",
             "git_sha": "d07a945f421a4a91ce4e5a22db63e0e7f8741607",
             "installed_by": ["modules"]
+          },
+          "seqkit/split2": {
+            "branch": "master",
+            "git_sha": "d07a945f421a4a91ce4e5a22db63e0e7f8741607",
+            "installed_by": ["modules"]
           }
         }
       },

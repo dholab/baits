@@ -3,21 +3,23 @@ nextflow_workflow {
     script "../subworkflows/local/calibrate_threshold/main.nf"
     workflow "CALIBRATE_THRESHOLD"
 
-    test("calibrates one target-classified candidate read") {
+    test("runs BLAST across two query files and combines the results") {
         setup {
-            def sequence = 'ACGTA' + ('G' * 95)
+            def firstSequence = 'ACGTA' + ('G' * 95)
+            def secondSequence = 'ACGTA' + ('C' * 95)
             new File("$outputDir/baits.fasta").text = '>bait_000001\nACGTA\n'
-            new File("$outputDir/reads.fastq").text = "@fragment\n${sequence}\n+\n${'I' * 100}\n"
+            new File("$outputDir/reads.fastq").text = "@first\n${firstSequence}\n+\n${'I' * 100}\n@second\n${secondSequence}\n+\n${'I' * 100}\n"
             new File("$outputDir/status.tsv").text = 'metric\tvalue\ndesign_id\tdesign\nsource_sequence_origin\tcurated_input\ncandidate_kmer_count\t1\nlocally_filtered_bait_count\t1\ntaxonomic_screening_status\tPASS\ntaxonomically_screened_bait_count\t1\ndeepest_bait_set\ttaxonomically_screened\ndeacon_index_source\ttaxonomically_screened\n'
             new File("$outputDir/scope.tsv").text = 'taxid\n1729\n88456\n'
             new File("$outputDir/taxonomic_reference_db").mkdirs()
-            new File("$outputDir/reference.fasta").text = ">target\n${sequence}\n"
+            new File("$outputDir/reference.fasta").text = ">first_target\n${firstSequence}\n>second_target\n${secondSequence}\n"
             assert ["pixi", "run", "deacon", "index", "build", "-k", "5", "-w", "1", "-e", "0", "-o", "$outputDir/baits.idx", "$outputDir/baits.fasta"].execute().waitFor() == 0
             assert ["pixi", "run", "--environment", "dev", "makeblastdb", "-dbtype", "nucl", "-parse_seqids", "-taxid", "1729", "-in", "$outputDir/reference.fasta", "-out", "$outputDir/taxonomic_reference_db/taxonomic"].execute().waitFor() == 0
         }
         when {
             workflow {
                 """
+                params.blast_shards = 2
                 input[0] = Channel.of([[id: 'design'], [id: 'design__sample', design_id: 'design', metagenome_id: 'sample'], [file("$outputDir/reads.fastq")], file("$outputDir/baits.fasta"), file("$outputDir/status.tsv"), file("$outputDir/baits.idx"), '88456', file("$outputDir/scope.tsv")])
                 input[1] = Channel.value(file("$outputDir/taxonomic_reference_db"))
                 input[2] = Channel.value(5)
@@ -28,6 +30,7 @@ nextflow_workflow {
             assert workflow.success
             assert workflow.out.summary.size() == 1
             assert file(workflow.out.summary[0][1]).text.contains('recommended_threshold\t1')
+            assert file(workflow.out.read_blast_search_parameters[0][1]).text.contains('query_file_count\t2')
         }
     }
 

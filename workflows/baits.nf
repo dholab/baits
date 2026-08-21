@@ -302,6 +302,7 @@ workflow BAITS_MAIN {
                 [parameter: 'read_blast_dust', value: 'no'],
                 [parameter: 'read_blast_evalue', value: '1e-10'],
                 [parameter: 'max_blast_targets', value: params.max_blast_targets.toString()],
+                [parameter: 'read_blast_query_shards', value: params.blast_shards.toString()],
                 [parameter: 'read_blast_task', value: 'blastn'],
                 [parameter: 'read_classification_tie_tolerance', value: '0.1'],
             ] : []

@@ -65,6 +65,12 @@
                     "default": 100,
                     "description": "Maximum subject sequences retained per calibration-read BLAST query."
                 },
+                "blast_shards": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "default": 4,
+                    "description": "Number of files to divide calibration-read BLASTN queries across."
+                },
                 "kmer_size": {
                     "type": "integer",
                     "minimum": 1,

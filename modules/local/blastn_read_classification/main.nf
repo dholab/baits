@@ -1,5 +1,5 @@
 process BLASTN_READ_CLASSIFICATION {
-    tag "${meta.id}"
+    tag "${meta.id}, ${queries.simpleName}"
     label 'process_extra_high'
 
     conda "${moduleDir}/environment.yml"
@@ -9,8 +9,8 @@ process BLASTN_READ_CLASSIFICATION {
     tuple val(meta), path(queries), path(taxonomic_reference_db, stageAs: 'reference_input/*')
 
     output:
-    tuple val(meta), path('read_blast_hits.tsv'), emit: hits
-    tuple val(meta), path('read_blast_search_parameters.tsv'), emit: search_parameters
+    tuple val(meta), path("${queries.simpleName}.read_blast_hits.tsv"), emit: hits
+    tuple val(meta), path("${queries.simpleName}.read_blast_search_parameters.tsv"), emit: search_parameters
     tuple val("${task.process}"), val('blast'), eval('blastn -version 2>&1 | sed "s/^.*blastn: //; s/ .*$//; s/+.*$//"'), topic: versions, emit: versions_blast
     tuple val(meta), val('blast'), eval('blastn -version 2>&1 | sed "s/^.*blastn: //; s/ .*$//; s/+.*$//"'), emit: reported_blast
 
@@ -43,9 +43,9 @@ process BLASTN_READ_CLASSIFICATION {
     fi
 
     printf 'parameter\tvalue\nmax_target_seqs\t%s\n' \
-        '${params.max_blast_targets}' > read_blast_search_parameters.tsv
+        '${params.max_blast_targets}' > ${queries.simpleName}.read_blast_search_parameters.tsv
 
-    printf 'qseqid\tqlen\tsaccver\tstaxids\tpident\tlength\tmismatch\tgapopen\tqstart\tqend\tsstart\tsend\tevalue\tbitscore\tqcovhsp\tstitle\n' > read_blast_hits.tsv
+    printf 'qseqid\tqlen\tsaccver\tstaxids\tpident\tlength\tmismatch\tgapopen\tqstart\tqend\tsstart\tsend\tevalue\tbitscore\tqcovhsp\tstitle\n' > ${queries.simpleName}.read_blast_hits.tsv
     blastn \
         -query ${queries} \
         -db "\$db_prefix" \
@@ -55,12 +55,12 @@ process BLASTN_READ_CLASSIFICATION {
         -max_target_seqs ${params.max_blast_targets} \
         -dust no \
         -outfmt '6 qseqid qlen saccver staxids pident length mismatch gapopen qstart qend sstart send evalue bitscore qcovhsp stitle' \
-        >> read_blast_hits.tsv
+        >> ${queries.simpleName}.read_blast_hits.tsv
     """
 
     stub:
     """
-    printf 'qseqid\tqlen\tsaccver\tstaxids\tpident\tlength\tmismatch\tgapopen\tqstart\tqend\tsstart\tsend\tevalue\tbitscore\tqcovhsp\tstitle\n' > read_blast_hits.tsv
-    printf 'parameter\tvalue\nmax_target_seqs\t%s\n' '${params.max_blast_targets}' > read_blast_search_parameters.tsv
+    printf 'qseqid\tqlen\tsaccver\tstaxids\tpident\tlength\tmismatch\tgapopen\tqstart\tqend\tsstart\tsend\tevalue\tbitscore\tqcovhsp\tstitle\n' > ${queries.simpleName}.read_blast_hits.tsv
+    printf 'parameter\tvalue\nmax_target_seqs\t%s\n' '${params.max_blast_targets}' > ${queries.simpleName}.read_blast_search_parameters.tsv
     """
 }

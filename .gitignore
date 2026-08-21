@@ -79,6 +79,9 @@
 !/modules/local/extract_source_sequences/
 !/modules/local/extract_source_sequences/*.nf
 !/modules/local/extract_source_sequences/*.yml
+!/modules/local/gather_read_blast_hits/
+!/modules/local/gather_read_blast_hits/*.nf
+!/modules/local/gather_read_blast_hits/*.yml
 !/modules/local/meryl_intersect/
 !/modules/local/meryl_intersect/*.nf
 !/modules/local/meryl_intersect/*.yml
@@ -136,6 +139,9 @@
 !/modules/nf-core/seqkit/rmdup/tests/*.config
 !/modules/nf-core/seqkit/rmdup/tests/*.nf.test
 !/modules/nf-core/seqkit/rmdup/tests/*.snap
+!/modules/nf-core/seqkit/split2/
+!/modules/nf-core/seqkit/split2/*.nf
+!/modules/nf-core/seqkit/split2/*.yml
 
 !/subworkflows/
 !/subworkflows/local/
