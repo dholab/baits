@@ -131,6 +131,54 @@ optimized,88456,$baseDir/tests/data/curated_source_sequences.fasta,,,,$baseDir/t
         }
     }
 
+    test("requires at least one direct-child calibration FASTQ") {
+        setup {
+            new File("$outputDir/calibration_reads/nested").mkdirs()
+            new File("$outputDir/calibration_reads/nested/ignored.fastq").text = '@fragment\nACGTA\n+\nIIIII\n'
+            new File("$outputDir/taxonomic_reference_db").mkdirs()
+        }
+        when {
+            params {
+                id = "nested_only"
+                source_sequences = "$baseDir/tests/data/curated_source_sequences.fasta"
+                target_taxid = "88456"
+                background = "$baseDir/tests/data/interference_background.fasta"
+                calibration_reads = "$outputDir/calibration_reads"
+                taxon_ref_db = "$outputDir/taxonomic_reference_db"
+            }
+        }
+        then {
+            assert workflow.failed
+            def output = workflow.stdout.join('\n')
+            assert output.contains('No such file or directory:')
+            assert output.contains('*.{fastq,fq,fastq.gz,fq.gz}')
+        }
+    }
+
+    test("rejects calibration directory paths containing glob metacharacters") {
+        setup {
+            new File("$outputDir/calibration[reads]").mkdirs()
+            new File("$outputDir/calibration[reads]/sample.fastq").text = '@fragment\nACGTA\n+\nIIIII\n'
+            new File("$outputDir/taxonomic_reference_db").mkdirs()
+        }
+        when {
+            params {
+                id = "glob_path"
+                source_sequences = "$baseDir/tests/data/curated_source_sequences.fasta"
+                target_taxid = "88456"
+                background = "$baseDir/tests/data/interference_background.fasta"
+                calibration_reads = "$outputDir/calibration[reads]"
+                taxon_ref_db = "$outputDir/taxonomic_reference_db"
+            }
+        }
+        then {
+            assert workflow.failed
+            def errors = workflow.stderr.join('\n')
+            assert errors.contains('calibration[reads]')
+            assert errors.contains('does not match regular expression')
+        }
+    }
+
     test("rejects calibration target taxids without calibration reads") {
         setup {
             new File("$outputDir/scope.tsv").text = 'taxid\n88456\n'

@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/nf-core/modules/master/modules/meta-schema.json
 name: resolve_calibration_reads
-description: Resolve each FASTQ in one flat calibration-read directory as an independent source.
+description: Resolve calibration-read filenames as independent sources.
 keywords:
   - fastq
   - metagenomics
@@ -17,9 +17,9 @@ input:
   - - meta:
         type: map
         description: Design metadata.
-    - calibration_read_set:
-        type: directory
-        description: Flat calibration-read FASTQ directory.
+    - calibration_read_names:
+        type: file
+        description: One calibration-read filename per line.
 output:
   manifest:
     - - meta:
@@ -31,9 +31,6 @@ output:
           pattern: calibration_reads.tsv
           ontologies:
             - edam: http://edamontology.org/format_3475 # TSV
-      - calibration_read_set:
-          type: directory
-          description: Staged flat calibration-read FASTQ directory.
   reported_python:
     - - meta:
           type: map

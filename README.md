@@ -43,7 +43,7 @@ A basic run needs source sequences, an NCBI taxonomy ID, and a background FASTA.
 | `--background` | — | Direct-run FASTA containing sequences that the baits must not match. |
 | `--id` | FASTA basename | Direct-run name used for the design and its results directory. |
 | `--taxon_ref_db` | not run | Directory containing an optional taxonomic BLAST database. |
-| `--calibration_reads` | not run | Direct-run flat FASTQ directory used to calibrate a threshold. Requires `--taxon_ref_db`. |
+| `--calibration_reads` | not run | Directory whose direct-child FASTQ files are used to calibrate a threshold. Requires `--taxon_ref_db`. |
 | `--calibration_target_taxids` | `target_taxid` only | Direct-run `taxid` TSV declaring target-compatible calibration assignments. Requires `--calibration_reads` and must include `target_taxid`. |
 | `--max_blast_targets` | `100` | Maximum subject sequences retained per calibration-read BLAST query. |
 | `--kmer_size` | `31` | Length of each candidate k-mer. |

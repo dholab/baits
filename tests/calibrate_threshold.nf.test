@@ -12,6 +12,10 @@ nextflow_pipeline {
             def compressedRead = new java.util.zip.GZIPOutputStream(new FileOutputStream("$outputDir/calibration_reads/sample_R2.fastq.gz"))
             compressedRead.write("@repeated\n${sequence}\n+\n${'I' * sequence.size()}\n".bytes)
             compressedRead.close()
+            new File("$outputDir/calibration_reads/.hidden.fastq").text = "@hidden\n${sequence}\n+\n${'I' * sequence.size()}\n"
+            new File("$outputDir/calibration_reads/nested").mkdirs()
+            new File("$outputDir/calibration_reads/nested/ignored.fastq").text = "@ignored\n${sequence}\n+\n${'I' * sequence.size()}\n"
+            new File("$outputDir/calibration_reads/README.txt").text = "ignored\n"
             new File("$outputDir/taxonomic_reference_db").mkdirs()
             assert ["pixi", "run", "--environment", "dev", "makeblastdb", "-dbtype", "nucl", "-parse_seqids", "-taxid", "88456", "-in", "$outputDir/source.fasta", "-out", "$outputDir/taxonomic_reference_db/taxonomic"].execute().waitFor() == 0
         }
@@ -31,31 +35,31 @@ nextflow_pipeline {
             def runDir = new File(outputDir).parent
             def design = new File("$runDir/results/calibrated")
             assert new File(design, '06_calibration/candidate_read_counts.tsv').exists()
-            assert new File(design, '06_calibration/candidate_read_counts.tsv').readLines().size() == 3
+            assert new File(design, '06_calibration/candidate_read_counts.tsv').readLines().size() == 4
             def candidateLines = new File(design, '06_calibration/candidate_read_counts.tsv').readLines().drop(1)
-            assert candidateLines*.split('\t')*.first().toSet().size() == 2
+            assert candidateLines*.split('\t')*.first().toSet().size() == 3
             assert new File(design, '06_calibration/read_blast_hits.tsv').exists()
             assert new File(design, '06_calibration/read_blast_search_parameters.tsv').readLines() == [
                 'parameter\tvalue',
                 'max_target_seqs\t7',
             ]
-            assert new File(design, '06_calibration/classified_reads.tsv').readLines().size() == 3
+            assert new File(design, '06_calibration/classified_reads.tsv').readLines().size() == 4
             assert new File(design, '06_calibration/classified_reads.tsv').text.contains('sample_R2\tread_000000000001\t')
             assert new File(design, '06_calibration/classified_reads.tsv').text.contains('\tTARGET\t')
             assert new File(design, '06_calibration/threshold_read_counts.tsv').exists()
             assert !new File(design, '06_calibration/threshold_curve.tsv').exists()
             assert !new File(design, '06_calibration/whole_read_blast_hits.tsv').exists()
             def thresholdSummary = new File(design, '06_calibration/threshold_summary.tsv').text
-            assert thresholdSummary.contains('deacon_returned_read_count\t2')
-            assert thresholdSummary.contains('candidate_read_count\t2')
-            assert thresholdSummary.contains('duplicate_sequence_count\t1')
+            assert thresholdSummary.contains('deacon_returned_read_count\t3')
+            assert thresholdSummary.contains('candidate_read_count\t3')
+            assert thresholdSummary.contains('duplicate_sequence_count\t2')
             assert thresholdSummary.contains('read_blast_query_count\t1')
             assert thresholdSummary.contains('calibration_status\tRECOMMENDED_THRESHOLD')
             def inputs = new File(design, '07_provenance/inputs.tsv').text
             assert inputs.contains('\tfilename\tsample; one.fastq')
             assert inputs.contains('calibration_read\tcalibrated__sample_R2\tfilename\tsample_R2.fastq.gz')
             assert !inputs.contains('\tmate\t')
-            assert inputs.readLines().count { it ==~ /calibration_read\t[^\t]+\tsha256\t[0-9a-f]{64}/ } == 2
+            assert inputs.readLines().count { it ==~ /calibration_read\t[^\t]+\tsha256\t[0-9a-f]{64}/ } == 3
             assert new File(design, '07_provenance/parameters.tsv').text.contains('read_classification_tie_tolerance\t0.1')
             assert new File(design, '07_provenance/parameters.tsv').text.contains('max_blast_targets\t7')
             assert new File(design, '07_provenance/software_versions.tsv').text.contains('seqkit\t2.13.0')

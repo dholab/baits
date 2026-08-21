@@ -63,7 +63,8 @@
                 "type": ["string", "null"],
                 "format": "directory-path",
                 "exists": true,
-                "errorMessage": "calibration_reads must be an existing flat calibration-read FASTQ directory"
+                "pattern": "^[^*?\\[\\]{}]+$",
+                "errorMessage": "calibration_reads must be an existing directory without glob metacharacters and containing direct-child FASTQ files"
             },
             "calibration_target_taxids": {
                 "type": ["string", "null"],

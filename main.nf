@@ -143,43 +143,88 @@ workflow {
             )
         }
 
+    // Expand each calibration directory into its direct-child FASTQs. Keeping
+    // the original paths preserves per-file cache identity when membership changes.
     ch_calibration_read_sets = ch_normalized_rows
         .filter { meta, row -> row.calibration_reads != null && row.calibration_reads != '' }
         .map { meta, row -> tuple(meta, file(row.calibration_reads)) }
+
+    ch_calibration_read_paths = ch_calibration_read_sets
+        .flatMap { meta, calibration_read_set ->
+            files(
+                "${calibration_read_set}/*.{fastq,fq,fastq.gz,fq.gz}",
+                checkIfExists: true,
+                hidden: true,
+            ).collect { read -> tuple(meta, read.name, read) }
+        }
+
+    // Python still owns filename validation and stable source IDs. It receives
+    // one small, deterministic filename list per design rather than the FASTQs.
+    ch_calibration_read_name_files = ch_calibration_read_paths
+        .map { meta, read_name, _read -> tuple(meta.id, read_name) }
+        .collectFile(newLine: true, sort: true) { design_id, read_name ->
+            ["${design_id}.calibration_read_names.txt", read_name]
+        }
+
+    // collectFile emits only file paths, so reattach each list to its design.
+    ch_calibration_designs_by_name_file = ch_calibration_read_sets
+        .map { meta, _calibration_read_set ->
+            tuple("${meta.id}.calibration_read_names.txt", meta)
+        }
+
+    ch_calibration_resolver_inputs = ch_calibration_read_name_files
+        .map { names_file -> tuple(names_file.name, names_file) }
+        .join(
+            ch_calibration_designs_by_name_file,
+            failOnDuplicate: true,
+            failOnMismatch: true,
+        )
+        .map { _key, names_file, meta -> tuple(meta, names_file) }
+
     ch_without_calibration_keys = ch_normalized_rows
         .filter { meta, row -> row.calibration_reads == null || row.calibration_reads == '' }
         .map { meta, row -> tuple(meta, true) }
-    RESOLVE_CALIBRATION_READS(ch_calibration_read_sets)
-    ch_calibration_read_records = RESOLVE_CALIBRATION_READS.out.manifest
+
+    RESOLVE_CALIBRATION_READS(ch_calibration_resolver_inputs)
+
+    // Join normalized metadata back to the corresponding original FASTQ path.
+    // Strict joins turn any duplicate or missing filename into an explicit error.
+    ch_resolved_calibration_read_records = RESOLVE_CALIBRATION_READS.out.manifest
         .splitCsv(header: true, sep: '\t', quote: '"', elem: 1)
+        .map { design_meta, row -> tuple(design_meta.id, row.read, design_meta, row) }
+
+    ch_original_calibration_read_paths = ch_calibration_read_paths
+        .map { design_meta, read_name, read -> tuple(design_meta.id, read_name, read) }
+
+    ch_calibration_read_records = ch_resolved_calibration_read_records
+        .join(
+            ch_original_calibration_read_paths,
+            by: [0, 1],
+            failOnDuplicate: true,
+            failOnMismatch: true,
+        )
+        .map { _design_id, _read_name, design_meta, row, read -> tuple(design_meta, row, read) }
+
     ch_calibration_reads = ch_calibration_read_records
-        .map { design_meta, row, calibration_read_set ->
+        .map { design_meta, row, read ->
             def read_meta = [
                 id: row.id,
                 design_id: row.design_id,
                 metagenome_id: row.metagenome_id,
             ]
-            def read = file(calibration_read_set.resolve(row.read))
             tuple(design_meta, read_meta, read)
         }
+
     // Aggregate [facts, roles, IDs, kinds, files] for each design's read files.
     ch_calibration_read_file_facts = ch_calibration_read_records
-        .map { design_meta, row, calibration_read_set ->
-            def readNames = [row.read]
-            def inputIds = [row.id]
-            def inputFacts = inputIds.indices.collectMany { index ->
-                [
-                    [input_role: 'calibration_read', input_id: inputIds[index], attribute: 'metagenome_id', value: row.metagenome_id],
-                ]
-            }
-            def reads = readNames.collect { readName -> file(calibration_read_set.resolve(readName)) }
+        .map { design_meta, row, read ->
             tuple(
                 design_meta,
-                inputFacts,
-                ['calibration_read'] * reads.size(),
-                inputIds,
-                ['file'] * reads.size(),
-                reads,
+                [[input_role: 'calibration_read', input_id: row.id, attribute: 'metagenome_id', value: row.metagenome_id]],
+                ['calibration_read'],
+                [row.id],
+                ['file'],
+                [read],
             )
         }
         .groupTuple(by: 0)
@@ -193,6 +238,7 @@ workflow {
                 read_groups.collectMany { reads -> reads },
             )
         }
+
     ch_calibration_resolver_versions = RESOLVE_CALIBRATION_READS.out.reported_python
         .join(RESOLVE_CALIBRATION_READS.out.reported_polars)
         .map { meta, python_component, python_version, polars_component, polars_version ->
@@ -204,6 +250,7 @@ workflow {
                 ],
             )
         }
+
     ch_calibration_provenance_facts = ch_calibration_read_file_facts
         .join(ch_calibration_scope_facts)
         .join(ch_calibration_resolver_versions)

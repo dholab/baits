@@ -6,10 +6,10 @@ process RESOLVE_CALIBRATION_READS {
     container 'community.wave.seqera.io/library/biopython_polars_python:5f22dbb8160be6fa@sha256:20d95779744ec0d8a943473966c3403a9d4b09f3d53722ffd67169972ab1b2da'
 
     input:
-    tuple val(meta), path(calibration_read_set, stageAs: 'calibration_reads')
+    tuple val(meta), path(calibration_read_names, stageAs: 'calibration_read_names.txt')
 
     output:
-    tuple val(meta), path('calibration_reads.tsv'), path(calibration_read_set), emit: manifest
+    tuple val(meta), path('calibration_reads.tsv'), emit: manifest
     tuple val("${task.process}"), val('python'), eval("python --version | sed 's/Python //'"), topic: versions, emit: versions_python
     tuple val("${task.process}"), val('polars'), eval("python -c 'import polars; print(polars.__version__)'"), topic: versions, emit: versions_polars
     tuple val(meta), val('python'), eval("python --version | sed 's/Python //'"), emit: reported_python
@@ -22,7 +22,7 @@ process RESOLVE_CALIBRATION_READS {
     """
     resolve_calibration_reads.py \
         --design-id '${meta.id}' \
-        --directory calibration_reads \
+        --names calibration_read_names.txt \
         --manifest-out calibration_reads.tsv
     """
 }

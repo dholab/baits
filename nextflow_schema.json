@@ -48,7 +48,8 @@
                     "type": "string",
                     "format": "directory-path",
                     "exists": true,
-                    "description": "Directory of FASTQ files to calibrate a recommended baits threshold; with --input, set calibration_reads in each applicable CSV row."
+                    "pattern": "^[^*?\\[\\]{}]+$",
+                    "description": "Directory whose direct-child FASTQ files calibrate a recommended baits threshold; with --input, set calibration_reads in each applicable CSV row."
                 },
                 "calibration_target_taxids": {
                     "type": "string",

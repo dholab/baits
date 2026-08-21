@@ -5,13 +5,11 @@ nextflow_process {
 
     test("resolves every FASTQ as an independent calibration source") {
         setup {
-            new File("$outputDir/reads").mkdirs()
-            new File("$outputDir/reads/sample_R1.fastq").text = '@fragment/1\nACGTA\n+\nIIIII\n'
-            new File("$outputDir/reads/sample_R2.fastq").text = '@fragment/2\nTGCAT\n+\nIIIII\n'
+            new File("$outputDir/calibration_read_names.txt").text = "sample_R2.fastq\nsample_R1.fastq\n"
         }
         when {
             process {
-                """input[0] = [[id: 'design', source_sequence_origin: 'curated_input'], file("$outputDir/reads")]"""
+                """input[0] = [[id: 'design', source_sequence_origin: 'curated_input'], file("$outputDir/calibration_read_names.txt")]"""
             }
         }
 
