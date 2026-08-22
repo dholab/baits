@@ -7,7 +7,7 @@ nextflow_pipeline {
         when {
             params {
                 source_sequences = "$baseDir/tests/data/curated_source_sequences.fasta"
-                background = "$baseDir/tests/data/interference_background.fasta"
+                background = "$baseDir/tests/data/background.fasta"
             }
         }
 
@@ -22,7 +22,7 @@ nextflow_pipeline {
                 id = "cyclospora"
                 source_sequences = "$baseDir/tests/data/curated_source_sequences.fasta"
                 target_taxid = "88456"
-                background = "$baseDir/tests/data/interference_background.fasta"
+                background = "$baseDir/tests/data/background.fasta"
             }
         }
 
@@ -35,8 +35,8 @@ nextflow_pipeline {
         setup {
             new File("$outputDir/valid_input.csv").text = """\
 id,target_taxid,curated_source_sequences,representative_queries,query_rules,target_assembly,background
-curated,88456,$baseDir/tests/data/curated_source_sequences.fasta,,,,$baseDir/tests/data/interference_background.fasta
-discovery,88456,,$baseDir/tests/data/representative_queries.fasta,$baseDir/tests/data/query_rules.tsv,$baseDir/tests/data/target_assembly.fasta,$baseDir/tests/data/interference_background.fasta
+curated,88456,$baseDir/tests/data/curated_source_sequences.fasta,,,,$baseDir/tests/data/background.fasta
+discovery,88456,,$baseDir/tests/data/representative_queries.fasta,$baseDir/tests/data/query_rules.tsv,$baseDir/tests/data/target_assembly.fasta,$baseDir/tests/data/background.fasta
 """
         }
 
@@ -56,7 +56,7 @@ discovery,88456,,$baseDir/tests/data/representative_queries.fasta,$baseDir/tests
             new File("$outputDir/calibration_reads").mkdirs()
             new File("$outputDir/input.csv").text = """\
 id,target_taxid,curated_source_sequences,representative_queries,query_rules,target_assembly,background
-curated,88456,$baseDir/tests/data/curated_source_sequences.fasta,,,,$baseDir/tests/data/interference_background.fasta
+curated,88456,$baseDir/tests/data/curated_source_sequences.fasta,,,,$baseDir/tests/data/background.fasta
 """
         }
         when {
@@ -78,7 +78,7 @@ curated,88456,$baseDir/tests/data/curated_source_sequences.fasta,,,,$baseDir/tes
         setup {
             new File("$outputDir/mixed_input.csv").text = """\
 id,target_taxid,curated_source_sequences,representative_queries,query_rules,target_assembly,background
-mixed,88456,$baseDir/tests/data/curated_source_sequences.fasta,$baseDir/tests/data/representative_queries.fasta,$baseDir/tests/data/query_rules.tsv,$baseDir/tests/data/target_assembly.fasta,$baseDir/tests/data/interference_background.fasta
+mixed,88456,$baseDir/tests/data/curated_source_sequences.fasta,$baseDir/tests/data/representative_queries.fasta,$baseDir/tests/data/query_rules.tsv,$baseDir/tests/data/target_assembly.fasta,$baseDir/tests/data/background.fasta
 """
         }
 
@@ -97,7 +97,7 @@ mixed,88456,$baseDir/tests/data/curated_source_sequences.fasta,$baseDir/tests/da
         setup {
             new File("$outputDir/invalid_rules_input.csv").text = """\
 id,target_taxid,curated_source_sequences,representative_queries,query_rules,target_assembly,background
-discovery,88456,,$baseDir/tests/data/representative_queries.fasta,$baseDir/tests/data/invalid_query_rules.tsv,$baseDir/tests/data/target_assembly.fasta,$baseDir/tests/data/interference_background.fasta
+discovery,88456,,$baseDir/tests/data/representative_queries.fasta,$baseDir/tests/data/invalid_query_rules.tsv,$baseDir/tests/data/target_assembly.fasta,$baseDir/tests/data/background.fasta
 """
         }
 
@@ -117,7 +117,7 @@ discovery,88456,,$baseDir/tests/data/representative_queries.fasta,$baseDir/tests
             new File("$outputDir/calibration_reads").mkdirs()
             new File("$outputDir/calibration_reads/sample.fastq").text = '@fragment\nACGTA\n+\nIIIII\n'
             new File("$outputDir/calibration.csv").text = """id,target_taxid,curated_source_sequences,representative_queries,query_rules,target_assembly,background,calibration_reads
-optimized,88456,$baseDir/tests/data/curated_source_sequences.fasta,,,,$baseDir/tests/data/interference_background.fasta,$outputDir/calibration_reads
+optimized,88456,$baseDir/tests/data/curated_source_sequences.fasta,,,,$baseDir/tests/data/background.fasta,$outputDir/calibration_reads
 """
         }
         when {
@@ -142,7 +142,7 @@ optimized,88456,$baseDir/tests/data/curated_source_sequences.fasta,,,,$baseDir/t
                 id = "nested_only"
                 source_sequences = "$baseDir/tests/data/curated_source_sequences.fasta"
                 target_taxid = "88456"
-                background = "$baseDir/tests/data/interference_background.fasta"
+                background = "$baseDir/tests/data/background.fasta"
                 calibration_reads = "$outputDir/calibration_reads"
                 taxon_ref_db = "$outputDir/taxonomic_reference_db"
             }
@@ -166,7 +166,7 @@ optimized,88456,$baseDir/tests/data/curated_source_sequences.fasta,,,,$baseDir/t
                 id = "glob_path"
                 source_sequences = "$baseDir/tests/data/curated_source_sequences.fasta"
                 target_taxid = "88456"
-                background = "$baseDir/tests/data/interference_background.fasta"
+                background = "$baseDir/tests/data/background.fasta"
                 calibration_reads = "$outputDir/calibration[reads]"
                 taxon_ref_db = "$outputDir/taxonomic_reference_db"
             }
@@ -189,7 +189,7 @@ optimized,88456,$baseDir/tests/data/curated_source_sequences.fasta,,,,$baseDir/t
                 id = "scope_without_reads"
                 source_sequences = "$baseDir/tests/data/curated_source_sequences.fasta"
                 target_taxid = "88456"
-                background = "$baseDir/tests/data/interference_background.fasta"
+                background = "$baseDir/tests/data/background.fasta"
                 calibration_target_taxids = "$outputDir/scope.tsv"
             }
         }

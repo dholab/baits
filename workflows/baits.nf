@@ -3,7 +3,8 @@ include { WRITE_PROVENANCE } from '../modules/local/write_provenance/main'
 include { DISCOVER_SOURCE_SEQUENCES } from '../subworkflows/local/discover_source_sequences/main'
 include { FILTER_CANDIDATE_KMERS } from '../subworkflows/local/filter_candidate_kmers/main'
 include { TAXONOMIC_EXACT_MATCH_SCREENING } from '../subworkflows/local/taxonomic_exact_match_screening/main'
-include { BUILD_VERIFY_DEACON_INDEX } from '../subworkflows/local/build_verify_deacon_index/main'
+include { BUILD_VERIFY_DEACON_INDEX as BUILD_VERIFY_DEACON_INDEX_WITHOUT_TAXONOMY } from '../subworkflows/local/build_verify_deacon_index/main'
+include { BUILD_VERIFY_DEACON_INDEX as BUILD_VERIFY_DEACON_INDEX_WITH_TAXONOMY } from '../subworkflows/local/build_verify_deacon_index/main'
 include { CALIBRATE_THRESHOLD } from '../subworkflows/local/calibrate_threshold/main'
 
 workflow BAITS_MAIN {
@@ -36,52 +37,47 @@ workflow BAITS_MAIN {
     // Filter candidate k-mers
     ch_filtering_inputs = ch_source_sequences
         .join(ch_design_context)
-        .map { meta, source_sequences, source_sequence_query_groups, target_taxid, interference_background ->
-            tuple(meta, source_sequences, source_sequence_query_groups, interference_background)
+        .map { meta, source_sequences, source_sequence_query_groups, target_taxid, background ->
+            tuple(meta, source_sequences, source_sequence_query_groups, background)
         }
     FILTER_CANDIDATE_KMERS(ch_filtering_inputs, ch_kmer_size, ch_deacon_window, ch_entropy_threshold)
 
-    // Screen the locally filtered bait set when a taxonomic reference database is supplied
+    // Screen selected candidates when a taxonomic reference database is supplied
     ch_screening_inputs = FILTER_CANDIDATE_KMERS.out.baits
         .join(ch_design_context)
-        .map { meta, locally_filtered_baits, candidate_kmer_manifest, bait_set_status, target_taxid, interference_background ->
-            tuple(meta, locally_filtered_baits, candidate_kmer_manifest, bait_set_status, target_taxid)
+        .map { meta, baits, candidate_kmer_manifest, target_taxid, background ->
+            tuple(meta, baits, candidate_kmer_manifest, target_taxid)
         }
     TAXONOMIC_EXACT_MATCH_SCREENING(ch_screening_inputs, ch_taxonomic_reference_db, ch_kmer_size)
 
-    // Build and verify one Deacon index from the deepest justified nonempty bait set
-    ch_locally_filtered_index_inputs = FILTER_CANDIDATE_KMERS.out.baits
+    // Build and verify one Deacon index from the selected candidates
+    ch_index_inputs_without_taxonomy = FILTER_CANDIDATE_KMERS.out.baits
         .join(ch_design_context)
         .combine(ch_taxonomic_screening_not_run)
-        .map { meta, locally_filtered_baits, candidate_kmer_manifest, bait_set_status, target_taxid, interference_background, not_run ->
-            tuple(meta, locally_filtered_baits, candidate_kmer_manifest, bait_set_status, interference_background, 'locally_filtered')
+        .map { meta, baits, candidate_kmer_manifest, target_taxid, background, not_run ->
+            tuple(meta, baits, candidate_kmer_manifest, background)
         }
-    ch_taxonomically_screened_index_inputs = TAXONOMIC_EXACT_MATCH_SCREENING.out.baits
+    ch_index_inputs_with_taxonomy = TAXONOMIC_EXACT_MATCH_SCREENING.out.baits
         .join(ch_design_context)
-        .map { meta, taxonomically_screened_baits, candidate_kmer_manifest, bait_set_status, target_taxid, interference_background ->
-            tuple(meta, taxonomically_screened_baits, candidate_kmer_manifest, bait_set_status, interference_background, 'taxonomically_screened')
+        .map { meta, baits, candidate_kmer_manifest, target_taxid, background ->
+            tuple(meta, baits, candidate_kmer_manifest, background)
         }
-    ch_index_inputs = ch_locally_filtered_index_inputs.mix(ch_taxonomically_screened_index_inputs)
-    BUILD_VERIFY_DEACON_INDEX(ch_index_inputs, ch_kmer_size, ch_deacon_window)
+    BUILD_VERIFY_DEACON_INDEX_WITHOUT_TAXONOMY(ch_index_inputs_without_taxonomy, ch_kmer_size, ch_deacon_window)
+    BUILD_VERIFY_DEACON_INDEX_WITH_TAXONOMY(ch_index_inputs_with_taxonomy, ch_kmer_size, ch_deacon_window)
 
-    ch_locally_filtered_indexes = BUILD_VERIFY_DEACON_INDEX.out.index
-        .filter { meta, baits, candidate_kmer_manifest, bait_set_status, deacon_index, index_source -> index_source == 'locally_filtered' }
-        .map { meta, baits, candidate_kmer_manifest, bait_set_status, deacon_index, index_source -> tuple(meta, deacon_index) }
-    ch_taxonomically_screened_verified_indexes = BUILD_VERIFY_DEACON_INDEX.out.index
-        .filter { meta, baits, candidate_kmer_manifest, bait_set_status, deacon_index, index_source -> index_source == 'taxonomically_screened' }
-        .map { meta, baits, candidate_kmer_manifest, bait_set_status, deacon_index, index_source ->
-            tuple(meta, baits, candidate_kmer_manifest, bait_set_status, deacon_index)
-        }
-    ch_taxonomically_screened_indexes = ch_taxonomically_screened_verified_indexes
-        .map { meta, baits, candidate_kmer_manifest, bait_set_status, deacon_index -> tuple(meta, deacon_index) }
+    ch_indexes_without_taxonomy = BUILD_VERIFY_DEACON_INDEX_WITHOUT_TAXONOMY.out.index
+        .map { meta, baits, candidate_kmer_manifest, deacon_index -> tuple(meta, deacon_index) }
+    ch_verified_indexes_with_taxonomy = BUILD_VERIFY_DEACON_INDEX_WITH_TAXONOMY.out.index
+    ch_indexes_with_taxonomy = ch_verified_indexes_with_taxonomy
+        .map { meta, baits, candidate_kmer_manifest, deacon_index -> tuple(meta, deacon_index) }
 
     // Calibrate only taxonomically screened, verified Deacon Indexes
     ch_calibration_inputs = ch_calibration_reads
-        .combine(ch_taxonomically_screened_verified_indexes, by: 0)
+        .combine(ch_verified_indexes_with_taxonomy, by: 0)
         .combine(ch_design_context, by: 0)
         .combine(ch_calibration_target_scopes, by: 0)
-        .map { meta, read_meta, reads, taxonomically_screened_baits, candidate_kmer_manifest, bait_set_status, deacon_index, target_taxid, interference_background, calibration_target_taxids ->
-            tuple(meta, read_meta, reads, taxonomically_screened_baits, bait_set_status, deacon_index, target_taxid, calibration_target_taxids)
+        .map { meta, read_meta, reads, baits, candidate_kmer_manifest, deacon_index, target_taxid, background, calibration_target_taxids ->
+            tuple(meta, read_meta, reads, baits, deacon_index, target_taxid, calibration_target_taxids)
         }
     CALIBRATE_THRESHOLD(ch_calibration_inputs, ch_taxonomic_reference_db, ch_kmer_size)
 
@@ -89,17 +85,17 @@ workflow BAITS_MAIN {
     ch_curated_provenance_facts = ch_design_context
         .join(ch_curated_provenance_source_inputs)
         .join(NORMALIZE_CURATED_SOURCE_SEQUENCES.out.reported_biopython)
-        .map { meta, target_taxid, interference_background, source_input_roles, source_input_files, component, version ->
+        .map { meta, target_taxid, background, source_input_roles, source_input_files, component, version ->
             tuple(
                 meta,
                 [
                     [input_role: 'design', input_id: meta.id, attribute: 'source_sequence_origin', value: meta.source_sequence_origin],
                     [input_role: 'target_taxon', input_id: meta.id, attribute: 'target_taxid', value: target_taxid],
                 ],
-                ['interference_background'] + source_input_roles,
-                ['interference_background'] + source_input_roles,
+                ['background'] + source_input_roles,
+                ['background'] + source_input_roles,
                 ['file'] * (source_input_files.size() + 1),
-                [interference_background] + source_input_files,
+                [background] + source_input_files,
                 [[parameter: 'target_taxid', value: target_taxid]],
                 [[component: component, version: version]],
             )
@@ -110,17 +106,17 @@ workflow BAITS_MAIN {
     ch_discovery_provenance_facts = ch_design_context
         .join(ch_discovery_provenance_source_inputs)
         .join(ch_discovery_versions)
-        .map { meta, target_taxid, interference_background, source_input_roles, source_input_files, biopython_component, biopython_version, blast_component, blast_version ->
+        .map { meta, target_taxid, background, source_input_roles, source_input_files, biopython_component, biopython_version, blast_component, blast_version ->
             tuple(
                 meta,
                 [
                     [input_role: 'design', input_id: meta.id, attribute: 'source_sequence_origin', value: meta.source_sequence_origin],
                     [input_role: 'target_taxon', input_id: meta.id, attribute: 'target_taxid', value: target_taxid],
                 ],
-                ['interference_background'] + source_input_roles,
-                ['interference_background'] + source_input_roles,
+                ['background'] + source_input_roles,
+                ['background'] + source_input_roles,
                 ['file'] * (source_input_files.size() + 1),
-                [interference_background] + source_input_files,
+                [background] + source_input_files,
                 [[parameter: 'target_taxid', value: target_taxid]],
                 [
                     [component: biopython_component, version: biopython_version],
@@ -152,7 +148,7 @@ workflow BAITS_MAIN {
         .combine(ch_kmer_size)
         .combine(ch_deacon_window)
         .combine(ch_entropy_threshold)
-        .map { meta, input_facts, input_file_roles, input_file_ids, input_file_kinds, input_files, parameters, software_versions, filtering_status, meryl_component, meryl_version, biopython_component, biopython_version, polars_component, polars_version, kmer_size, deacon_window, entropy_threshold ->
+        .map { meta, input_facts, input_file_roles, input_file_ids, input_file_kinds, input_files, parameters, software_versions, manifest, meryl_component, meryl_version, biopython_component, biopython_version, polars_component, polars_version, kmer_size, deacon_window, entropy_threshold ->
             tuple(
                 meta,
                 input_facts,
@@ -181,7 +177,7 @@ workflow BAITS_MAIN {
         .combine(ch_kmer_size)
         .combine(ch_deacon_window)
         .combine(ch_entropy_threshold)
-        .map { meta, input_facts, input_file_roles, input_file_ids, input_file_kinds, input_files, parameters, software_versions, manifest, filtering_status, meryl_component, meryl_version, deacon_component, deacon_version, biopython_component, biopython_version, polars_component, polars_version, kmer_size, deacon_window, entropy_threshold ->
+        .map { meta, input_facts, input_file_roles, input_file_ids, input_file_kinds, input_files, parameters, software_versions, manifest, meryl_component, meryl_version, deacon_component, deacon_version, biopython_component, biopython_version, polars_component, polars_version, kmer_size, deacon_window, entropy_threshold ->
             tuple(
                 meta,
                 input_facts,
@@ -214,7 +210,7 @@ workflow BAITS_MAIN {
         )
     ch_filtering_continuation_provenance_facts = ch_with_deacon_provenance_facts
         .join(FILTER_CANDIDATE_KMERS.out.baits)
-        .map { meta, input_facts, input_file_roles, input_file_ids, input_file_kinds, input_files, parameters, software_versions, baits, manifest, bait_set_status ->
+        .map { meta, input_facts, input_file_roles, input_file_ids, input_file_kinds, input_files, parameters, software_versions, baits, manifest ->
             tuple(meta, input_facts, input_file_roles, input_file_ids, input_file_kinds, input_files, parameters, software_versions)
         }
 
@@ -240,12 +236,12 @@ workflow BAITS_MAIN {
         }
 
     ch_screened_provenance_facts = ch_filtering_continuation_provenance_facts
-        .join(TAXONOMIC_EXACT_MATCH_SCREENING.out.screening_status)
+        .join(TAXONOMIC_EXACT_MATCH_SCREENING.out.completed)
         .join(TAXONOMIC_EXACT_MATCH_SCREENING.out.reported_blast)
         .join(TAXONOMIC_EXACT_MATCH_SCREENING.out.reported_biopython)
         .join(TAXONOMIC_EXACT_MATCH_SCREENING.out.reported_polars)
         .combine(ch_taxonomic_reference_db)
-        .map { meta, input_facts, input_file_roles, input_file_ids, input_file_kinds, input_files, parameters, software_versions, screening_status, blast_component, blast_version, biopython_component, biopython_version, polars_component, polars_version, taxonomic_reference_db ->
+        .map { meta, input_facts, input_file_roles, input_file_ids, input_file_kinds, input_files, parameters, software_versions, manifest, blast_component, blast_version, biopython_component, biopython_version, polars_component, polars_version, taxonomic_reference_db ->
             tuple(
                 meta,
                 input_facts,
@@ -335,18 +331,13 @@ workflow BAITS_MAIN {
         .mix(FILTER_CANDIDATE_KMERS.out.terminal_manifest.combine(ch_taxonomic_reference_db).map { meta, manifest, taxonomic_reference_db -> tuple(meta, manifest) })
         .mix(TAXONOMIC_EXACT_MATCH_SCREENING.out.manifest)
     candidate_kmer_occurrences = FILTER_CANDIDATE_KMERS.out.occurrences
-    filtering_status = FILTER_CANDIDATE_KMERS.out.filtering_status
-    locally_filtered_baits = FILTER_CANDIDATE_KMERS.out.baits
     taxonomic_blast_hits = TAXONOMIC_EXACT_MATCH_SCREENING.out.hits
     screening_decisions = TAXONOMIC_EXACT_MATCH_SCREENING.out.decisions
-    screening_status = TAXONOMIC_EXACT_MATCH_SCREENING.out.screening_status
-    taxonomically_screened_baits = TAXONOMIC_EXACT_MATCH_SCREENING.out.baits
-    bait_set_status = BUILD_VERIFY_DEACON_INDEX.out.bait_set_status
-        .mix(TAXONOMIC_EXACT_MATCH_SCREENING.out.terminal_bait_set_status)
-    locally_filtered_deacon_index = ch_locally_filtered_indexes
-    taxonomically_screened_deacon_index = ch_taxonomically_screened_indexes
-    index_verification_summary = BUILD_VERIFY_DEACON_INDEX.out.summary
-    index_verification_report = BUILD_VERIFY_DEACON_INDEX.out.report
+    baits = FILTER_CANDIDATE_KMERS.out.baits
+        .combine(ch_taxonomic_screening_not_run)
+        .map { meta, baits, manifest, not_run -> tuple(meta, baits) }
+        .mix(TAXONOMIC_EXACT_MATCH_SCREENING.out.baits.map { meta, baits, manifest -> tuple(meta, baits) })
+    deacon_index = ch_indexes_without_taxonomy.mix(ch_indexes_with_taxonomy)
     taxonomic_reference_database = TAXONOMIC_EXACT_MATCH_SCREENING.out.reference_database_report
     candidate_read_counts = CALIBRATE_THRESHOLD.out.candidate_read_counts
     read_blast_hits = CALIBRATE_THRESHOLD.out.read_blast_hits
@@ -359,6 +350,7 @@ workflow BAITS_MAIN {
         .mix(WRITE_PROVENANCE.out.versions_python)
         .mix(FILTER_CANDIDATE_KMERS.out.versions)
         .mix(TAXONOMIC_EXACT_MATCH_SCREENING.out.versions)
-        .mix(BUILD_VERIFY_DEACON_INDEX.out.versions)
+        .mix(BUILD_VERIFY_DEACON_INDEX_WITHOUT_TAXONOMY.out.versions)
+        .mix(BUILD_VERIFY_DEACON_INDEX_WITH_TAXONOMY.out.versions)
         .mix(CALIBRATE_THRESHOLD.out.versions)
 }

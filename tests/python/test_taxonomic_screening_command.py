@@ -29,11 +29,7 @@ def manifest_frame() -> pl.LazyFrame:
             "kmer": KMER_REJECTED,
             "source_copy_count": 1,
             "background_occurrences": 0,
-            "status": "REJECT_LOW_COMPLEXITY",
-            "rejection_reason": "low_complexity",
-            "taxonomic_screening_status": "NOT_APPLICABLE",
-            "on_target_hits": "",
-            "off_target_hits": "",
+            "outcome": "low_complexity",
             "_manifest_order": 1,
         },
         *[
@@ -43,11 +39,7 @@ def manifest_frame() -> pl.LazyFrame:
                 "kmer": kmer,
                 "source_copy_count": 1,
                 "background_occurrences": 0,
-                "status": "PASS",
-                "rejection_reason": "none",
-                "taxonomic_screening_status": "NOT_RUN",
-                "on_target_hits": "",
-                "off_target_hits": "",
+                "outcome": "selected",
                 "_manifest_order": number + 1,
             }
             for number, kmer in enumerate(KMERS, start=1)
@@ -66,8 +58,8 @@ def hit_frame(rows: list[tuple[str, bool]]) -> pl.LazyFrame:
     )
 
 
-def write_inputs(tmp_path: Path, *, all_rejected: bool = False) -> tuple[Path, Path, Path, Path]:
-    baits = tmp_path / "locally_filtered_baits.fasta"
+def write_inputs(tmp_path: Path, *, all_rejected: bool = False) -> tuple[Path, Path, Path]:
+    baits = tmp_path / "baits.fasta"
     baits.write_text(
         "".join(
             f">bait_{number:06d}\n{kmer}\n"
@@ -79,18 +71,6 @@ def write_inputs(tmp_path: Path, *, all_rejected: bool = False) -> tuple[Path, P
         manifest,
         separator="\t",
         quote_style="never",
-    )
-    status = tmp_path / "bait_set_status.tsv"
-    status.write_text(
-        "metric\tvalue\n"
-        "design_id\tdesign\n"
-        "source_sequence_origin\tcurated_input\n"
-        "candidate_kmer_count\t6\n"
-        "locally_filtered_bait_count\t5\n"
-        "taxonomic_screening_status\tNOT_RUN\n"
-        "taxonomically_screened_bait_count\t\n"
-        "deepest_bait_set\tlocally_filtered\n"
-        "deacon_index_source\t\n",
     )
     hits = tmp_path / "blast_hits.tsv"
     blast_rows = (
@@ -119,13 +99,11 @@ def write_inputs(tmp_path: Path, *, all_rejected: bool = False) -> tuple[Path, P
             for bait_id, taxids in blast_rows
         ),
     )
-    return baits, manifest, status, hits
+    return baits, manifest, hits
 
 
-def command_args(tmp_path: Path, baits: Path, manifest: Path, status: Path, hits: Path) -> list[str]:
+def command_args(tmp_path: Path, baits: Path, manifest: Path, hits: Path) -> list[str]:
     return [
-        "--design-id",
-        "design",
         "--target-taxid",
         "88456",
         "--kmer-size",
@@ -136,24 +114,16 @@ def command_args(tmp_path: Path, baits: Path, manifest: Path, status: Path, hits
         str(hits),
         "--manifest-in",
         str(manifest),
-        "--bait-set-status-in",
-        str(status),
         "--manifest-out",
         str(tmp_path / "screened_candidate_kmers.tsv"),
         "--baits-out",
-        str(tmp_path / "taxonomically_screened_baits.fasta"),
+        str(tmp_path / "selected_baits.fasta"),
         "--decisions-out",
         str(tmp_path / "screening_decisions.tsv"),
-        "--screening-status-out",
-        str(tmp_path / "screening_status.tsv"),
-        "--bait-set-status-out",
-        str(tmp_path / "screened_bait_set_status.tsv"),
-        "--terminal-bait-set-status-out",
-        str(tmp_path / "terminal_bait_set_status.tsv"),
     ]
 
 
-def test_screening_transformation_preserves_bait_order_and_counts_blast_rows() -> None:
+def test_taxonomic_screening_preserves_prior_outcomes_and_marks_off_target_matches() -> None:
     hits = hit_frame(
         [
             ("bait_000004", False),
@@ -166,38 +136,25 @@ def test_screening_transformation_preserves_bait_order_and_counts_blast_rows() -
     )
 
     result = screening.construct_screening_result(bait_frame(), manifest_frame(), hits)
-    manifest, decisions, survivors = pl.collect_all(
-        [result.manifest, result.decisions, result.survivors],
-    )
+    manifest, survivors = pl.collect_all([result.manifest, result.survivors])
 
-    assert decisions.rows() == [
-        ("bait_000001", "PASS", 2, 0),
-        ("bait_000002", "PASS", 0, 0),
-        ("bait_000003", "REJECT_OFF_TARGET_HIT", 0, 1),
-        ("bait_000004", "REJECT_OFF_TARGET_HIT", 1, 1),
-        ("bait_000005", "REJECT_OFF_TARGET_HIT", 0, 1),
-    ]
     assert survivors.select("bait_id", "kmer").rows() == [
         ("bait_000001", "AACGT"),
         ("bait_000002", "ACGTA"),
     ]
-    assert manifest.select("status", "taxonomic_screening_status").rows() == [
-        ("REJECT_LOW_COMPLEXITY", "NOT_APPLICABLE"),
-        ("PASS", "PASS"),
-        ("PASS", "PASS"),
-        ("REJECT_OFF_TARGET_HIT", "REJECT_OFF_TARGET_HIT"),
-        ("REJECT_OFF_TARGET_HIT", "REJECT_OFF_TARGET_HIT"),
-        ("REJECT_OFF_TARGET_HIT", "REJECT_OFF_TARGET_HIT"),
+    assert manifest.select("kmer", "outcome").rows() == [
+        (KMER_REJECTED, "low_complexity"),
+        ("AACGT", "selected"),
+        ("ACGTA", "selected"),
+        ("AGTCC", "off_target_match"),
+        ("CCGTA", "off_target_match"),
+        ("CGTAC", "off_target_match"),
     ]
 
 
 def test_no_database_hits_allow_every_bait_to_pass() -> None:
     result = screening.construct_screening_result(bait_frame(), manifest_frame(), hit_frame([]))
-    assert result.decisions.collect().select(
-        "taxonomic_screening_status",
-        "on_target_hits",
-        "off_target_hits",
-    ).rows() == [("PASS", 0, 0)] * len(KMERS)
+    assert result.decisions.collect().select("outcome").rows() == [("selected",)] * len(KMERS)
 
 
 def test_manifest_and_bait_relations_must_be_bijective() -> None:
@@ -231,7 +188,7 @@ def test_manifest_and_bait_relations_must_be_bijective() -> None:
         ("staxids", "88456;", "malformed staxids"),
     ],
 )
-def test_blast_ingestion_rejects_invalid_exact_hit_evidence(
+def test_blast_ingestion_rejects_invalid_exact_matches(
     tmp_path: Path,
     field: str,
     value: str,
@@ -263,39 +220,33 @@ def test_blast_ingestion_rejects_invalid_exact_hit_evidence(
         screening.scan_blast_hits(path, 5, 88456)
 
 
-def test_command_writes_canonical_outputs_and_terminal_evidence(tmp_path: Path) -> None:
-    baits, manifest, status, hits = write_inputs(tmp_path)
-    screening.main(command_args(tmp_path, baits, manifest, status, hits))
+def test_command_writes_candidate_outcomes_and_selected_baits(tmp_path: Path) -> None:
+    baits, manifest, hits = write_inputs(tmp_path)
+    screening.main(command_args(tmp_path, baits, manifest, hits))
 
-    assert pl.read_csv(tmp_path / "screening_decisions.tsv", separator="\t").rows() == [
-        ("bait_000001", "PASS", 2, 0),
-        ("bait_000002", "PASS", 0, 0),
-        ("bait_000003", "REJECT_OFF_TARGET_HIT", 0, 1),
-        ("bait_000004", "REJECT_OFF_TARGET_HIT", 1, 1),
-        ("bait_000005", "REJECT_OFF_TARGET_HIT", 0, 1),
-    ]
-    assert (tmp_path / "taxonomically_screened_baits.fasta").read_text() == (
+    assert (tmp_path / "selected_baits.fasta").read_text() == (
         ">bait_000001\nAACGT\n>bait_000002\nACGTA\n"
     )
-    assert not (tmp_path / "terminal_bait_set_status.tsv").exists()
+    assert pl.read_csv(tmp_path / "screened_candidate_kmers.tsv", separator="\t").get_column(
+        "outcome",
+    ).to_list() == [
+        "low_complexity",
+        "selected",
+        "selected",
+        "off_target_match",
+        "off_target_match",
+        "off_target_match",
+    ]
 
     terminal = tmp_path / "terminal"
     terminal.mkdir()
-    baits, manifest, status, hits = write_inputs(terminal, all_rejected=True)
-    screening.main(command_args(terminal, baits, manifest, status, hits))
-    assert not (terminal / "taxonomically_screened_baits.fasta").exists()
-    assert pl.read_csv(terminal / "screening_status.tsv", separator="\t").rows()[-2:] == [
-        ("taxonomic_screening_status", "NO_BAITS"),
-        ("taxonomically_screened_bait_count", "0"),
-    ]
-    assert (terminal / "terminal_bait_set_status.tsv").read_text() == (
-        terminal / "screened_bait_set_status.tsv"
-    ).read_text()
-
-    baits, manifest, status, hits = write_inputs(terminal)
-    screening.main(command_args(terminal, baits, manifest, status, hits))
-    assert (terminal / "taxonomically_screened_baits.fasta").exists()
-    assert not (terminal / "terminal_bait_set_status.tsv").exists()
+    baits, manifest, hits = write_inputs(terminal, all_rejected=True)
+    screening.main(command_args(terminal, baits, manifest, hits))
+    assert not (terminal / "selected_baits.fasta").exists()
+    terminal_manifest = pl.read_csv(terminal / "screened_candidate_kmers.tsv", separator="\t")
+    assert terminal_manifest.filter(pl.col("outcome") == "off_target_match").get_column(
+        "bait_id",
+    ).fill_null("").to_list() == [""] * len(KMERS)
 
 
 def test_blast_ingestion_accepts_reverse_strand_exact_subject_span(tmp_path: Path) -> None:

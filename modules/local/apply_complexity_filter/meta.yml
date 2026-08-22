@@ -1,10 +1,10 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/nf-core/modules/master/modules/meta-schema.json
 name: apply_complexity_filter
-description: Apply Deacon entropy results to candidate k-mers and emit local-filtering evidence.
+description: Apply Deacon entropy results to candidate k-mers.
 keywords:
   - k-mer
   - entropy
-  - provenance
+  - complexity
 tools:
   - python:
       description: Python programming language.
@@ -17,9 +17,6 @@ input:
   - - meta:
         type: map
         description: Design metadata.
-    - source_sequence_origin:
-        type: string
-        description: Stable curated or provisional source sequence origin.
     - manifest:
         type: file
         description: Candidate k-mer manifest before low-complexity filtering.
@@ -29,7 +26,7 @@ input:
         description: Deacon-dumped entropy-passing k-mers.
         ontologies: []
 output:
-  evidence:
+  manifest:
     - - meta:
           type: map
           description: Design metadata.
@@ -37,45 +34,17 @@ output:
           type: file
           description: Complete manifest after low-complexity filtering.
           pattern: candidate_kmers.tsv
-          ontologies:
-            - edam: http://edamontology.org/format_3475 # TSV
-      - filtering_status.tsv:
-          type: file
-          description: Deterministic local-filtering status.
-          pattern: filtering_status.tsv
           ontologies:
             - edam: http://edamontology.org/format_3475 # TSV
   baits:
     - - meta:
           type: map
           description: Design metadata.
-      - locally_filtered_baits.fasta:
+      - baits.fasta:
           type: file
-          description: Optional locally filtered bait FASTA.
-          pattern: locally_filtered_baits.fasta
+          description: Optional FASTA containing candidates selected after complexity filtering.
+          pattern: baits.fasta
           ontologies: []
-      - candidate_kmers.tsv:
-          type: file
-          description: Complete manifest after low-complexity filtering.
-          pattern: candidate_kmers.tsv
-          ontologies:
-            - edam: http://edamontology.org/format_3475 # TSV
-      - bait_set_status.tsv:
-          type: file
-          description: Internal bait set status draft.
-          pattern: bait_set_status.tsv
-          ontologies:
-            - edam: http://edamontology.org/format_3475 # TSV
-  terminal_manifest:
-    - - meta:
-          type: map
-          description: Design metadata.
-      - terminal_candidate_kmers.tsv:
-          type: file
-          description: Optional candidate k-mer manifest for a low-complexity terminal result.
-          pattern: terminal_candidate_kmers.tsv
-          ontologies:
-            - edam: http://edamontology.org/format_3475 # TSV
   versions_biopython:
     - - ${task.process}:
           type: string

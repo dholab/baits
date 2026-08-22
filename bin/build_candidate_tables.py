@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Build canonical candidate k-mer evidence from source sequences."""
+"""Build canonical candidate k-mer tables from source sequences."""
 
 from __future__ import annotations
 
@@ -24,11 +24,7 @@ MANIFEST_COLUMNS = [
     "kmer",
     "source_copy_count",
     "background_occurrences",
-    "status",
-    "rejection_reason",
-    "taxonomic_screening_status",
-    "on_target_hits",
-    "off_target_hits",
+    "outcome",
 ]
 OCCURRENCE_COLUMNS = ["candidate_kmer_id", "source_sequence_id", "start", "query_group"]
 QUERY_GROUP_SCHEMA = {"source_sequence_id": pl.String, "query_group": pl.String}
@@ -45,15 +41,15 @@ class QueryGroupError(ValueError):
 
 
 class MerylCountError(ValueError):
-    """Raised when a Meryl printout is not valid count evidence."""
+    """Raised when a Meryl count table is invalid."""
 
 
-class CandidateEvidenceError(ValueError):
-    """Raised when independent candidate evidence disagrees."""
+class CandidateTableError(ValueError):
+    """Raised when candidate inputs disagree."""
 
 
 @dataclass(frozen=True)
-class CandidateEvidence:
+class CandidateTables:
     """The manifest, source occurrences, and candidates for complexity filtering."""
 
     manifest: pl.LazyFrame
@@ -68,12 +64,9 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--meryl-source-counts", type=Path, required=True)
     parser.add_argument("--background-intersection-counts", type=Path, required=True)
     parser.add_argument("--kmer-size", type=int, required=True)
-    parser.add_argument("--design-id", required=True)
     parser.add_argument("--manifest-out", type=Path, required=True)
     parser.add_argument("--occurrences-out", type=Path, required=True)
     parser.add_argument("--complexity-candidates-out", type=Path, required=True)
-    parser.add_argument("--filtering-status-out", type=Path, required=True)
-    parser.add_argument("--terminal-manifest-out", type=Path, required=True)
     return parser.parse_args(argv)
 
 
@@ -201,7 +194,7 @@ def project_canonical(kmer: str) -> str:
     return min(kmer, reverse_complement)
 
 
-def scan_meryl_counts(path: Path, kmer_size: int, evidence_name: str) -> pl.LazyFrame:
+def scan_meryl_counts(path: Path, kmer_size: int, table_name: str) -> pl.LazyFrame:
     if path.stat().st_size == 0:
         return pl.LazyFrame(schema=MERYL_COUNT_SCHEMA)
     try:
@@ -218,15 +211,15 @@ def scan_meryl_counts(path: Path, kmer_size: int, evidence_name: str) -> pl.Lazy
                 | ~pl.col("kmer").str.contains(r"^[ACGT]+$")
                 | (pl.col("kmer").str.len_chars() != kmer_size),
             )
-            .then(pl.concat_str(pl.lit("malformed k-mer in "), pl.lit(evidence_name)))
+            .then(pl.concat_str(pl.lit("malformed k-mer in "), pl.lit(table_name)))
             .when(pl.col("count").is_null() | (pl.col("count") <= 0))
-            .then(pl.concat_str(pl.lit("nonpositive count in "), pl.lit(evidence_name)))
+            .then(pl.concat_str(pl.lit("nonpositive count in "), pl.lit(table_name)))
             .otherwise(pl.lit(None, dtype=pl.String))
             .alias("_error"),
         )
         validation = malformed.select(pl.col("_error").drop_nulls().first().alias("error")).collect()
     except pl.exceptions.PolarsError as error:
-        message = f"Could not parse {evidence_name}: {error}"
+        message = f"Could not parse {table_name}: {error}"
         raise MerylCountError(message) from error
     if error := validation.item(0, "error"):
         raise MerylCountError(error)
@@ -244,19 +237,19 @@ def scan_meryl_counts(path: Path, kmer_size: int, evidence_name: str) -> pl.Lazy
         .collect()
     )
     if duplicate.height:
-        message = f"Duplicate canonical k-mer in {evidence_name}: {duplicate.item(0, 'kmer')}"
+        message = f"Duplicate canonical k-mer in {table_name}: {duplicate.item(0, 'kmer')}"
         raise MerylCountError(message)
     return canonicalized.select("kmer", "count")
 
 
-def construct_candidate_evidence(
+def construct_candidate_tables(
     source_sequences: pl.LazyFrame,
     query_groups: pl.LazyFrame,
     meryl_source_counts: pl.LazyFrame,
     background_intersection_counts: pl.LazyFrame,
     kmer_size: int,
-) -> CandidateEvidence:
-    """Construct Candidate identity, Source occurrences, and cancellation evidence."""
+) -> CandidateTables:
+    """Construct candidate identities, source occurrences, and background outcomes."""
     contextualized_sources = source_sequences.join(query_groups, on="source_sequence_id", how="inner")
     occurrences = (
         contextualized_sources.with_columns(
@@ -296,7 +289,7 @@ def construct_candidate_evidence(
             "Meryl source counts must equal Python candidate keys and positional occurrence "
             f"counts: {mismatched_source_count.item(0, 'kmer')}"
         )
-        raise CandidateEvidenceError(message)
+        raise CandidateTableError(message)
 
     unexpected_background = (
         background_intersection_counts.join(candidates, on="kmer", how="anti")
@@ -310,7 +303,7 @@ def construct_candidate_evidence(
             "Background intersection contains non-candidate k-mer: "
             f"{unexpected_background.item(0, 'kmer')}"
         )
-        raise CandidateEvidenceError(message)
+        raise CandidateTableError(message)
 
     numbered_candidates = (
         candidates.sort("kmer")
@@ -329,24 +322,14 @@ def construct_candidate_evidence(
         .with_columns(
             pl.lit("").alias("bait_id"),
             pl.when(pl.col("background_occurrences") > 0)
-            .then(pl.lit("REJECT_INTERFERENCE_BACKGROUND"))
-            .otherwise(pl.lit("PASS"))
-            .alias("status"),
-            pl.when(pl.col("background_occurrences") > 0)
-            .then(pl.lit("background_occurrence"))
-            .otherwise(pl.lit("none"))
-            .alias("rejection_reason"),
-            pl.when(pl.col("background_occurrences") > 0)
-            .then(pl.lit("NOT_APPLICABLE"))
-            .otherwise(pl.lit("NOT_RUN"))
-            .alias("taxonomic_screening_status"),
-            pl.lit("").alias("on_target_hits"),
-            pl.lit("").alias("off_target_hits"),
+            .then(pl.lit("background_match"))
+            .otherwise(pl.lit("selected"))
+            .alias("outcome"),
         )
         .select(MANIFEST_COLUMNS)
         .sort("kmer")
     )
-    return CandidateEvidence(
+    return CandidateTables(
         manifest=manifest,
         occurrences=(
             occurrences.join(numbered_candidates.select("candidate_kmer_id", "kmer"), on="kmer")
@@ -354,7 +337,9 @@ def construct_candidate_evidence(
             .sort("candidate_kmer_id", "source_sequence_id", "start", "query_group")
         ),
         complexity_candidates=(
-            manifest.filter(pl.col("status") == "PASS").select("candidate_kmer_id", "kmer").sort("kmer")
+            manifest.filter(pl.col("outcome") == "selected")
+            .select("candidate_kmer_id", "kmer")
+            .sort("kmer")
         ),
     )
 
@@ -373,7 +358,7 @@ def main(argv: Sequence[str] | None = None) -> None:
         args.kmer_size,
         "Background intersection counts",
     )
-    evidence = construct_candidate_evidence(
+    tables = construct_candidate_tables(
         source_sequences,
         query_groups,
         meryl_source_counts,
@@ -383,9 +368,9 @@ def main(argv: Sequence[str] | None = None) -> None:
 
     manifest, occurrences, complexity_candidates = pl.collect_all(
         [
-            evidence.manifest,
-            evidence.occurrences,
-            evidence.complexity_candidates,
+            tables.manifest,
+            tables.occurrences,
+            tables.complexity_candidates,
         ],
     )
     manifest.write_csv(args.manifest_out, separator="\t", quote_style="never")
@@ -401,22 +386,8 @@ def main(argv: Sequence[str] | None = None) -> None:
         )
         return
 
-    terminal_stage = "candidate_kmer_enumeration" if manifest.is_empty() else "explicit_background_cancellation"
-    pl.DataFrame(
-        {
-            "metric": [
-                "design_id",
-                "candidate_kmer_count",
-                "rejected_interference_background_count",
-                "rejected_low_complexity_count",
-                "locally_filtered_bait_count",
-                "terminal_stage",
-            ],
-            "value": [args.design_id, str(manifest.height), str(manifest.height), "0", "0", terminal_stage],
-        },
-        schema={"metric": pl.String, "value": pl.String},
-    ).write_csv(args.filtering_status_out, separator="\t", quote_style="never")
-    manifest.write_csv(args.terminal_manifest_out, separator="\t", quote_style="never")
+    if args.complexity_candidates_out.exists():
+        args.complexity_candidates_out.unlink()
 
 
 if __name__ == "__main__":

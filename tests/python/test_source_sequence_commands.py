@@ -430,8 +430,8 @@ def construct_source_sequence_provenance(
     assembly.write_text(">contig\nACGT\n")
     provenance = construct_provenance(ProvenanceRequest(
         '[{"input_role":"design","input_id":"design1","attribute":"source_sequence_origin","value":"query_guided_discovery"},{"input_role":"target_taxon","input_id":"design1","attribute":"target_taxid","value":"88456"}]',
-        ["interference_background", "representative_queries", "query_rules", "target_assembly"],
-        ["interference_background", "representative_queries", "query_rules", "target_assembly"],
+        ["background", "representative_queries", "query_rules", "target_assembly"],
+        ["background", "representative_queries", "query_rules", "target_assembly"],
         ["file", "file", "file", "file"],
         [background, queries, rules, assembly],
         '[{"parameter":"target_taxid","value":"88456"}]',

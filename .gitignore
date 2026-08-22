@@ -97,6 +97,9 @@
 !/modules/local/prepare_read_blast_queries/
 !/modules/local/prepare_read_blast_queries/*.nf
 !/modules/local/prepare_read_blast_queries/*.yml
+!/modules/local/report_candidate_kmers/
+!/modules/local/report_candidate_kmers/*.nf
+!/modules/local/report_candidate_kmers/*.yml
 !/modules/local/resolve_calibration_reads/
 !/modules/local/resolve_calibration_reads/*.nf
 !/modules/local/resolve_calibration_reads/*.yml
@@ -157,6 +160,9 @@
 !/subworkflows/local/filter_candidate_kmers/
 !/subworkflows/local/filter_candidate_kmers/*.nf
 !/subworkflows/local/filter_candidate_kmers/*.yml
+!/subworkflows/local/report_candidate_kmers/
+!/subworkflows/local/report_candidate_kmers/*.nf
+!/subworkflows/local/report_candidate_kmers/*.yml
 !/subworkflows/local/taxonomic_exact_match_screening/
 !/subworkflows/local/taxonomic_exact_match_screening/*.nf
 !/subworkflows/local/taxonomic_exact_match_screening/*.yml

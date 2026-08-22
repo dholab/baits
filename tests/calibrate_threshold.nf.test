@@ -24,7 +24,7 @@ nextflow_pipeline {
                 id = "calibrated"
                 source_sequences = "$outputDir/source.fasta"
                 target_taxid = "88456"
-                background = "$baseDir/tests/data/interference_background.fasta"
+                background = "$baseDir/tests/data/background.fasta"
                 calibration_reads = "$outputDir/calibration_reads"
                 taxon_ref_db = "$outputDir/taxonomic_reference_db"
                 max_blast_targets = 7
@@ -82,7 +82,7 @@ nextflow_pipeline {
                 id = "no_candidates"
                 source_sequences = "$outputDir/source.fasta"
                 target_taxid = "88456"
-                background = "$baseDir/tests/data/interference_background.fasta"
+                background = "$baseDir/tests/data/background.fasta"
                 calibration_reads = "$outputDir/calibration_reads"
                 taxon_ref_db = "$outputDir/taxonomic_reference_db"
             }
@@ -142,8 +142,8 @@ nextflow_pipeline {
             new File("$outputDir/scope.tsv").text = 'taxid\n44417\n88456\n'
             new File("$outputDir/designs.csv").text = """\
 id,target_taxid,curated_source_sequences,representative_queries,query_rules,target_assembly,background,calibration_reads,calibration_target_taxids
-default_scope,88456,$outputDir/source.fasta,,,,$baseDir/tests/data/interference_background.fasta,$outputDir/calibration_reads,
-genus_scope,88456,$outputDir/source.fasta,,,,$baseDir/tests/data/interference_background.fasta,$outputDir/calibration_reads,$outputDir/scope.tsv
+default_scope,88456,$outputDir/source.fasta,,,,$baseDir/tests/data/background.fasta,$outputDir/calibration_reads,
+genus_scope,88456,$outputDir/source.fasta,,,,$baseDir/tests/data/background.fasta,$outputDir/calibration_reads,$outputDir/scope.tsv
 """
             assert ["pixi", "run", "--environment", "dev", "makeblastdb", "-dbtype", "nucl", "-parse_seqids", "-taxid", "44417", "-in", "$outputDir/genus_reference.fasta", "-out", "$outputDir/taxonomic_reference_db/taxonomic"].execute().waitFor() == 0
         }
@@ -158,7 +158,7 @@ genus_scope,88456,$outputDir/source.fasta,,,,$baseDir/tests/data/interference_ba
             def runDir = new File(outputDir).parent
             def defaultDesign = new File("$runDir/results/default_scope")
             def genusDesign = new File("$runDir/results/genus_scope")
-            assert new File(defaultDesign, '04_bait_sets/taxonomically_screened_baits.fasta').bytes == new File(genusDesign, '04_bait_sets/taxonomically_screened_baits.fasta').bytes
+            assert new File("$runDir/results/artifacts/default_scope/baits.fasta").bytes == new File("$runDir/results/artifacts/genus_scope/baits.fasta").bytes
             assert new File(defaultDesign, '06_calibration/classified_reads.tsv').text.contains('\tNON_TARGET\t')
             assert new File(genusDesign, '06_calibration/classified_reads.tsv').text.contains('\tTARGET\t')
             def defaultInputs = new File(defaultDesign, '07_provenance/inputs.tsv').text
@@ -184,7 +184,7 @@ genus_scope,88456,$outputDir/source.fasta,,,,$baseDir/tests/data/interference_ba
                 id = "screening_terminal"
                 source_sequences = "$outputDir/source.fasta"
                 target_taxid = "88456"
-                background = "$baseDir/tests/data/interference_background.fasta"
+                background = "$baseDir/tests/data/background.fasta"
                 calibration_reads = "$outputDir/calibration_reads"
                 taxon_ref_db = "$outputDir/taxonomic_reference_db"
             }
@@ -193,8 +193,9 @@ genus_scope,88456,$outputDir/source.fasta,,,,$baseDir/tests/data/interference_ba
             assert workflow.success
             def runDir = new File(outputDir).parent
             def design = new File("$runDir/results/screening_terminal")
-            assert new File(design, '03_taxonomic_screening/screening_status.tsv').text.contains('taxonomic_screening_status\tNO_BAITS')
+            assert new File("$runDir/results/candidate_kmers.tsv").text.contains('off_target_match')
             assert !new File(design, '06_calibration').exists()
+            assert !new File("$runDir/results/artifacts/screening_terminal/baits.fasta").exists()
             assert new File(design, '07_provenance/inputs.tsv').text.contains('calibration_read\tscreening_terminal__sample\tfilename\tsample.fastq')
             assert !new File(design, '07_provenance/parameters.tsv').text.contains('deacon_filter_absolute_threshold')
             assert !new File(design, '07_provenance/parameters.tsv').text.contains('read_classification_tie_tolerance')

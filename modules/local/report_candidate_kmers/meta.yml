@@ -1,0 +1,90 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/nf-core/modules/master/modules/meta-schema.json
+name: report_candidate_kmers
+description: Publish run-wide candidate k-mer outcomes and source occurrences.
+keywords:
+  - k-mer
+  - candidate
+  - occurrence
+tools:
+  - python:
+      description: Python programming language.
+      homepage: https://www.python.org/
+      documentation: https://docs.python.org/3/
+      tool_dev_url: https://github.com/python/cpython
+      licence:
+        - PSF-2.0
+input:
+  - - design_ids:
+        type: file
+        description: Ordered design identifiers corresponding to the staged table directories.
+        pattern: candidate_report_design_ids.txt
+        ontologies: []
+    - candidate_manifests:
+        type: file
+        description: Final private candidate tables for every completed design.
+        pattern: candidate_kmers.tsv
+        ontologies:
+          - edam: http://edamontology.org/format_3475 # TSV
+    - candidate_occurrences:
+        type: file
+        description: Private source-occurrence tables for every completed design.
+        pattern: candidate_kmer_occurrences.tsv
+        ontologies:
+          - edam: http://edamontology.org/format_3475 # TSV
+output:
+  candidates:
+    - candidate_kmers.tsv:
+        type: file
+        description: Candidate k-mer outcomes across all designs.
+        pattern: candidate_kmers.tsv
+        ontologies:
+          - edam: http://edamontology.org/format_3475 # TSV
+  occurrences:
+    - candidate_kmer_occurrences.tsv:
+        type: file
+        description: Candidate source occurrences across all designs.
+        pattern: candidate_kmer_occurrences.tsv
+        ontologies:
+          - edam: http://edamontology.org/format_3475 # TSV
+  versions_python:
+    - - ${task.process}:
+          type: string
+          description: Process name.
+      - python:
+          type: string
+          description: Tool name.
+      - python --version | sed 's/Python //':
+          type: eval
+          description: Runtime Python version.
+  versions_polars:
+    - - ${task.process}:
+          type: string
+          description: Process name.
+      - polars:
+          type: string
+          description: Tool name.
+      - python -c 'import polars; print(polars.__version__)':
+          type: eval
+          description: Runtime Polars version.
+topics:
+  versions:
+    - - ${task.process}:
+          type: string
+          description: Process name.
+      - python:
+          type: string
+          description: Tool name.
+      - python --version | sed 's/Python //':
+          type: eval
+          description: Runtime Python version.
+    - - ${task.process}:
+          type: string
+          description: Process name.
+      - polars:
+          type: string
+          description: Tool name.
+      - python -c 'import polars; print(polars.__version__)':
+          type: eval
+          description: Runtime Polars version.
+authors:
+  - dholab/baits

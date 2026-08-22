@@ -1,10 +1,10 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/nf-core/modules/master/modules/meta-schema.json
 name: build_candidate_tables
-description: Construct canonical candidate k-mer and occurrence evidence from source sequences and Meryl results.
+description: Construct canonical candidate k-mers and source occurrences from source sequences and Meryl results.
 keywords:
   - k-mer
   - fasta
-  - provenance
+  - background
 tools:
   - python:
       description: Python programming language.
@@ -62,26 +62,6 @@ output:
           description: Optional candidate k-mer FASTA for low-complexity filtering.
           pattern: complexity_candidates.fasta
           ontologies: []
-  terminal_status:
-    - - meta:
-          type: map
-          description: Design metadata.
-      - filtering_status.tsv:
-          type: file
-          description: Optional terminal local-filtering status.
-          pattern: filtering_status.tsv
-          ontologies:
-            - edam: http://edamontology.org/format_3475 # TSV
-  terminal_manifest:
-    - - meta:
-          type: map
-          description: Design metadata.
-      - terminal_candidate_kmers.tsv:
-          type: file
-          description: Optional complete manifest for a terminal cancellation result.
-          pattern: terminal_candidate_kmers.tsv
-          ontologies:
-            - edam: http://edamontology.org/format_3475 # TSV
   versions_biopython:
     - - ${task.process}:
           type: string

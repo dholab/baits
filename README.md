@@ -12,7 +12,7 @@ K-mers that are absent from the background are filtered for low complexity. The 
 
 Third, `dholab/baits` can use provided sequencing reads to estimate how many bait matches are required before off-target hits go to zero. For many sequencing reads, a single bait match may still allow off-target hits. In the *Cyclospora* study, we found that requiring 20 bait matches reduced off-target hits to zero in the tested reads. `dholab/baits` can help you calibrate your own threshold for your own baits and your own data.
 
-In summary, `dholab/baits` allows you to bring your own source sequences, your own background reference, your own BLAST-compatible taxonomic database, and your own calibration reads. In return, it gives you baits for your target, the evidence behind each screening decision, and the number of bait matches you should require to call a detection "good".
+In summary, `dholab/baits` allows you to bring your own source sequences, your own background reference, your own BLAST-compatible taxonomic database, and your own calibration reads. In return, it gives you baits for your target, each candidate k-mer's outcome, and the number of bait matches you should require to call a detection "good".
 
 ## Quick Start
 
@@ -27,7 +27,9 @@ nextflow run dholab/baits \
     --background background.fasta
 ```
 
-Nextflow fetches and caches the pipeline under `$NXF_HOME/assets` (normally `~/.nextflow/assets`), so users do not need to clone this repository. Here, `88456` is the NCBI taxonomy ID for *C. cayetanensis*; substitute the ID for your target taxon. The bait FASTA is written under `results/<id>/04_bait_sets/`, and a verified Deacon index and its report are written under `results/<id>/05_deacon_index/`.
+Nextflow fetches and caches the pipeline under `$NXF_HOME/assets` (normally `~/.nextflow/assets`), so users do not need to clone this repository. Here, `88456` is the NCBI taxonomy ID for *C. cayetanensis*; substitute the ID for your target taxon. When the run selects baits, the bait FASTA and verified Deacon index are written under `results/artifacts/<id>/`.
+
+Use a new `--results` directory when upgrading an existing analysis. Nextflow does not remove files published by an earlier pipeline version, so reusing a result root can leave obsolete outputs beside the current results.
 
 The example follows the current `main` branch. For reproducible analyses, replace `main` with a release tag or immutable commit revision.
 
@@ -132,7 +134,7 @@ The main software components are:
 | [Meryl](https://github.com/marbl/meryl) | Counts source k-mers and finds exact occurrences in the background. |
 | [Deacon](https://github.com/bede/deacon) | Filters low-complexity k-mers and builds the final read-filtering index. |
 | [BLAST+](https://blast.ncbi.nlm.nih.gov/doc/blast-help/downloadblastdata.html) | Locates source sequences, screens baits taxonomically, and classifies calibration reads. |
-| [Biopython](https://biopython.org/) and [Polars](https://pola.rs/) | Parse sequence data and construct the pipeline's evidence tables. |
+| [Biopython](https://biopython.org/) and [Polars](https://pola.rs/) | Parse sequence data and construct candidate, match, and calibration tables. |
 
 Reference databases and sequencing reads remain user-supplied. In particular, the pipeline does not download or manage a taxonomic BLAST database such as `core_nt`.
 

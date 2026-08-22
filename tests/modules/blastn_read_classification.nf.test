@@ -11,7 +11,7 @@ nextflow_process {
         when {
             options '-stub-run'
             process {
-                """input[0] = [[id: 'design'], file("\$baseDir/tests/data/taxonomic_locally_filtered_baits.fasta"), file("$outputDir/database")]"""
+                """input[0] = [[id: 'design'], file("\$baseDir/tests/data/taxonomic_input_baits.fasta"), file("$outputDir/database")]"""
             }
         }
         then {

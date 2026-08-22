@@ -7,7 +7,7 @@ nextflow_process {
         when {
             options '-stub-run'
             process {
-                """input[0] = [[id: 'design'], file(\"\$baseDir/tests/data/taxonomic_locally_filtered_baits.fasta\"), file(\"\$baseDir/tests/data/taxonomic_reference_db\"), 31]"""
+                """input[0] = [[id: 'design'], file(\"\$baseDir/tests/data/taxonomic_input_baits.fasta\"), file(\"\$baseDir/tests/data/taxonomic_reference_db\"), 31]"""
             }
         }
 
@@ -32,7 +32,7 @@ nextflow_process {
         when {
             options '-stub-run'
             process {
-                """input[0] = [[id: 'design'], file(\"\$baseDir/tests/data/taxonomic_locally_filtered_baits.fasta\"), file(\"$outputDir/taxonomic_reference_database.txt\"), 31]"""
+                """input[0] = [[id: 'design'], file(\"\$baseDir/tests/data/taxonomic_input_baits.fasta\"), file(\"$outputDir/taxonomic_reference_database.txt\"), 31]"""
             }
         }
 

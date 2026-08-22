@@ -1,12 +1,11 @@
 #!/usr/bin/env python3
-"""Apply exact-match taxonomic evidence to locally filtered baits."""
+"""Apply exact taxonomic matches to selected candidate k-mers."""
 
 from __future__ import annotations
 
 import argparse
 import re
 from dataclasses import dataclass
-from enum import StrEnum
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -24,11 +23,7 @@ MANIFEST_FIELDS = [
     "kmer",
     "source_copy_count",
     "background_occurrences",
-    "status",
-    "rejection_reason",
-    "taxonomic_screening_status",
-    "on_target_hits",
-    "off_target_hits",
+    "outcome",
 ]
 BLAST_FIELDS = [
     "qseqid",
@@ -47,43 +42,15 @@ BLAST_FIELDS = [
 ]
 DECISION_FIELDS = [
     "bait_id",
-    "taxonomic_screening_status",
+    "outcome",
     "on_target_hits",
     "off_target_hits",
-]
-BAIT_SET_METRICS = [
-    "design_id",
-    "source_sequence_origin",
-    "candidate_kmer_count",
-    "locally_filtered_bait_count",
-    "taxonomic_screening_status",
-    "taxonomically_screened_bait_count",
-    "deepest_bait_set",
-    "deacon_index_source",
 ]
 EXACT_PERCENT_IDENTITY = 100.0
 
 
 class TaxonomicScreeningError(ValueError):
-    """Raised when taxonomic-screening evidence violates its contract."""
-
-
-class SourceSequenceOrigin(StrEnum):
-    """Provenance of the sequences that yielded candidate k-mers."""
-
-    CURATED_INPUT = "curated_input"
-    QUERY_GUIDED_DISCOVERY = "query_guided_discovery"
-
-
-@dataclass(frozen=True)
-class BaitSetStatus:
-    """Validated status of the locally filtered bait set."""
-
-    design_id: str
-    source_sequence_origin: SourceSequenceOrigin
-    candidate_kmer_count: int
-    locally_filtered_bait_count: int
-    deacon_index_source: str
+    """Raised when taxonomic-screening inputs violate their contract."""
 
 
 @dataclass(frozen=True)
@@ -105,19 +72,14 @@ def positive_integer(value: str) -> int:
 
 def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--design-id", required=True)
     parser.add_argument("--target-taxid", type=positive_integer, required=True)
     parser.add_argument("--kmer-size", type=positive_integer, required=True)
     parser.add_argument("--baits", type=Path, required=True)
     parser.add_argument("--blast-hits", type=Path, required=True)
     parser.add_argument("--manifest-in", type=Path, required=True)
-    parser.add_argument("--bait-set-status-in", type=Path, required=True)
     parser.add_argument("--manifest-out", type=Path, required=True)
     parser.add_argument("--baits-out", type=Path, required=True)
     parser.add_argument("--decisions-out", type=Path, required=True)
-    parser.add_argument("--screening-status-out", type=Path, required=True)
-    parser.add_argument("--bait-set-status-out", type=Path, required=True)
-    parser.add_argument("--terminal-bait-set-status-out", type=Path)
     return parser.parse_args(argv)
 
 
@@ -233,28 +195,18 @@ def scan_manifest(path: Path, kmer_size: int) -> pl.LazyFrame:
         pl.lit("candidate_kmer_"),
         pl.col("_manifest_order").cast(pl.String).str.pad_start(6, "0"),
     )
-    empty_hit_evidence = pl.all_horizontal(
-        pl.col("on_target_hits").fill_null("") == "",
-        pl.col("off_target_hits").fill_null("") == "",
-    )
-    pass_state = (
-        (pl.col("status") == "PASS")
-        & (pl.col("rejection_reason") == "none")
-        & (pl.col("taxonomic_screening_status") == "NOT_RUN")
+    selected = (
+        (pl.col("outcome") == "selected")
         & (pl.col("bait_id").fill_null("") != "")
         & (background_count == 0)
     )
-    background_state = (
-        (pl.col("status") == "REJECT_INTERFERENCE_BACKGROUND")
-        & (pl.col("rejection_reason") == "background_occurrence")
-        & (pl.col("taxonomic_screening_status") == "NOT_APPLICABLE")
+    background_match = (
+        (pl.col("outcome") == "background_match")
         & (pl.col("bait_id").fill_null("") == "")
         & (background_count > 0)
     )
-    complexity_state = (
-        (pl.col("status") == "REJECT_LOW_COMPLEXITY")
-        & (pl.col("rejection_reason") == "low_complexity")
-        & (pl.col("taxonomic_screening_status") == "NOT_APPLICABLE")
+    low_complexity = (
+        (pl.col("outcome") == "low_complexity")
         & (pl.col("bait_id").fill_null("") == "")
         & (background_count == 0)
     )
@@ -264,7 +216,7 @@ def scan_manifest(path: Path, kmer_size: int) -> pl.LazyFrame:
             pl.any_horizontal(
                 pl.col(field).is_null()
                 for field in MANIFEST_FIELDS
-                if field not in {"bait_id", "on_target_hits", "off_target_hits"}
+                if field != "bait_id"
             ),
         ).then(pl.lit("Candidate manifest contains a missing field")),
         pl.when(pl.col("candidate_kmer_id") != expected_candidate_id).then(
@@ -310,13 +262,7 @@ def scan_manifest(path: Path, kmer_size: int) -> pl.LazyFrame:
                 pl.col("candidate_kmer_id"),
             ),
         ),
-        pl.when(~empty_hit_evidence).then(
-            pl.concat_str(
-                pl.lit("pre-screening hit evidence must be empty for "),
-                pl.col("candidate_kmer_id"),
-            ),
-        ),
-        pl.when(~(pass_state | background_state | complexity_state)).then(
+        pl.when(~(selected | background_match | low_complexity)).then(
             pl.concat_str(
                 pl.lit("inconsistent pre-screening state for "),
                 pl.col("candidate_kmer_id"),
@@ -325,8 +271,6 @@ def scan_manifest(path: Path, kmer_size: int) -> pl.LazyFrame:
     ).alias("_invalid_row")
     parsed = manifest.with_columns(
         pl.col("bait_id").fill_null(""),
-        pl.col("on_target_hits").fill_null(""),
-        pl.col("off_target_hits").fill_null(""),
         source_count.alias("source_copy_count"),
         background_count.alias("background_occurrences"),
         invalid_row,
@@ -334,7 +278,7 @@ def scan_manifest(path: Path, kmer_size: int) -> pl.LazyFrame:
     try:
         validation = parsed.select(
             pl.len().alias("row_count"),
-            (pl.col("status") == "PASS").sum().alias("bait_count"),
+            (pl.col("outcome") == "selected").sum().alias("bait_count"),
             pl.col("_invalid_row").drop_nulls().first().alias("first_error"),
         ).collect()
     except pl.exceptions.PolarsError as error:
@@ -428,62 +372,13 @@ def scan_blast_hits(path: Path, kmer_size: int, target_taxid: int) -> pl.LazyFra
     return parsed.drop("_invalid_row")
 
 
-def read_bait_set_status(
-    path: Path,
-    design_id: str,
-    candidate_kmer_count: int,
-    locally_filtered_bait_count: int,
-) -> BaitSetStatus:
-    """Read and construct the locally filtered bait set status."""
-    if _header(path, "Bait set status") != ["metric", "value"]:
-        message = "Bait set status has an unexpected schema"
-        raise TaxonomicScreeningError(message)
-    try:
-        status = pl.read_csv(
-            path,
-            separator="\t",
-            schema_overrides={"metric": pl.String, "value": pl.String},
-        ).with_columns(pl.col("value").fill_null(""))
-    except pl.exceptions.PolarsError as error:
-        message = f"Could not parse bait set status: {error}"
-        raise TaxonomicScreeningError(message) from error
-    if status.get_column("metric").to_list() != BAIT_SET_METRICS:
-        message = "Bait set status has unexpected metrics or metric order"
-        raise TaxonomicScreeningError(message)
-    values = dict(status.select("metric", "value").iter_rows())
-    try:
-        origin = SourceSequenceOrigin(values["source_sequence_origin"])
-    except ValueError as error:
-        message = "Bait set status has an invalid source sequence origin"
-        raise TaxonomicScreeningError(message) from error
-    expected = {
-        "design_id": design_id,
-        "candidate_kmer_count": str(candidate_kmer_count),
-        "locally_filtered_bait_count": str(locally_filtered_bait_count),
-        "taxonomic_screening_status": "NOT_RUN",
-        "taxonomically_screened_bait_count": "",
-        "deepest_bait_set": "locally_filtered",
-        "deacon_index_source": "",
-    }
-    if any(values[key] != value for key, value in expected.items()):
-        message = "Bait set status is not coherent before taxonomic screening"
-        raise TaxonomicScreeningError(message)
-    return BaitSetStatus(
-        design_id=design_id,
-        source_sequence_origin=origin,
-        candidate_kmer_count=candidate_kmer_count,
-        locally_filtered_bait_count=locally_filtered_bait_count,
-        deacon_index_source=values["deacon_index_source"],
-    )
-
-
 def construct_screening_result(
     baits: pl.LazyFrame,
     manifest: pl.LazyFrame,
     hits: pl.LazyFrame,
 ) -> TaxonomicScreeningResult:
     """Assign outcomes whose hit counts count accepted BLAST rows (HSPs)."""
-    eligible = manifest.filter(pl.col("status") == "PASS").select("bait_id", "kmer")
+    eligible = manifest.filter(pl.col("outcome") == "selected").select("bait_id", "kmer")
     relation_errors = pl.concat(
         [
             eligible.join(baits.select("bait_id", "kmer"), on=["bait_id", "kmer"], how="anti")
@@ -515,45 +410,29 @@ def construct_screening_result(
         )
         .with_columns(
             pl.when(pl.col("off_target_hits") > 0)
-            .then(pl.lit("REJECT_OFF_TARGET_HIT"))
-            .otherwise(pl.lit("PASS"))
-            .alias("taxonomic_screening_status"),
+            .then(pl.lit("off_target_match"))
+            .otherwise(pl.lit("selected"))
+            .alias("outcome"),
         )
     )
-    decision_evidence = decisions.select(
+    candidate_outcomes = decisions.select(
         "bait_id",
-        pl.col("taxonomic_screening_status").alias("_screening_decision"),
-        pl.col("on_target_hits").alias("_on_target_hits"),
-        pl.col("off_target_hits").alias("_off_target_hits"),
+        pl.col("outcome").alias("_screening_outcome"),
     )
     transitioned_manifest = (
-        manifest.join(decision_evidence, on="bait_id", how="left")
+        manifest.join(candidate_outcomes, on="bait_id", how="left")
         .with_columns(
-            pl.when(pl.col("_screening_decision") == "REJECT_OFF_TARGET_HIT")
-            .then(pl.lit("REJECT_OFF_TARGET_HIT"))
-            .otherwise(pl.col("status"))
-            .alias("status"),
-            pl.when(pl.col("_screening_decision") == "REJECT_OFF_TARGET_HIT")
-            .then(pl.lit("off_target_exact_match"))
-            .otherwise(pl.col("rejection_reason"))
-            .alias("rejection_reason"),
-            pl.coalesce("_screening_decision", "taxonomic_screening_status").alias(
-                "taxonomic_screening_status",
-            ),
-            pl.when(pl.col("_screening_decision").is_not_null())
-            .then(pl.col("_on_target_hits").cast(pl.String))
-            .otherwise(pl.col("on_target_hits"))
-            .alias("on_target_hits"),
-            pl.when(pl.col("_screening_decision").is_not_null())
-            .then(pl.col("_off_target_hits").cast(pl.String))
-            .otherwise(pl.col("off_target_hits"))
-            .alias("off_target_hits"),
+            pl.coalesce("_screening_outcome", "outcome").alias("outcome"),
+            pl.when(pl.col("_screening_outcome") == "off_target_match")
+            .then(pl.lit(""))
+            .otherwise(pl.col("bait_id"))
+            .alias("bait_id"),
         )
         .sort("_manifest_order")
         .select(MANIFEST_FIELDS)
     )
     decision_output = decisions.sort("_bait_order").select(DECISION_FIELDS)
-    survivors = decisions.filter(pl.col("taxonomic_screening_status") == "PASS").sort(
+    survivors = decisions.filter(pl.col("outcome") == "selected").sort(
         "_bait_order",
     )
     return TaxonomicScreeningResult(
@@ -563,69 +442,19 @@ def construct_screening_result(
     )
 
 
-def status_table(metrics: Sequence[tuple[str, str]]) -> pl.DataFrame:
-    """Construct one ordered status table from its domain metrics."""
-    return pl.DataFrame(metrics, schema={"metric": pl.String, "value": pl.String}, orient="row")
-
-
 def main(argv: Sequence[str] | None = None) -> None:
     args = parse_args(argv)
     baits = read_baits(args.baits, args.kmer_size)
     manifest = scan_manifest(args.manifest_in, args.kmer_size)
     hits = scan_blast_hits(args.blast_hits, args.kmer_size, args.target_taxid)
-    counts = manifest.select(
-        pl.len().alias("candidate_kmer_count"),
-        (pl.col("status") == "PASS").sum().alias("locally_filtered_bait_count"),
-    ).collect()
-    candidate_kmer_count = counts.item(0, "candidate_kmer_count")
-    locally_filtered_bait_count = counts.item(0, "locally_filtered_bait_count")
-    bait_set = read_bait_set_status(
-        args.bait_set_status_in,
-        args.design_id,
-        candidate_kmer_count,
-        locally_filtered_bait_count,
-    )
     result = construct_screening_result(baits, manifest, hits)
     manifest_output, decisions, survivors = pl.collect_all(
         [result.manifest, result.decisions, result.survivors],
     )
 
-    screened_count = survivors.height
-    screening_status = "PASS" if screened_count else "NO_BAITS"
-    screening_status_output = status_table(
-        [
-            ("design_id", args.design_id),
-            ("locally_filtered_bait_count", str(locally_filtered_bait_count)),
-            ("taxonomic_screening_status", screening_status),
-            ("taxonomically_screened_bait_count", str(screened_count)),
-        ],
-    )
-    bait_set_status_output = status_table(
-        [
-            ("design_id", args.design_id),
-            ("source_sequence_origin", bait_set.source_sequence_origin.value),
-            ("candidate_kmer_count", str(candidate_kmer_count)),
-            ("locally_filtered_bait_count", str(locally_filtered_bait_count)),
-            ("taxonomic_screening_status", screening_status),
-            ("taxonomically_screened_bait_count", str(screened_count)),
-            ("deepest_bait_set", "taxonomically_screened" if screened_count else "locally_filtered"),
-            ("deacon_index_source", bait_set.deacon_index_source),
-        ],
-    )
-
     manifest_output.write_csv(args.manifest_out, separator="\t", quote_style="never")
     decisions.write_csv(args.decisions_out, separator="\t", quote_style="never")
-    screening_status_output.write_csv(
-        args.screening_status_out,
-        separator="\t",
-        quote_style="never",
-    )
-    bait_set_status_output.write_csv(
-        args.bait_set_status_out,
-        separator="\t",
-        quote_style="never",
-    )
-    if screened_count:
+    if survivors.height:
         SeqIO.write(
             (
                 SeqRecord(Seq(kmer), id=bait_id, description="")
@@ -636,14 +465,6 @@ def main(argv: Sequence[str] | None = None) -> None:
         )
     elif args.baits_out.exists():
         args.baits_out.unlink()
-    if not screened_count and args.terminal_bait_set_status_out:
-        bait_set_status_output.write_csv(
-            args.terminal_bait_set_status_out,
-            separator="\t",
-            quote_style="never",
-        )
-    elif args.terminal_bait_set_status_out and args.terminal_bait_set_status_out.exists():
-        args.terminal_bait_set_status_out.unlink()
 
 
 if __name__ == "__main__":

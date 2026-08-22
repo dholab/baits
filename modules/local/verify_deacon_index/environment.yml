@@ -4,5 +4,4 @@ channels:
   - conda-forge
 dependencies:
   - biopython=1.87
-  - polars=1.43.2
   - python=3.12

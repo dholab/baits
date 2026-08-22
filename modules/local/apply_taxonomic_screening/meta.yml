@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/nf-core/modules/master/modules/meta-schema.json
 name: apply_taxonomic_screening
-description: Apply exact taxonomic BLAST evidence to locally filtered baits.
+description: Apply exact taxonomic BLAST matches to selected candidate k-mers.
 keywords:
   - taxonomy
   - blast
@@ -25,9 +25,9 @@ input:
   - - meta:
         type: map
         description: Design metadata.
-    - locally_filtered_baits:
+    - baits:
         type: file
-        description: Locally filtered bait FASTA.
+        description: Candidate k-mers selected before taxonomic screening.
         ontologies: []
     - blast_hits:
         type: file
@@ -37,11 +37,6 @@ input:
     - candidate_kmer_manifest:
         type: file
         description: Candidate k-mer manifest before taxonomic screening.
-        ontologies:
-          - edam: http://edamontology.org/format_3475 # TSV
-    - bait_set_status:
-        type: file
-        description: Locally filtered bait set status draft.
         ontologies:
           - edam: http://edamontology.org/format_3475 # TSV
     - target_taxid:
@@ -71,57 +66,15 @@ output:
           pattern: screening_decisions.tsv
           ontologies:
             - edam: http://edamontology.org/format_3475 # TSV
-  screening_status:
-    - - meta:
-          type: map
-          description: Design metadata.
-      - screening_status.tsv:
-          type: file
-          description: Aggregate taxonomic-screening status.
-          pattern: screening_status.tsv
-          ontologies:
-            - edam: http://edamontology.org/format_3475 # TSV
-  bait_set_status:
-    - - meta:
-          type: map
-          description: Design metadata.
-      - bait_set_status.tsv:
-          type: file
-          description: Updated bait set status draft.
-          pattern: bait_set_status.tsv
-          ontologies:
-            - edam: http://edamontology.org/format_3475 # TSV
   baits:
     - - meta:
           type: map
           description: Design metadata.
-      - taxonomically_screened_baits.fasta:
+      - baits.fasta:
           type: file
-          description: Optional taxonomically screened bait FASTA.
-          pattern: taxonomically_screened_baits.fasta
+          description: Optional FASTA containing candidates selected after taxonomic screening.
+          pattern: baits.fasta
           ontologies: []
-      - candidate_kmers.tsv:
-          type: file
-          description: Regenerated candidate k-mer manifest.
-          pattern: candidate_kmers.tsv
-          ontologies:
-            - edam: http://edamontology.org/format_3475 # TSV
-      - bait_set_status.tsv:
-          type: file
-          description: Updated bait set status draft.
-          pattern: bait_set_status.tsv
-          ontologies:
-            - edam: http://edamontology.org/format_3475 # TSV
-  terminal_bait_set_status:
-    - - meta:
-          type: map
-          description: Design metadata.
-      - terminal_bait_set_status.tsv:
-          type: file
-          description: Final bait set status when screening rejects every bait.
-          pattern: terminal_bait_set_status.tsv
-          ontologies:
-            - edam: http://edamontology.org/format_3475 # TSV
   versions_biopython:
     - - ${task.process}:
           type: string

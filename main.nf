@@ -56,6 +56,7 @@ def resolveCalibrationTargetScope(row) {
 include { UTILS_NFSCHEMA_PLUGIN } from './subworkflows/nf-core/utils_nfschema_plugin'
 include { BAITS_MAIN } from './workflows/baits'
 include { RESOLVE_CALIBRATION_READS } from './modules/local/resolve_calibration_reads/main'
+include { REPORT_CANDIDATE_KMER_RESULTS } from './subworkflows/local/report_candidate_kmers/main'
 
 workflow {
     main:
@@ -276,7 +277,7 @@ workflow {
         ? Channel.empty()
         : Channel.value(true)
 
-    // Shared design context: [metadata, target taxid, interference background].
+    // Shared design context: [metadata, target taxid, background].
     ch_design_context = ch_normalized_rows.map { meta, row ->
         tuple(meta, row.target_taxid as String, file(row.background))
     }
@@ -331,6 +332,11 @@ workflow {
         ch_calibration_target_scopes,
         ch_calibration_provenance_facts,
         ch_without_calibration_keys,
+    )
+
+    REPORT_CANDIDATE_KMER_RESULTS(
+        BAITS_MAIN.out.candidate_kmers,
+        BAITS_MAIN.out.candidate_kmer_occurrences,
     )
 
 }

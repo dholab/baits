@@ -4,10 +4,13 @@ nextflow_process {
     process "DEACON_FILTER_FASTA"
 
     test("filters FASTA with the fixed permissive threshold") {
+        setup {
+            new File("$outputDir/deacon.idx").text = "stub index"
+        }
         when {
             options '-stub-run'
             process {
-                """input[0] = [[id: 'design'], file("\$baseDir/tests/data/taxonomic_bait_set_status.tsv"), file("\$baseDir/tests/data/taxonomic_locally_filtered_baits.fasta")]"""
+                """input[0] = [[id: 'design'], file("$outputDir/deacon.idx"), file("\$baseDir/tests/data/taxonomic_input_baits.fasta")]"""
             }
         }
 

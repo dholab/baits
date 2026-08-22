@@ -4,7 +4,6 @@
 from __future__ import annotations
 
 import argparse
-from enum import StrEnum
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -22,11 +21,7 @@ MANIFEST_FIELDS = [
     "kmer",
     "source_copy_count",
     "background_occurrences",
-    "status",
-    "rejection_reason",
-    "taxonomic_screening_status",
-    "on_target_hits",
-    "off_target_hits",
+    "outcome",
 ]
 MANIFEST_SCHEMA = dict.fromkeys(MANIFEST_FIELDS, pl.String)
 
@@ -35,29 +30,12 @@ class ComplexityFilterError(ValueError):
     """Raised when complexity-filter inputs do not satisfy their contract."""
 
 
-class SourceSequenceOrigin(StrEnum):
-    """Provenance of the sequences that yielded candidate k-mers."""
-
-    CURATED_INPUT = "curated_input"
-    QUERY_GUIDED_DISCOVERY = "query_guided_discovery"
-
-
 def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--design-id", required=True)
-    parser.add_argument(
-        "--source-sequence-origin",
-        type=SourceSequenceOrigin,
-        choices=list(SourceSequenceOrigin),
-        required=True,
-    )
     parser.add_argument("--manifest-in", type=Path, required=True)
     parser.add_argument("--passing-kmers", type=Path, required=True)
     parser.add_argument("--manifest-out", type=Path, required=True)
     parser.add_argument("--baits-out", type=Path, required=True)
-    parser.add_argument("--filtering-status-out", type=Path, required=True)
-    parser.add_argument("--bait-set-status-out", type=Path, required=True)
-    parser.add_argument("--terminal-manifest-out", type=Path)
     return parser.parse_args(argv)
 
 
@@ -99,22 +77,16 @@ def scan_manifest(path: Path) -> pl.LazyFrame:
         pl.lit("candidate_kmer_"),
         pl.col("_row").cast(pl.String).str.pad_start(6, "0"),
     )
-    is_pass = (
-        (pl.col("status") == "PASS")
-        & (pl.col("rejection_reason") == "none")
-        & (pl.col("taxonomic_screening_status") == "NOT_RUN")
-        & (background_occurrences == 0)
-    )
+    is_selected = (pl.col("outcome") == "selected") & (background_occurrences == 0)
     is_background_rejection = (
-        (pl.col("status") == "REJECT_INTERFERENCE_BACKGROUND")
-        & (pl.col("rejection_reason") == "background_occurrence")
-        & (pl.col("taxonomic_screening_status") == "NOT_APPLICABLE")
-        & (background_occurrences > 0)
+        (pl.col("outcome") == "background_match") & (background_occurrences > 0)
     )
-    evidence_fields = ("bait_id", "on_target_hits", "off_target_hits")
-    empty_evidence = pl.all_horizontal([pl.col(field).fill_null("") == "" for field in evidence_fields])
     invalid_row = pl.coalesce(
-        pl.when(pl.any_horizontal([pl.col(field).is_null() for field in MANIFEST_FIELDS if field not in evidence_fields]))
+        pl.when(
+            pl.any_horizontal(
+                pl.col(field).is_null() for field in MANIFEST_FIELDS if field != "bait_id"
+            ),
+        )
         .then(pl.lit("Candidate manifest contains a missing field")),
         pl.when(pl.col("candidate_kmer_id") != expected_candidate_id).then(
             pl.concat_str(pl.lit("invalid or non-sequential candidate k-mer ID: "), pl.col("candidate_kmer_id")),
@@ -138,15 +110,18 @@ def scan_manifest(path: Path) -> pl.LazyFrame:
             ~pl.col("background_occurrences").str.contains(r"^[0-9]+$")
             | background_occurrences.is_null(),
         ).then(pl.concat_str(pl.lit("invalid background_occurrences for "), pl.col("candidate_kmer_id"))),
-        pl.when(~empty_evidence).then(
-            pl.concat_str(pl.lit("pre-complexity evidence must be empty for "), pl.col("candidate_kmer_id")),
+        pl.when(pl.col("bait_id").fill_null("") != "").then(
+            pl.concat_str(
+                pl.lit("pre-complexity bait identifier must be empty for "),
+                pl.col("candidate_kmer_id"),
+            ),
         ),
-        pl.when(~(is_pass | is_background_rejection)).then(
+        pl.when(~(is_selected | is_background_rejection)).then(
             pl.concat_str(pl.lit("inconsistent pre-complexity state for "), pl.col("candidate_kmer_id")),
         ),
     ).alias("_invalid_row")
     parsed = manifest.with_columns(
-        *[pl.col(field).fill_null("").alias(field) for field in evidence_fields],
+        pl.col("bait_id").fill_null(""),
         source_copy_count.alias("source_copy_count"),
         background_occurrences.alias("background_occurrences"),
         invalid_row,
@@ -154,7 +129,7 @@ def scan_manifest(path: Path) -> pl.LazyFrame:
     try:
         validation = parsed.select(
             pl.len().alias("row_count"),
-            (pl.col("status") == "PASS").sum().alias("eligible_count"),
+            (pl.col("outcome") == "selected").sum().alias("eligible_count"),
             pl.col("kmer").str.len_chars().n_unique().alias("kmer_lengths"),
             pl.col("_invalid_row").drop_nulls().first().alias("first_error"),
         ).collect()
@@ -213,21 +188,13 @@ def apply_complexity_results(manifest: pl.LazyFrame, passing_kmers: pl.LazyFrame
     """Join Deacon's passing keys onto valid rows and assign local-filter outcomes."""
     passing_marker = passing_kmers.with_columns(pl.lit(value=True).alias("_passes_complexity"))
     transitioned = manifest.join(passing_marker, on="kmer", how="left").with_columns(
-        pl.when((pl.col("status") == "PASS") & pl.col("_passes_complexity").is_null())
-        .then(pl.lit("REJECT_LOW_COMPLEXITY"))
-        .otherwise(pl.col("status"))
-        .alias("status"),
-        pl.when((pl.col("status") == "PASS") & pl.col("_passes_complexity").is_null())
+        pl.when((pl.col("outcome") == "selected") & pl.col("_passes_complexity").is_null())
         .then(pl.lit("low_complexity"))
-        .otherwise(pl.col("rejection_reason"))
-        .alias("rejection_reason"),
-        pl.when((pl.col("status") == "PASS") & pl.col("_passes_complexity").is_null())
-        .then(pl.lit("NOT_APPLICABLE"))
-        .otherwise(pl.col("taxonomic_screening_status"))
-        .alias("taxonomic_screening_status"),
+        .otherwise(pl.col("outcome"))
+        .alias("outcome"),
     )
     survivors = (
-        transitioned.filter(pl.col("status") == "PASS")
+        transitioned.filter(pl.col("outcome") == "selected")
         .sort("kmer")
         .with_row_index("_bait_number", offset=1)
         .select(
@@ -242,7 +209,7 @@ def apply_complexity_results(manifest: pl.LazyFrame, passing_kmers: pl.LazyFrame
         transitioned.drop("_passes_complexity")
         .join(survivors, on="kmer", how="left", suffix="_survivor")
         .with_columns(pl.coalesce("bait_id_survivor", "bait_id").alias("bait_id"))
-        .drop("bait_id_survivor", "_row")
+        .drop("bait_id_survivor")
         .select(MANIFEST_FIELDS)
     )
 
@@ -252,7 +219,7 @@ def main(argv: Sequence[str] | None = None) -> None:
     manifest = scan_manifest(args.manifest_in)
     kmer_size = manifest.select(pl.col("kmer").str.len_chars().first()).collect().item()
     passing_kmers = read_passing_kmers(args.passing_kmers, kmer_size)
-    eligible = manifest.filter(pl.col("status") == "PASS").select("kmer")
+    eligible = manifest.filter(pl.col("outcome") == "selected").select("kmer")
     unexpected = passing_kmers.join(eligible, on="kmer", how="anti").limit(1).collect()
     if unexpected.height:
         message = "Deacon passing sequences are not eligible candidate k-mers"
@@ -262,44 +229,10 @@ def main(argv: Sequence[str] | None = None) -> None:
     manifest_output, survivors = pl.collect_all(
         [
             results.sort("candidate_kmer_id"),
-            results.filter(pl.col("status") == "PASS").sort("kmer"),
+            results.filter(pl.col("outcome") == "selected").sort("kmer"),
         ],
     )
     manifest_output.write_csv(args.manifest_out, separator="\t", quote_style="never")
-    if survivors.is_empty() and args.terminal_manifest_out:
-        manifest_output.write_csv(args.terminal_manifest_out, separator="\t", quote_style="never")
-
-    counts = manifest_output.select(
-        pl.len().alias("candidate_kmer_count"),
-        (pl.col("status") == "REJECT_INTERFERENCE_BACKGROUND")
-        .sum()
-        .alias("rejected_interference_background_count"),
-        (pl.col("status") == "REJECT_LOW_COMPLEXITY").sum().alias("rejected_low_complexity_count"),
-        (pl.col("status") == "PASS").sum().alias("locally_filtered_bait_count"),
-    )
-    count_values = {column: str(counts.item(0, column)) for column in counts.columns}
-    terminal_stage = "" if survivors.height else "low_complexity_filtering"
-    pl.DataFrame(
-        {
-            "metric": [
-                "design_id",
-                "candidate_kmer_count",
-                "rejected_interference_background_count",
-                "rejected_low_complexity_count",
-                "locally_filtered_bait_count",
-                "terminal_stage",
-            ],
-            "value": [
-                args.design_id,
-                count_values["candidate_kmer_count"],
-                count_values["rejected_interference_background_count"],
-                count_values["rejected_low_complexity_count"],
-                count_values["locally_filtered_bait_count"],
-                terminal_stage,
-            ],
-        },
-        schema={"metric": pl.String, "value": pl.String},
-    ).write_csv(args.filtering_status_out, separator="\t", quote_style="never")
     if survivors.height:
         SeqIO.write(
             (
@@ -309,31 +242,8 @@ def main(argv: Sequence[str] | None = None) -> None:
             args.baits_out,
             "fasta",
         )
-        pl.DataFrame(
-            {
-                "metric": [
-                    "design_id",
-                    "source_sequence_origin",
-                    "candidate_kmer_count",
-                    "locally_filtered_bait_count",
-                    "taxonomic_screening_status",
-                    "taxonomically_screened_bait_count",
-                    "deepest_bait_set",
-                    "deacon_index_source",
-                ],
-                "value": [
-                    args.design_id,
-                    args.source_sequence_origin.value,
-                    count_values["candidate_kmer_count"],
-                    count_values["locally_filtered_bait_count"],
-                    "NOT_RUN",
-                    "",
-                    "locally_filtered",
-                    "",
-                ],
-            },
-            schema={"metric": pl.String, "value": pl.String},
-        ).write_csv(args.bait_set_status_out, separator="\t", quote_style="never")
+    elif args.baits_out.exists():
+        args.baits_out.unlink()
 
 
 if __name__ == "__main__":

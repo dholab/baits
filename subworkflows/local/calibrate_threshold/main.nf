@@ -19,14 +19,14 @@ workflow CALIBRATE_THRESHOLD {
     main:
 
     // Retain every read with at least one indexed bait
-    ch_deacon_inputs = ch_calibration_inputs.map { design_meta, read_meta, reads, baits, bait_set_status, deacon_index, target_taxid, calibration_target_taxids ->
+    ch_deacon_inputs = ch_calibration_inputs.map { design_meta, read_meta, reads, baits, deacon_index, target_taxid, calibration_target_taxids ->
         tuple(read_meta, deacon_index, reads, 1, 0)
     }
-    ch_read_context = ch_calibration_inputs.map { design_meta, read_meta, reads, baits, bait_set_status, deacon_index, target_taxid, calibration_target_taxids ->
-        tuple(read_meta, design_meta, baits, bait_set_status, target_taxid, calibration_target_taxids)
+    ch_read_context = ch_calibration_inputs.map { design_meta, read_meta, reads, baits, deacon_index, target_taxid, calibration_target_taxids ->
+        tuple(read_meta, design_meta, baits, target_taxid, calibration_target_taxids)
     }
     ch_design_context = ch_calibration_inputs
-        .map { design_meta, read_meta, reads, baits, bait_set_status, deacon_index, target_taxid, calibration_target_taxids ->
+        .map { design_meta, read_meta, reads, baits, deacon_index, target_taxid, calibration_target_taxids ->
             tuple(design_meta, target_taxid, calibration_target_taxids)
         }
         .unique()
@@ -36,7 +36,7 @@ workflow CALIBRATE_THRESHOLD {
     ch_recount_inputs = DEACON_RETRIEVE_CALIBRATION_READS.out.fasta_filtered
         .join(ch_read_context)
         .combine(ch_kmer_size)
-        .map { read_meta, candidate_reads, design_meta, baits, bait_set_status, target_taxid, calibration_target_taxids, kmer_size ->
+        .map { read_meta, candidate_reads, design_meta, baits, target_taxid, calibration_target_taxids, kmer_size ->
             tuple(design_meta, read_meta, baits, candidate_reads, kmer_size)
         }
     COUNT_READ_BAITS(ch_recount_inputs)

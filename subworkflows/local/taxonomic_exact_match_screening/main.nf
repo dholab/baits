@@ -9,12 +9,12 @@ workflow TAXONOMIC_EXACT_MATCH_SCREENING {
 
     main:
 
-    // Search locally filtered baits against the shared taxonomic reference database
+    // Search selected candidates against the shared taxonomic reference database
     ch_blast_inputs = ch_screening_inputs
         .combine(ch_taxonomic_reference_db)
         .combine(ch_kmer_size)
-        .map { meta, locally_filtered_baits, candidate_kmer_manifest, bait_set_status, target_taxid, taxonomic_reference_db, kmer_size ->
-            tuple(meta, locally_filtered_baits, taxonomic_reference_db, kmer_size)
+        .map { meta, baits, candidate_kmer_manifest, target_taxid, taxonomic_reference_db, kmer_size ->
+            tuple(meta, baits, taxonomic_reference_db, kmer_size)
         }
     BLASTN_TAXONOMIC_SCREENING(ch_blast_inputs)
 
@@ -22,20 +22,22 @@ workflow TAXONOMIC_EXACT_MATCH_SCREENING {
     ch_screening_interpreter_inputs = BLASTN_TAXONOMIC_SCREENING.out.hits
         .join(ch_screening_inputs)
         .combine(ch_kmer_size)
-        .map { meta, blast_hits, locally_filtered_baits, candidate_kmer_manifest, bait_set_status, target_taxid, kmer_size ->
-            tuple(meta, locally_filtered_baits, blast_hits, candidate_kmer_manifest, bait_set_status, target_taxid, kmer_size)
+        .map { meta, blast_hits, baits, candidate_kmer_manifest, target_taxid, kmer_size ->
+            tuple(meta, baits, blast_hits, candidate_kmer_manifest, target_taxid, kmer_size)
         }
     APPLY_TAXONOMIC_SCREENING(ch_screening_interpreter_inputs)
+
+    ch_screened_baits = APPLY_TAXONOMIC_SCREENING.out.manifest
+        .join(APPLY_TAXONOMIC_SCREENING.out.baits)
+        .map { meta, manifest, baits -> tuple(meta, baits, manifest) }
 
     emit:
     hits = BLASTN_TAXONOMIC_SCREENING.out.hits
     reference_database_report = BLASTN_TAXONOMIC_SCREENING.out.reference_database_report
     decisions = APPLY_TAXONOMIC_SCREENING.out.decisions
     manifest = APPLY_TAXONOMIC_SCREENING.out.manifest
-    screening_status = APPLY_TAXONOMIC_SCREENING.out.screening_status
-    bait_set_status = APPLY_TAXONOMIC_SCREENING.out.bait_set_status
-    terminal_bait_set_status = APPLY_TAXONOMIC_SCREENING.out.terminal_bait_set_status
-    baits = APPLY_TAXONOMIC_SCREENING.out.baits
+    completed = APPLY_TAXONOMIC_SCREENING.out.manifest
+    baits = ch_screened_baits
     reported_blast = BLASTN_TAXONOMIC_SCREENING.out.reported_blast
     reported_biopython = APPLY_TAXONOMIC_SCREENING.out.reported_biopython
     reported_polars = APPLY_TAXONOMIC_SCREENING.out.reported_polars

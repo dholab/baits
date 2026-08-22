@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/nf-core/modules/master/modules/meta-schema.json
 name: verify_deacon_index
-description: Verify Deacon round trips and finalize bait set status.
+description: Verify Deacon round trips against selected candidate k-mers.
 keywords:
   - deacon
   - k-mer
@@ -14,13 +14,6 @@ tools:
       licence:
         - BSD-3-Clause
       identifier: biotools:biopython
-  - polars:
-      description: DataFrame library for typed rectangular transformations.
-      homepage: https://pola.rs/
-      documentation: https://docs.pola.rs/
-      tool_dev_url: https://github.com/pola-rs/polars
-      licence:
-        - MIT
   - python:
       description: Python programming language.
       homepage: https://www.python.org/
@@ -42,53 +35,29 @@ input:
         ontologies: []
     - background_roundtrip:
         type: file
-        description: Interference background records retained at the permissive threshold.
+        description: Background records retained at the permissive threshold.
         ontologies: []
     - candidate_kmer_manifest:
         type: file
         description: Complete candidate k-mer manifest.
         ontologies:
           - edam: http://edamontology.org/format_3475 # TSV
-    - bait_set_status:
+    - deacon_index:
         type: file
-        description: Bait set status draft.
-        ontologies:
-          - edam: http://edamontology.org/format_3475 # TSV
+        description: Deacon index being verified.
+        ontologies: []
     - kmer_size:
         type: integer
         description: Candidate k-mer size.
-    - deacon_window:
-        type: integer
-        description: Deacon minimizer window size.
 output:
-  bait_set_status:
+  index:
     - - meta:
           type: map
           description: Immutable design metadata.
-      - bait_set_status.tsv:
+      - deacon.idx:
           type: file
-          description: Final bait set status for the verified Deacon index.
-          pattern: bait_set_status.tsv
-          ontologies:
-            - edam: http://edamontology.org/format_3475 # TSV
-  summary:
-    - - meta:
-          type: map
-          description: Immutable design metadata.
-      - verification_summary.tsv:
-          type: file
-          description: Machine-readable Deacon index verification evidence.
-          pattern: verification_summary.tsv
-          ontologies:
-            - edam: http://edamontology.org/format_3475 # TSV
-  report:
-    - - meta:
-          type: map
-          description: Immutable design metadata.
-      - verification_report.md:
-          type: file
-          description: Readable Deacon index verification report.
-          pattern: verification_report.md
+          description: Verified Deacon index.
+          pattern: deacon.idx
           ontologies: []
   versions_biopython:
     - - ${task.process}:
@@ -100,16 +69,6 @@ output:
       - python -c 'import Bio; print(Bio.__version__)':
           type: eval
           description: Runtime Biopython version.
-  versions_polars:
-    - - ${task.process}:
-          type: string
-          description: Process name.
-      - polars:
-          type: string
-          description: Tool name.
-      - python -c 'import polars; print(polars.__version__)':
-          type: eval
-          description: Runtime Polars version.
   versions_python:
     - - ${task.process}:
           type: string
@@ -131,15 +90,6 @@ topics:
       - python -c 'import Bio; print(Bio.__version__)':
           type: eval
           description: Runtime Biopython version.
-    - - ${task.process}:
-          type: string
-          description: Process name.
-      - polars:
-          type: string
-          description: Tool name.
-      - python -c 'import polars; print(polars.__version__)':
-          type: eval
-          description: Runtime Polars version.
     - - ${task.process}:
           type: string
           description: Process name.
