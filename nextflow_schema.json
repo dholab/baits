@@ -20,6 +20,11 @@
                     "description": "Path to the main samplesheet; selects design-CSV mode.",
                     "help_text": "When --input is supplied, put id, source-sequence inputs, target_taxid, background, calibration_reads, and calibration_target_taxids in each applicable CSV row. Do not also supply their direct-run CLI parameters."
                 },
+                "results": {
+                    "type": "string",
+                    "format": "path",
+                    "description": "Directory for published pipeline results."
+                },
                 "id": {
                     "type": "string",
                     "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$",

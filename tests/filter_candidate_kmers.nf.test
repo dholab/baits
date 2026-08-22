@@ -6,6 +6,7 @@ nextflow_pipeline {
         when {
             params {
                 id = "positive"
+                results = "$outputDir/published_results"
                 source_sequences = "$baseDir/tests/data/filter_source_sequences.fasta"
                 target_taxid = "88456"
                 background = "$baseDir/tests/data/interference_background.fasta"
@@ -13,20 +14,20 @@ nextflow_pipeline {
         }
         then {
             assert workflow.success
-            def runDir = new File(outputDir).parent
-            def candidate = new File("$runDir/results/positive/02_candidate_kmers")
+            def results = new File("$outputDir/published_results/positive")
+            def candidate = new File(results, '02_candidate_kmers')
             assert new File(candidate, 'candidate_kmers.tsv').text.contains('REJECT_LOW_COMPLEXITY')
             assert new File(candidate, 'candidate_kmer_occurrences.tsv').exists()
             assert new File(candidate, 'filtering_status.tsv').exists()
-            assert new File("$runDir/results/positive/04_bait_sets/locally_filtered_baits.fasta").exists()
-            assert new File("$runDir/results/positive/04_bait_sets/bait_set_status.tsv").text.contains('deacon_index_source\tlocally_filtered')
-            assert new File("$runDir/results/positive/05_deacon_index/locally_filtered.idx").exists()
-            assert new File("$runDir/results/positive/05_deacon_index/verification_summary.tsv").text.contains('bait_sequence_sets_equal\ttrue')
-            assert new File("$runDir/results/positive/05_deacon_index/verification_report.md").exists()
-            assert !new File("$runDir/results/positive/02_candidate_kmers/source_sequence_metadata.tsv").exists()
-            assert new File("$runDir/results/positive/07_provenance/parameters.tsv").text.contains('kmer_size\t31')
-            assert new File("$runDir/results/positive/07_provenance/software_versions.tsv").text.contains('deacon\t0.15.0')
-            assert new File("$runDir/results/positive/07_provenance/software_versions.tsv").text.contains('polars\t1.43.2')
+            assert new File(results, '04_bait_sets/locally_filtered_baits.fasta').exists()
+            assert new File(results, '04_bait_sets/bait_set_status.tsv').text.contains('deacon_index_source\tlocally_filtered')
+            assert new File(results, '05_deacon_index/locally_filtered.idx').exists()
+            assert new File(results, '05_deacon_index/verification_summary.tsv').text.contains('bait_sequence_sets_equal\ttrue')
+            assert new File(results, '05_deacon_index/verification_report.md').exists()
+            assert !new File(results, '02_candidate_kmers/source_sequence_metadata.tsv').exists()
+            assert new File(results, '07_provenance/parameters.tsv').text.contains('kmer_size\t31')
+            assert new File(results, '07_provenance/software_versions.tsv').text.contains('deacon\t0.15.0')
+            assert new File(results, '07_provenance/software_versions.tsv').text.contains('polars\t1.43.2')
         }
     }
     test("all-background cancellation publishes evidence without a continuation") {

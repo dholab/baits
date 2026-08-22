@@ -38,6 +38,7 @@ A basic run needs source sequences, an NCBI taxonomy ID, and a background FASTA.
 | Parameter | Default | Purpose |
 |---|---|---|
 | `--input` | — | Design CSV for one or more designs; replaces all direct-run inputs below. |
+| `--results` | `results/` under the launch directory | Directory for published pipeline results. |
 | `--source_sequences` | — | Direct-run source-sequence FASTA. |
 | `--target_taxid` | — | Direct-run NCBI taxonomy ID for the target taxon. |
 | `--background` | — | Direct-run FASTA containing sequences that the baits must not match. |
