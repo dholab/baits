@@ -13,8 +13,8 @@ workflow TAXONOMIC_EXACT_MATCH_SCREENING {
     ch_blast_inputs = ch_screening_inputs
         .combine(ch_taxonomic_reference_db)
         .combine(ch_kmer_size)
-        .map { meta, baits, candidate_kmer_manifest, target_taxid, taxonomic_reference_db, kmer_size ->
-            tuple(meta, baits, taxonomic_reference_db, kmer_size)
+        .map { meta, candidates, candidate_kmer_manifest, target_taxid, taxonomic_reference_db, kmer_size ->
+            tuple(meta, candidates, taxonomic_reference_db, kmer_size)
         }
     BLASTN_TAXONOMIC_SCREENING(ch_blast_inputs)
 
@@ -22,14 +22,14 @@ workflow TAXONOMIC_EXACT_MATCH_SCREENING {
     ch_screening_interpreter_inputs = BLASTN_TAXONOMIC_SCREENING.out.hits
         .join(ch_screening_inputs)
         .combine(ch_kmer_size)
-        .map { meta, blast_hits, baits, candidate_kmer_manifest, target_taxid, kmer_size ->
-            tuple(meta, baits, blast_hits, candidate_kmer_manifest, target_taxid, kmer_size)
+        .map { meta, blast_hits, candidates, candidate_kmer_manifest, target_taxid, kmer_size ->
+            tuple(meta, candidates, blast_hits, candidate_kmer_manifest, target_taxid, kmer_size)
         }
     APPLY_TAXONOMIC_SCREENING(ch_screening_interpreter_inputs)
 
-    ch_screened_baits = APPLY_TAXONOMIC_SCREENING.out.manifest
-        .join(APPLY_TAXONOMIC_SCREENING.out.baits)
-        .map { meta, manifest, baits -> tuple(meta, baits, manifest) }
+    ch_selected_candidates = APPLY_TAXONOMIC_SCREENING.out.manifest
+        .join(APPLY_TAXONOMIC_SCREENING.out.candidates)
+        .map { meta, manifest, candidates -> tuple(meta, candidates, manifest) }
 
     emit:
     hits = BLASTN_TAXONOMIC_SCREENING.out.hits
@@ -37,7 +37,7 @@ workflow TAXONOMIC_EXACT_MATCH_SCREENING {
     decisions = APPLY_TAXONOMIC_SCREENING.out.decisions
     manifest = APPLY_TAXONOMIC_SCREENING.out.manifest
     completed = APPLY_TAXONOMIC_SCREENING.out.manifest
-    baits = ch_screened_baits
+    candidates = ch_selected_candidates
     reported_blast = BLASTN_TAXONOMIC_SCREENING.out.reported_blast
     reported_biopython = APPLY_TAXONOMIC_SCREENING.out.reported_biopython
     reported_polars = APPLY_TAXONOMIC_SCREENING.out.reported_polars

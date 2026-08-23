@@ -6,31 +6,31 @@ nextflow_process {
     test("marks off-target matches and emits selected sequences") {
         when {
             process {
-                """input[0] = [[id: 'design'], file(\"\$baseDir/tests/data/taxonomic_input_baits.fasta\"), file(\"\$baseDir/tests/data/taxonomic_blast_hits.tsv\"), file(\"\$baseDir/tests/data/taxonomic_candidate_kmers.tsv\"), '88456', 31]"""
+                """input[0] = [[id: 'design'], file(\"\$baseDir/tests/data/taxonomic_input_candidates.fasta\"), file(\"\$baseDir/tests/data/taxonomic_blast_hits.tsv\"), file(\"\$baseDir/tests/data/taxonomic_candidate_kmers.tsv\"), '88456', 31]"""
             }
         }
 
         then {
             assert process.success
             assert process.out.manifest.size() == 1
-            assert process.out.baits.size() == 1
+            assert process.out.candidates.size() == 1
             assert file(process.out.manifest[0][1]).text.contains('off_target_match')
-            assert file(process.out.baits[0][1]).text == '>bait_000001\nACGTTGCATGTCAGTACGATCGTAGCTAGCA\n'
+            assert file(process.out.candidates[0][1]).text == '>candidate_kmer_000001\nACGTTGCATGTCAGTACGATCGTAGCTAGCA\n'
             assert process.out.versions_biopython[0][0] == 'APPLY_TAXONOMIC_SCREENING'
             assert process.out.versions_polars[0][0] == 'APPLY_TAXONOMIC_SCREENING'
         }
     }
 
-    test("emits outcomes without a bait continuation when every candidate has an off-target match") {
+    test("emits outcomes without selected candidates when every candidate has an off-target match") {
         when {
             process {
-                """input[0] = [[id: 'design'], file(\"\$baseDir/tests/data/taxonomic_input_baits.fasta\"), file(\"\$baseDir/tests/data/taxonomic_all_rejected_blast_hits.tsv\"), file(\"\$baseDir/tests/data/taxonomic_candidate_kmers.tsv\"), '88456', 31]"""
+                """input[0] = [[id: 'design'], file(\"\$baseDir/tests/data/taxonomic_input_candidates.fasta\"), file(\"\$baseDir/tests/data/taxonomic_all_rejected_blast_hits.tsv\"), file(\"\$baseDir/tests/data/taxonomic_candidate_kmers.tsv\"), '88456', 31]"""
             }
         }
 
         then {
             assert process.success
-            assert process.out.baits.size() == 0
+            assert process.out.candidates.size() == 0
             assert file(process.out.manifest[0][1]).text.count('off_target_match') == 2
         }
     }

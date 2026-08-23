@@ -69,16 +69,16 @@ workflow FILTER_CANDIDATE_KMERS {
     APPLY_COMPLEXITY_FILTER(ch_complexity_inputs)
 
     ch_complexity_results = APPLY_COMPLEXITY_FILTER.out.manifest
-        .join(APPLY_COMPLEXITY_FILTER.out.baits, remainder: true)
-    ch_selected_baits = ch_complexity_results
-        .filter { meta, manifest, baits -> baits != null }
-        .map { meta, manifest, baits -> tuple(meta, baits, manifest) }
+        .join(APPLY_COMPLEXITY_FILTER.out.candidates, remainder: true)
+    ch_selected_candidates = ch_complexity_results
+        .filter { meta, manifest, candidates -> candidates != null }
+        .map { meta, manifest, candidates -> tuple(meta, candidates, manifest) }
     ch_terminal_after_complexity = ch_complexity_results
-        .filter { meta, manifest, baits -> baits == null }
-        .map { meta, manifest, baits -> tuple(meta, manifest) }
+        .filter { meta, manifest, candidates -> candidates == null }
+        .map { meta, manifest, candidates -> tuple(meta, manifest) }
 
     emit:
-    baits = ch_selected_baits
+    candidates = ch_selected_candidates
     manifest = ch_terminal_before_complexity.mix(APPLY_COMPLEXITY_FILTER.out.manifest)
     terminal_manifest = ch_terminal_before_complexity.mix(ch_terminal_after_complexity)
     occurrences = BUILD_CANDIDATE_TABLES.out.tables.map { meta, manifest, occurrences -> tuple(meta, occurrences) }

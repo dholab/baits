@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/nf-core/modules/master/modules/meta-schema.json
 name: blastn_taxonomic_screening
-description: Screen locally filtered baits for exact taxonomic BLAST matches.
+description: Screen selected candidate k-mers for exact taxonomic BLAST matches.
 keywords:
   - blast
   - blastn
@@ -15,16 +15,16 @@ input:
   - - meta:
         type: map
         description: Design metadata.
-    - baits:
+    - candidates:
         type: file
-        description: Locally filtered bait FASTA.
+        description: Candidate k-mers selected after low-complexity filtering.
         ontologies: []
     - taxonomic_reference_db:
         type: directory
         description: Taxonomy-aware BLAST nucleotide database directory.
     - kmer_size:
         type: integer
-        description: Exact bait k-mer length.
+        description: Exact candidate k-mer length.
 output:
   hits:
     - - meta:

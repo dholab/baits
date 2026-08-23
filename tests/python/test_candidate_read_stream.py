@@ -9,7 +9,7 @@ def test_candidate_read_stream_ignores_headers_and_preserves_observations(
     tmp_path: Path,
 ) -> None:
     baits = tmp_path / "baits.fasta"
-    baits.write_text(">bait_1\nACGTA\n>bait_2\nCCCCC\n")
+    baits.write_text(">candidate_kmer_000001\nACGTA\n>candidate_kmer_000002\nCCCCC\n")
     reads = tmp_path / "candidate_reads.fasta"
     reads.write_text(
         ">repeated\nACGTA\n"

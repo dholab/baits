@@ -19,7 +19,6 @@ if TYPE_CHECKING:
 
 MANIFEST_FIELDS = [
     "candidate_kmer_id",
-    "bait_id",
     "kmer",
     "source_copy_count",
     "background_occurrences",
@@ -41,7 +40,7 @@ BLAST_FIELDS = [
     "stitle",
 ]
 DECISION_FIELDS = [
-    "bait_id",
+    "candidate_kmer_id",
     "outcome",
     "on_target_hits",
     "off_target_hits",
@@ -74,11 +73,11 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--target-taxid", type=positive_integer, required=True)
     parser.add_argument("--kmer-size", type=positive_integer, required=True)
-    parser.add_argument("--baits", type=Path, required=True)
+    parser.add_argument("--candidates", type=Path, required=True)
     parser.add_argument("--blast-hits", type=Path, required=True)
     parser.add_argument("--manifest-in", type=Path, required=True)
     parser.add_argument("--manifest-out", type=Path, required=True)
-    parser.add_argument("--baits-out", type=Path, required=True)
+    parser.add_argument("--selected-candidates-out", type=Path, required=True)
     parser.add_argument("--decisions-out", type=Path, required=True)
     return parser.parse_args(argv)
 
@@ -96,13 +95,13 @@ def _header(path: Path, label: str) -> list[str]:
         raise TaxonomicScreeningError(message) from error
 
 
-def construct_baits(records: Sequence[SeqRecord], kmer_size: int) -> pl.LazyFrame:
-    """Construct the ordered, canonical bait relation from parsed FASTA records."""
+def construct_candidates(records: Sequence[SeqRecord], kmer_size: int) -> pl.LazyFrame:
+    """Construct the ordered, canonical candidate relation from parsed FASTA records."""
     if not records:
-        message = "Locally filtered bait FASTA must not be empty"
+        message = "Selected candidate FASTA must not be empty"
         raise TaxonomicScreeningError(message)
 
-    identifiers = tuple(record.id for record in records)
+    identifiers = tuple(record.id or "" for record in records)
     sequences = tuple(str(record.seq) for record in records)
     invalid_description = next(
         (
@@ -113,13 +112,13 @@ def construct_baits(records: Sequence[SeqRecord], kmer_size: int) -> pl.LazyFram
         None,
     )
     if invalid_description is not None:
-        message = f"Bait FASTA has an invalid identifier or description: {invalid_description}"
+        message = f"Candidate FASTA has an invalid identifier or description: {invalid_description}"
         raise TaxonomicScreeningError(message)
     if len(set(identifiers)) != len(identifiers):
-        message = "Bait FASTA record IDs must be unique"
+        message = "Candidate FASTA record IDs must be unique"
         raise TaxonomicScreeningError(message)
     if len(set(sequences)) != len(sequences):
-        message = "Bait FASTA sequences must be unique"
+        message = "Candidate FASTA sequences must be unique"
         raise TaxonomicScreeningError(message)
     invalid_sequence = next(
         (
@@ -132,45 +131,56 @@ def construct_baits(records: Sequence[SeqRecord], kmer_size: int) -> pl.LazyFram
         None,
     )
     if invalid_sequence is not None:
-        message = f"Bait FASTA contains a malformed {kmer_size}-mer: {invalid_sequence}"
+        message = f"Candidate FASTA contains a malformed {kmer_size}-mer: {invalid_sequence}"
         raise TaxonomicScreeningError(message)
     if invalid := next(
         (sequence for sequence in sequences if sequence != canonical_kmer(sequence)),
         None,
     ):
-        message = f"Bait FASTA contains a noncanonical k-mer: {invalid}"
+        message = f"Candidate FASTA contains a noncanonical k-mer: {invalid}"
         raise TaxonomicScreeningError(message)
 
-    expected_identifiers = tuple(f"bait_{number:06d}" for number in range(1, len(records) + 1))
-    if identifiers != expected_identifiers:
-        message = "Bait FASTA IDs must be sequential in k-mer order"
+    invalid_identifier = next(
+        (
+            identifier
+            for identifier in identifiers
+            if re.fullmatch(r"candidate_kmer_[0-9]{6}", identifier) is None
+        ),
+        None,
+    )
+    if invalid_identifier is not None:
+        message = f"Candidate FASTA contains an invalid candidate identifier: {invalid_identifier}"
         raise TaxonomicScreeningError(message)
     if sequences != tuple(sorted(sequences)):
-        message = "Bait FASTA is not sorted by k-mer"
+        message = "Candidate FASTA is not sorted by k-mer"
         raise TaxonomicScreeningError(message)
     return pl.LazyFrame(
         {
-            "_bait_order": range(1, len(records) + 1),
-            "bait_id": identifiers,
+            "_candidate_order": range(1, len(records) + 1),
+            "candidate_kmer_id": identifiers,
             "kmer": sequences,
         },
-        schema={"_bait_order": pl.UInt32, "bait_id": pl.String, "kmer": pl.String},
+        schema={
+            "_candidate_order": pl.UInt32,
+            "candidate_kmer_id": pl.String,
+            "kmer": pl.String,
+        },
     )
 
 
-def read_baits(path: Path, kmer_size: int) -> pl.LazyFrame:
-    """Read the locally filtered bait FASTA and construct its domain relation."""
+def read_candidates(path: Path, kmer_size: int) -> pl.LazyFrame:
+    """Read selected candidates awaiting taxonomic screening."""
     text = path.read_text()
     first_content = next((line for line in text.splitlines() if line.strip()), "")
     if first_content and not first_content.startswith(">"):
-        message = "Bait FASTA contains sequence text before the first header"
+        message = "Candidate FASTA contains sequence text before the first header"
         raise TaxonomicScreeningError(message)
     try:
         records = tuple(SeqIO.parse(path, "fasta"))
     except ValueError as error:
-        message = f"Could not parse Bait FASTA: {error}"
+        message = f"Could not parse Candidate FASTA: {error}"
         raise TaxonomicScreeningError(message) from error
-    return construct_baits(records, kmer_size)
+    return construct_candidates(records, kmer_size)
 
 
 def scan_manifest(path: Path, kmer_size: int) -> pl.LazyFrame:
@@ -197,17 +207,14 @@ def scan_manifest(path: Path, kmer_size: int) -> pl.LazyFrame:
     )
     selected = (
         (pl.col("outcome") == "selected")
-        & (pl.col("bait_id").fill_null("") != "")
         & (background_count == 0)
     )
     background_match = (
         (pl.col("outcome") == "background_match")
-        & (pl.col("bait_id").fill_null("") == "")
         & (background_count > 0)
     )
     low_complexity = (
         (pl.col("outcome") == "low_complexity")
-        & (pl.col("bait_id").fill_null("") == "")
         & (background_count == 0)
     )
     kmer = pl.col("kmer")
@@ -216,7 +223,6 @@ def scan_manifest(path: Path, kmer_size: int) -> pl.LazyFrame:
             pl.any_horizontal(
                 pl.col(field).is_null()
                 for field in MANIFEST_FIELDS
-                if field != "bait_id"
             ),
         ).then(pl.lit("Candidate manifest contains a missing field")),
         pl.when(pl.col("candidate_kmer_id") != expected_candidate_id).then(
@@ -239,12 +245,6 @@ def scan_manifest(path: Path, kmer_size: int) -> pl.LazyFrame:
         ),
         pl.when(pl.len().over("kmer") > 1).then(
             pl.concat_str(pl.lit("duplicate candidate k-mer: "), kmer),
-        ),
-        pl.when(
-            (pl.col("bait_id").fill_null("") != "")
-            & (pl.len().over("bait_id") > 1),
-        ).then(
-            pl.concat_str(pl.lit("duplicate bait ID: "), pl.col("bait_id")),
         ),
         pl.when(
             ~pl.col("source_copy_count").str.contains(r"^[0-9]+$")
@@ -270,7 +270,6 @@ def scan_manifest(path: Path, kmer_size: int) -> pl.LazyFrame:
         ),
     ).alias("_invalid_row")
     parsed = manifest.with_columns(
-        pl.col("bait_id").fill_null(""),
         source_count.alias("source_copy_count"),
         background_count.alias("background_occurrences"),
         invalid_row,
@@ -278,14 +277,14 @@ def scan_manifest(path: Path, kmer_size: int) -> pl.LazyFrame:
     try:
         validation = parsed.select(
             pl.len().alias("row_count"),
-            (pl.col("outcome") == "selected").sum().alias("bait_count"),
+            (pl.col("outcome") == "selected").sum().alias("selected_count"),
             pl.col("_invalid_row").drop_nulls().first().alias("first_error"),
         ).collect()
     except pl.exceptions.PolarsError as error:
         message = f"Could not parse Candidate manifest: {error}"
         raise TaxonomicScreeningError(message) from error
-    if validation.item(0, "row_count") == 0 or validation.item(0, "bait_count") == 0:
-        message = "Taxonomic screening requires at least one locally filtered bait"
+    if validation.item(0, "row_count") == 0 or validation.item(0, "selected_count") == 0:
+        message = "Taxonomic screening requires at least one selected candidate"
         raise TaxonomicScreeningError(message)
     if first_error := validation.item(0, "first_error"):
         raise TaxonomicScreeningError(first_error)
@@ -373,24 +372,41 @@ def scan_blast_hits(path: Path, kmer_size: int, target_taxid: int) -> pl.LazyFra
 
 
 def construct_screening_result(
-    baits: pl.LazyFrame,
+    candidates: pl.LazyFrame,
     manifest: pl.LazyFrame,
     hits: pl.LazyFrame,
 ) -> TaxonomicScreeningResult:
     """Assign outcomes whose hit counts count accepted BLAST rows (HSPs)."""
-    eligible = manifest.filter(pl.col("outcome") == "selected").select("bait_id", "kmer")
+    eligible = manifest.filter(pl.col("outcome") == "selected").select(
+        "candidate_kmer_id",
+        "kmer",
+    )
     relation_errors = pl.concat(
         [
-            eligible.join(baits.select("bait_id", "kmer"), on=["bait_id", "kmer"], how="anti")
-            .with_columns(pl.lit("PASS candidate k-mer is absent from the bait FASTA").alias("error"))
+            eligible.join(
+                candidates.select("candidate_kmer_id", "kmer"),
+                on=["candidate_kmer_id", "kmer"],
+                how="anti",
+            )
+            .with_columns(
+                pl.lit("Selected candidate k-mer is absent from the candidate FASTA").alias("error"),
+            )
             .select("error"),
-            baits.select("bait_id", "kmer")
-            .join(eligible, on=["bait_id", "kmer"], how="anti")
-            .with_columns(pl.lit("Bait FASTA contains no matching PASS candidate k-mer").alias("error"))
+            candidates.select("candidate_kmer_id", "kmer")
+            .join(eligible, on=["candidate_kmer_id", "kmer"], how="anti")
+            .with_columns(
+                pl.lit("Candidate FASTA contains no matching selected candidate k-mer").alias("error"),
+            )
             .select("error"),
             hits.select("qseqid")
-            .join(baits.select(pl.col("bait_id").alias("qseqid")), on="qseqid", how="anti")
-            .with_columns(pl.lit("BLAST TSV contains an unknown Bait identifier").alias("error"))
+            .join(
+                candidates.select(pl.col("candidate_kmer_id").alias("qseqid")),
+                on="qseqid",
+                how="anti",
+            )
+            .with_columns(
+                pl.lit("BLAST TSV contains an unknown candidate identifier").alias("error"),
+            )
             .select("error"),
         ],
         how="vertical",
@@ -398,12 +414,12 @@ def construct_screening_result(
     if relation_errors.height:
         raise TaxonomicScreeningError(relation_errors.item(0, "error"))
 
-    hit_counts = hits.group_by(pl.col("qseqid").alias("bait_id")).agg(
+    hit_counts = hits.group_by(pl.col("qseqid").alias("candidate_kmer_id")).agg(
         pl.col("_on_target").cast(pl.UInt64).sum().alias("on_target_hits"),
         (~pl.col("_on_target")).cast(pl.UInt64).sum().alias("off_target_hits"),
     )
     decisions = (
-        baits.join(hit_counts, on="bait_id", how="left")
+        candidates.join(hit_counts, on="candidate_kmer_id", how="left")
         .with_columns(
             pl.col("on_target_hits").fill_null(0),
             pl.col("off_target_hits").fill_null(0),
@@ -416,24 +432,20 @@ def construct_screening_result(
         )
     )
     candidate_outcomes = decisions.select(
-        "bait_id",
+        "candidate_kmer_id",
         pl.col("outcome").alias("_screening_outcome"),
     )
     transitioned_manifest = (
-        manifest.join(candidate_outcomes, on="bait_id", how="left")
+        manifest.join(candidate_outcomes, on="candidate_kmer_id", how="left")
         .with_columns(
             pl.coalesce("_screening_outcome", "outcome").alias("outcome"),
-            pl.when(pl.col("_screening_outcome") == "off_target_match")
-            .then(pl.lit(""))
-            .otherwise(pl.col("bait_id"))
-            .alias("bait_id"),
         )
         .sort("_manifest_order")
         .select(MANIFEST_FIELDS)
     )
-    decision_output = decisions.sort("_bait_order").select(DECISION_FIELDS)
+    decision_output = decisions.sort("_candidate_order").select(DECISION_FIELDS)
     survivors = decisions.filter(pl.col("outcome") == "selected").sort(
-        "_bait_order",
+        "_candidate_order",
     )
     return TaxonomicScreeningResult(
         manifest=transitioned_manifest,
@@ -444,10 +456,10 @@ def construct_screening_result(
 
 def main(argv: Sequence[str] | None = None) -> None:
     args = parse_args(argv)
-    baits = read_baits(args.baits, args.kmer_size)
+    candidates = read_candidates(args.candidates, args.kmer_size)
     manifest = scan_manifest(args.manifest_in, args.kmer_size)
     hits = scan_blast_hits(args.blast_hits, args.kmer_size, args.target_taxid)
-    result = construct_screening_result(baits, manifest, hits)
+    result = construct_screening_result(candidates, manifest, hits)
     manifest_output, decisions, survivors = pl.collect_all(
         [result.manifest, result.decisions, result.survivors],
     )
@@ -457,14 +469,17 @@ def main(argv: Sequence[str] | None = None) -> None:
     if survivors.height:
         SeqIO.write(
             (
-                SeqRecord(Seq(kmer), id=bait_id, description="")
-                for bait_id, kmer in survivors.select("bait_id", "kmer").iter_rows()
+                SeqRecord(Seq(kmer), id=candidate_kmer_id, description="")
+                for candidate_kmer_id, kmer in survivors.select(
+                    "candidate_kmer_id",
+                    "kmer",
+                ).iter_rows()
             ),
-            args.baits_out,
+            args.selected_candidates_out,
             "fasta",
         )
-    elif args.baits_out.exists():
-        args.baits_out.unlink()
+    elif args.selected_candidates_out.exists():
+        args.selected_candidates_out.unlink()
 
 
 if __name__ == "__main__":

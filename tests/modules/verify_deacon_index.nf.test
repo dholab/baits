@@ -10,7 +10,7 @@ nextflow_process {
         }
         when {
             process {
-                """input[0] = [[id: 'design'], file("\$baseDir/tests/data/taxonomic_input_baits.fasta"), file("\$baseDir/tests/data/taxonomic_input_baits.fasta"), file("$outputDir/background_roundtrip.fasta"), file("\$baseDir/tests/data/taxonomic_candidate_kmers.tsv"), file("$outputDir/deacon.idx"), 31]"""
+                """input[0] = [[id: 'design'], file("\$baseDir/tests/data/taxonomic_input_candidates.fasta"), file("\$baseDir/tests/data/taxonomic_input_candidates.fasta"), file("$outputDir/background_roundtrip.fasta"), file("\$baseDir/tests/data/taxonomic_candidate_kmers.tsv"), file("$outputDir/deacon.idx"), 31]"""
             }
         }
 

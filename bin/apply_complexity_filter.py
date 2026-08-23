@@ -17,7 +17,6 @@ if TYPE_CHECKING:
 
 MANIFEST_FIELDS = [
     "candidate_kmer_id",
-    "bait_id",
     "kmer",
     "source_copy_count",
     "background_occurrences",
@@ -35,7 +34,7 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--manifest-in", type=Path, required=True)
     parser.add_argument("--passing-kmers", type=Path, required=True)
     parser.add_argument("--manifest-out", type=Path, required=True)
-    parser.add_argument("--baits-out", type=Path, required=True)
+    parser.add_argument("--selected-candidates-out", type=Path, required=True)
     return parser.parse_args(argv)
 
 
@@ -84,7 +83,7 @@ def scan_manifest(path: Path) -> pl.LazyFrame:
     invalid_row = pl.coalesce(
         pl.when(
             pl.any_horizontal(
-                pl.col(field).is_null() for field in MANIFEST_FIELDS if field != "bait_id"
+                pl.col(field).is_null() for field in MANIFEST_FIELDS
             ),
         )
         .then(pl.lit("Candidate manifest contains a missing field")),
@@ -110,18 +109,11 @@ def scan_manifest(path: Path) -> pl.LazyFrame:
             ~pl.col("background_occurrences").str.contains(r"^[0-9]+$")
             | background_occurrences.is_null(),
         ).then(pl.concat_str(pl.lit("invalid background_occurrences for "), pl.col("candidate_kmer_id"))),
-        pl.when(pl.col("bait_id").fill_null("") != "").then(
-            pl.concat_str(
-                pl.lit("pre-complexity bait identifier must be empty for "),
-                pl.col("candidate_kmer_id"),
-            ),
-        ),
         pl.when(~(is_selected | is_background_rejection)).then(
             pl.concat_str(pl.lit("inconsistent pre-complexity state for "), pl.col("candidate_kmer_id")),
         ),
     ).alias("_invalid_row")
     parsed = manifest.with_columns(
-        pl.col("bait_id").fill_null(""),
         source_copy_count.alias("source_copy_count"),
         background_occurrences.alias("background_occurrences"),
         invalid_row,
@@ -193,25 +185,7 @@ def apply_complexity_results(manifest: pl.LazyFrame, passing_kmers: pl.LazyFrame
         .otherwise(pl.col("outcome"))
         .alias("outcome"),
     )
-    survivors = (
-        transitioned.filter(pl.col("outcome") == "selected")
-        .sort("kmer")
-        .with_row_index("_bait_number", offset=1)
-        .select(
-            "kmer",
-            pl.concat_str(
-                pl.lit("bait_"),
-                pl.col("_bait_number").cast(pl.String).str.pad_start(6, "0"),
-            ).alias("bait_id"),
-        )
-    )
-    return (
-        transitioned.drop("_passes_complexity")
-        .join(survivors, on="kmer", how="left", suffix="_survivor")
-        .with_columns(pl.coalesce("bait_id_survivor", "bait_id").alias("bait_id"))
-        .drop("bait_id_survivor")
-        .select(MANIFEST_FIELDS)
-    )
+    return transitioned.drop("_passes_complexity").select(MANIFEST_FIELDS)
 
 
 def main(argv: Sequence[str] | None = None) -> None:
@@ -236,14 +210,17 @@ def main(argv: Sequence[str] | None = None) -> None:
     if survivors.height:
         SeqIO.write(
             (
-                SeqRecord(Seq(kmer), id=bait_id, description="")
-                for bait_id, kmer in survivors.select("bait_id", "kmer").iter_rows()
+                SeqRecord(Seq(kmer), id=candidate_kmer_id, description="")
+                for candidate_kmer_id, kmer in survivors.select(
+                    "candidate_kmer_id",
+                    "kmer",
+                ).iter_rows()
             ),
-            args.baits_out,
+            args.selected_candidates_out,
             "fasta",
         )
-    elif args.baits_out.exists():
-        args.baits_out.unlink()
+    elif args.selected_candidates_out.exists():
+        args.selected_candidates_out.unlink()
 
 
 if __name__ == "__main__":

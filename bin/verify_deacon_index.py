@@ -19,7 +19,6 @@ if TYPE_CHECKING:
 
 MANIFEST_FIELDS = (
     "candidate_kmer_id",
-    "bait_id",
     "kmer",
     "source_copy_count",
     "background_occurrences",
@@ -46,7 +45,6 @@ class CandidateKmer:
     """One validated candidate k-mer manifest row."""
 
     candidate_kmer_id: str
-    bait_id: str
     kmer: str
     source_copy_count: int
     background_occurrences: int
@@ -139,7 +137,6 @@ def parse_manifest_row(row: dict[str, str | None], kmer_size: int) -> CandidateK
         message = "Candidate k-mer manifest contains a missing field"
         raise DeaconVerificationError(message)
     candidate_kmer_id = row["candidate_kmer_id"] or ""
-    bait_id = row["bait_id"] or ""
     kmer = row["kmer"] or ""
     outcome = row["outcome"] or ""
     if not candidate_kmer_id or not re.fullmatch(r"[ACGT]+", kmer) or len(kmer) != kmer_size:
@@ -156,19 +153,15 @@ def parse_manifest_row(row: dict[str, str | None], kmer_size: int) -> CandidateK
     if outcome not in OUTCOMES:
         message = "Candidate k-mer manifest contains an unknown outcome"
         raise DeaconVerificationError(message)
-    has_bait = bool(bait_id)
     valid_outcome = (
-        (outcome == "selected" and has_bait and background_occurrences == 0)
-        or (outcome == "off_target_match" and not has_bait and background_occurrences == 0)
-        or (outcome == "background_match" and not has_bait and background_occurrences > 0)
-        or (outcome == "low_complexity" and not has_bait and background_occurrences == 0)
+        (outcome in {"selected", "off_target_match", "low_complexity"} and background_occurrences == 0)
+        or (outcome == "background_match" and background_occurrences > 0)
     )
     if not valid_outcome:
         message = "Candidate k-mer manifest contains an incoherent candidate outcome"
         raise DeaconVerificationError(message)
     return CandidateKmer(
         candidate_kmer_id=candidate_kmer_id,
-        bait_id=bait_id,
         kmer=kmer,
         source_copy_count=source_copy_count,
         background_occurrences=background_occurrences,
@@ -197,10 +190,6 @@ def read_manifest(path: Path, kmer_size: int) -> tuple[CandidateKmer, ...]:
     if len({candidate.kmer for candidate in candidates}) != len(candidates):
         message = "Candidate k-mer manifest contains a duplicate k-mer"
         raise DeaconVerificationError(message)
-    bait_ids = tuple(candidate.bait_id for candidate in candidates if candidate.bait_id)
-    if len(set(bait_ids)) != len(bait_ids):
-        message = "Candidate k-mer manifest contains a duplicate bait identifier"
-        raise DeaconVerificationError(message)
     return candidates
 
 
@@ -212,7 +201,7 @@ def verify_relations(
 ) -> None:
     """Verify candidate selection and both Deacon round-trip relations."""
     selected = frozenset(
-        (candidate.bait_id, candidate.kmer)
+        (candidate.candidate_kmer_id, candidate.kmer)
         for candidate in manifest
         if candidate.outcome == "selected"
     )

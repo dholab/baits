@@ -6,7 +6,7 @@ process BLASTN_TAXONOMIC_SCREENING {
     container 'community.wave.seqera.io/library/blast:2.16.0--540f4b669b0a0ddd@sha256:f327d58dbb16c7ce228ce7079262a5e42d388ce47161397baa0d7e4313a452b7'
 
     input:
-    tuple val(meta), path(baits), path(taxonomic_reference_db, stageAs: 'reference_input/*'), val(kmer_size)
+    tuple val(meta), path(candidates), path(taxonomic_reference_db, stageAs: 'reference_input/*'), val(kmer_size)
 
     output:
     tuple val(meta), path('taxonomic_blast_hits.tsv'), emit: hits
@@ -50,7 +50,7 @@ process BLASTN_TAXONOMIC_SCREENING {
 
     printf 'qseqid\\tsaccver\\tstaxids\\tsscinames\\tpident\\tlength\\tmismatch\\tgapopen\\tqstart\\tqend\\tsstart\\tsend\\tstitle\\n' > taxonomic_blast_hits.tsv
     blastn \\
-        -query ${baits} \\
+        -query ${candidates} \\
         -db "\$db_prefix" \\
         -task blastn \\
         -num_threads ${task.cpus} \\

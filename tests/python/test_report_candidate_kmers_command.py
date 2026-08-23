@@ -3,7 +3,7 @@ from pathlib import Path
 import report_candidate_kmers as reporting
 
 PRIVATE_CANDIDATE_HEADER = (
-    "candidate_kmer_id\tbait_id\tkmer\tsource_copy_count\tbackground_occurrences\toutcome\n"
+    "candidate_kmer_id\tkmer\tsource_copy_count\tbackground_occurrences\toutcome\n"
 )
 PRIVATE_OCCURRENCE_HEADER = "candidate_kmer_id\tsource_sequence_id\tstart\tquery_group\n"
 
@@ -51,8 +51,8 @@ def test_reports_deterministic_public_candidate_tables_for_multiple_designs(
         inputs,
         "design0001",
         [
-            "candidate-2\tbait-2\tCCCCC\t1\t0\tselected\n",
-            "candidate-1\t\tAAAAA\t1\t3\tbackground_match\n",
+            "candidate-2\tCCCCC\t1\t0\tselected\n",
+            "candidate-1\tAAAAA\t1\t3\tbackground_match\n",
         ],
         [
             "candidate-2\tsource-z\t2\tgroup-z\n",
@@ -63,8 +63,8 @@ def test_reports_deterministic_public_candidate_tables_for_multiple_designs(
         inputs,
         "design0002",
         [
-            "candidate-2\t\tTTTTT\t1\t0\tlow_complexity\n",
-            "candidate-1\tbait-1\tGGGGG\t2\t0\tselected\n",
+            "candidate-2\tTTTTT\t1\t0\tlow_complexity\n",
+            "candidate-1\tGGGGG\t2\t0\tselected\n",
         ],
         [
             "candidate-1\tsource-b\t10\tgroup-b\n",

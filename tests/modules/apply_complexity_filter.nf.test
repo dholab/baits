@@ -12,12 +12,12 @@ nextflow_process {
         then {
             assert process.success
             assert file(process.out.manifest[0][1]).text.contains('low_complexity')
-            assert process.out.baits.size() == 1
-            assert file(process.out.baits[0][1]).text.contains('ACGTTGCATGTCAGTACGATCGTAGCTAGCA')
+            assert process.out.candidates.size() == 1
+            assert file(process.out.candidates[0][1]).text.contains('ACGTTGCATGTCAGTACGATCGTAGCTAGCA')
         }
     }
 
-    test("emits outcomes without a bait continuation when nothing is selected") {
+    test("emits outcomes without selected candidates when nothing passes") {
         setup {
             new File("$outputDir/empty.fasta").text = ''
         }
@@ -28,7 +28,7 @@ nextflow_process {
         }
         then {
             assert process.success
-            assert process.out.baits.size() == 0
+            assert process.out.candidates.size() == 0
             assert file(process.out.manifest[0][1]).text.count('low_complexity') == 3
         }
     }

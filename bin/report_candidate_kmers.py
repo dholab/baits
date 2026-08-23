@@ -15,7 +15,6 @@ if TYPE_CHECKING:
 
 PRIVATE_CANDIDATE_SCHEMA = {
     "candidate_kmer_id": pl.String,
-    "bait_id": pl.String,
     "kmer": pl.String,
     "source_copy_count": pl.UInt64,
     "background_occurrences": pl.UInt64,

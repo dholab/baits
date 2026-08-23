@@ -25,7 +25,7 @@ input:
   - - meta:
         type: map
         description: Design metadata.
-    - baits:
+    - candidates:
         type: file
         description: Candidate k-mers selected before taxonomic screening.
         ontologies: []
@@ -44,7 +44,7 @@ input:
         description: Target NCBI taxonomy identifier.
     - kmer_size:
         type: integer
-        description: Exact bait k-mer length.
+        description: Exact candidate k-mer length.
 output:
   manifest:
     - - meta:
@@ -62,18 +62,18 @@ output:
           description: Design metadata.
       - screening_decisions.tsv:
           type: file
-          description: Per-bait exact-match taxonomic decisions.
+          description: Per-candidate exact-match taxonomic decisions.
           pattern: screening_decisions.tsv
           ontologies:
             - edam: http://edamontology.org/format_3475 # TSV
-  baits:
+  candidates:
     - - meta:
           type: map
           description: Design metadata.
-      - baits.fasta:
+      - selected_candidates.fasta:
           type: file
           description: Optional FASTA containing candidates selected after taxonomic screening.
-          pattern: baits.fasta
+          pattern: selected_candidates.fasta
           ontologies: []
   versions_biopython:
     - - ${task.process}:

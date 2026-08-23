@@ -6,12 +6,12 @@ process APPLY_TAXONOMIC_SCREENING {
     container 'community.wave.seqera.io/library/biopython_polars_python:5f22dbb8160be6fa@sha256:20d95779744ec0d8a943473966c3403a9d4b09f3d53722ffd67169972ab1b2da'
 
     input:
-    tuple val(meta), path(baits), path(blast_hits), path(candidate_kmer_manifest, stageAs: 'screening_input/candidate_kmers.tsv'), val(target_taxid), val(kmer_size)
+    tuple val(meta), path(candidates), path(blast_hits), path(candidate_kmer_manifest, stageAs: 'screening_input/candidate_kmers.tsv'), val(target_taxid), val(kmer_size)
 
     output:
     tuple val(meta), path('candidate_kmers.tsv'), emit: manifest
     tuple val(meta), path('screening_decisions.tsv'), emit: decisions
-    tuple val(meta), path('baits.fasta'), optional: true, emit: baits
+    tuple val(meta), path('selected_candidates.fasta'), optional: true, emit: candidates
     tuple val("${task.process}"), val('biopython'), eval("python -c 'import Bio; print(Bio.__version__)'"), topic: versions, emit: versions_biopython
     tuple val("${task.process}"), val('polars'), eval("python -c 'import polars; print(polars.__version__)'"), topic: versions, emit: versions_polars
     tuple val(meta), val('biopython'), eval("python -c 'import Bio; print(Bio.__version__)'"), emit: reported_biopython
@@ -25,11 +25,11 @@ process APPLY_TAXONOMIC_SCREENING {
     apply_taxonomic_screening.py \
         --target-taxid ${target_taxid} \
         --kmer-size ${kmer_size} \
-        --baits ${baits} \
+        --candidates ${candidates} \
         --blast-hits ${blast_hits} \
         --manifest-in ${candidate_kmer_manifest} \
         --manifest-out candidate_kmers.tsv \
-        --baits-out baits.fasta \
+        --selected-candidates-out selected_candidates.fasta \
         --decisions-out screening_decisions.tsv
     """
 }

@@ -30,8 +30,8 @@ def valid_manifest_rows() -> list[dict[str, str]]:
     return [
         dict(zip(complexity.MANIFEST_FIELDS, values, strict=True))
         for values in (
-            ("candidate_kmer_000001", "", KMER_A, "1", "0", "selected"),
-            ("candidate_kmer_000002", "", KMER_B, "2", "4", "background_match"),
+            ("candidate_kmer_000001", KMER_A, "1", "0", "selected"),
+            ("candidate_kmer_000002", KMER_B, "2", "4", "background_match"),
         )
     ]
 
@@ -159,16 +159,9 @@ def test_background_matches_are_candidate_subset_and_preserve_background_multipl
         candidates.construct_candidate_tables(source, query_groups, counts({"kmer": [KMER_A, candidates.project_canonical(KMER_A[1:] + "A")], "count": [1, 1]}), counts({"kmer": [KMER_B], "count": [1]}), len(KMER_A))
 
 
-@pytest.mark.parametrize(
-    "mutate",
-    [
-        lambda row: row.__setitem__("outcome", "selected"),
-        lambda row: row.__setitem__("bait_id", "bait_000001"),
-    ],
-)
-def test_pre_complexity_manifest_requires_coherent_outcomes(tmp_path: Path, mutate: object) -> None:
+def test_pre_complexity_manifest_requires_coherent_outcomes(tmp_path: Path) -> None:
     rows = valid_manifest_rows()
-    mutate(rows[1])  # type: ignore[operator]
+    rows[1]["outcome"] = "selected"
     path = tmp_path / "manifest.tsv"
     pl.DataFrame(rows, schema=complexity.MANIFEST_SCHEMA).write_csv(path, separator="\t")
     with pytest.raises(complexity.ComplexityFilterError, match="pre-complexity"):
@@ -207,19 +200,19 @@ def test_complexity_filter_matches_a_deacon_reverse_complement_to_its_candidate_
     passing_kmers = tmp_path / "passing_kmers.fasta"
     passing_kmers.write_text(f">deacon_record\n{KMER_B_RC}\n")
     manifest_out = tmp_path / "filtered_candidate_kmers.tsv"
-    baits_out = tmp_path / "baits.fasta"
+    candidates_out = tmp_path / "selected_candidates.fasta"
 
     complexity.main([
         "--manifest-in", str(manifest_in),
         "--passing-kmers", str(passing_kmers),
         "--manifest-out", str(manifest_out),
-        "--baits-out", str(baits_out),
+        "--selected-candidates-out", str(candidates_out),
     ])
 
     assert pl.read_csv(manifest_out, separator="\t").select("kmer", "outcome").rows() == [
         (KMER_B, "selected"),
     ]
-    assert baits_out.read_text().endswith(f"\n{KMER_B}\n")
+    assert candidates_out.read_text() == f">candidate_kmer_000001\n{KMER_B}\n"
 
 
 def test_complexity_filter_rejects_unknown_pass_key(tmp_path: Path) -> None:
@@ -228,7 +221,7 @@ def test_complexity_filter_rejects_unknown_pass_key(tmp_path: Path) -> None:
     passing = tmp_path / "passing.fasta"
     passing.write_text(f">unknown\n{KMER_B}\n")
     with pytest.raises(complexity.ComplexityFilterError, match="not eligible"):
-        complexity.main(["--manifest-in", str(path), "--passing-kmers", str(passing), "--manifest-out", str(tmp_path / "out.tsv"), "--baits-out", str(tmp_path / "baits.fasta")])
+        complexity.main(["--manifest-in", str(path), "--passing-kmers", str(passing), "--manifest-out", str(tmp_path / "out.tsv"), "--selected-candidates-out", str(tmp_path / "selected_candidates.fasta")])
 
 
 def test_complexity_filter_preserves_background_matches_and_marks_low_complexity() -> None:
@@ -240,7 +233,6 @@ def test_complexity_filter_preserves_background_matches_and_marks_low_complexity
                 "candidate_kmer_000002",
                 "candidate_kmer_000003",
             ],
-            "bait_id": ["", "", ""],
             "kmer": [KMER_A, KMER_B, kmer_c],
             "source_copy_count": [1, 1, 1],
             "background_occurrences": [0, 4, 0],
@@ -266,7 +258,7 @@ def test_complexity_command_writes_outcomes_and_no_fasta_when_no_candidates_are_
     passing = tmp_path / "passing.fasta"
     passing.write_text("")
     output = tmp_path / "out.tsv"
-    baits = tmp_path / "baits.fasta"
-    complexity.main(["--manifest-in", str(input_path), "--passing-kmers", str(passing), "--manifest-out", str(output), "--baits-out", str(baits)])
-    assert not baits.exists()
+    selected_candidates = tmp_path / "selected_candidates.fasta"
+    complexity.main(["--manifest-in", str(input_path), "--passing-kmers", str(passing), "--manifest-out", str(output), "--selected-candidates-out", str(selected_candidates)])
+    assert not selected_candidates.exists()
     assert pl.read_csv(output, separator="\t").item(0, "outcome") == "low_complexity"

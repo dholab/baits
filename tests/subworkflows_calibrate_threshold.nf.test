@@ -7,7 +7,7 @@ nextflow_workflow {
         setup {
             def firstSequence = 'ACGTA' + ('G' * 95)
             def secondSequence = 'ACGTA' + ('C' * 95)
-            new File("$outputDir/baits.fasta").text = '>bait_000001\nACGTA\n'
+            new File("$outputDir/baits.fasta").text = '>candidate_kmer_000001\nACGTA\n'
             new File("$outputDir/reads.fastq").text = "@first\n${firstSequence}\n+\n${'I' * 100}\n@second\n${secondSequence}\n+\n${'I' * 100}\n"
             new File("$outputDir/scope.tsv").text = 'taxid\n1729\n88456\n'
             new File("$outputDir/taxonomic_reference_db").mkdirs()

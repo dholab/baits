@@ -1,5 +1,5 @@
-candidate_kmer_id	bait_id	kmer	source_copy_count	background_occurrences	outcome
-candidate_kmer_000001		AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA	1	0	selected
-candidate_kmer_000002		ACGTACGTACGTACGTACGTACGTACGTACG	1	3	background_match
-candidate_kmer_000003		ACGTTGCATGTCAGTACGATCGTAGCTAGCA	1	0	selected
-candidate_kmer_000004		CGTACGTACGTACGTACGTACGTACGTACGA	1	0	selected
+candidate_kmer_id	kmer	source_copy_count	background_occurrences	outcome
+candidate_kmer_000001	AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA	1	0	selected
+candidate_kmer_000002	ACGTACGTACGTACGTACGTACGTACGTACG	1	3	background_match
+candidate_kmer_000003	ACGTTGCATGTCAGTACGATCGTAGCTAGCA	1	0	selected
+candidate_kmer_000004	CGTACGTACGTACGTACGTACGTACGTACGA	1	0	selected

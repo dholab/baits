@@ -4,7 +4,7 @@ from pathlib import Path
 
 PROJECT = Path(__file__).resolve().parents[2]
 MANIFEST_HEADER = (
-    "candidate_kmer_id\tbait_id\tkmer\tsource_copy_count\tbackground_occurrences\toutcome\n"
+    "candidate_kmer_id\tkmer\tsource_copy_count\tbackground_occurrences\toutcome\n"
 )
 
 
@@ -13,10 +13,9 @@ def write_inputs(
     *,
     selected_kmer: str = "ACGTA",
     background: str = "",
-    off_target_bait_id: str = "",
 ) -> list[str]:
     baits = tmp_path / "baits.fasta"
-    baits.write_text(">private-bait\nACGTA\n")
+    baits.write_text(">candidate-a\nACGTA\n")
     bait_roundtrip = tmp_path / "bait-roundtrip.fasta"
     bait_roundtrip.write_text(">deacon-output\nACGTA\n")
     background_roundtrip = tmp_path / "background-roundtrip.fasta"
@@ -24,10 +23,10 @@ def write_inputs(
     manifest = tmp_path / "candidate-kmers.tsv"
     manifest.write_text(
         MANIFEST_HEADER
-        + f"candidate-a\tprivate-bait\t{selected_kmer}\t1\t0\tselected\n"
-        + "candidate-b\t\tAAAAA\t2\t0\tlow_complexity\n"
-        + "candidate-c\t\tAACGT\t1\t3\tbackground_match\n"
-        + f"candidate-d\t{off_target_bait_id}\tACCGT\t1\t0\toff_target_match\n",
+        + f"candidate-a\t{selected_kmer}\t1\t0\tselected\n"
+        + "candidate-b\tAAAAA\t2\t0\tlow_complexity\n"
+        + "candidate-c\tAACGT\t1\t3\tbackground_match\n"
+        + "candidate-d\tACCGT\t1\t0\toff_target_match\n",
     )
     return [
         "--kmer-size",
@@ -93,10 +92,3 @@ def test_verifier_rejects_an_unknown_candidate_outcome(tmp_path: Path) -> None:
 
     assert result.returncode != 0
     assert "unknown outcome" in result.stderr
-
-
-def test_verifier_rejects_a_bait_identifier_on_an_off_target_candidate(tmp_path: Path) -> None:
-    result = run_verifier(write_inputs(tmp_path, off_target_bait_id="removed-bait"))
-
-    assert result.returncode != 0
-    assert "incoherent candidate outcome" in result.stderr

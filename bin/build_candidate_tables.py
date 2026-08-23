@@ -20,7 +20,6 @@ if TYPE_CHECKING:
 
 MANIFEST_COLUMNS = [
     "candidate_kmer_id",
-    "bait_id",
     "kmer",
     "source_copy_count",
     "background_occurrences",
@@ -320,7 +319,6 @@ def construct_candidate_tables(
         numbered_candidates.join(background_intersection_counts, on="kmer", how="left")
         .with_columns(pl.col("count").fill_null(0).alias("background_occurrences"))
         .with_columns(
-            pl.lit("").alias("bait_id"),
             pl.when(pl.col("background_occurrences") > 0)
             .then(pl.lit("background_match"))
             .otherwise(pl.lit("selected"))

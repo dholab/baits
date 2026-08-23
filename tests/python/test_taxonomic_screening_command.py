@@ -10,14 +10,21 @@ KMER_REJECTED = "AAAAA"
 KMERS = ("AACGT", "ACGTA", "AGTCC", "CCGTA", "CGTAC")
 
 
-def bait_frame() -> pl.LazyFrame:
+def candidate_frame() -> pl.LazyFrame:
     return pl.LazyFrame(
         {
-            "_bait_order": range(1, len(KMERS) + 1),
-            "bait_id": [f"bait_{number:06d}" for number in range(1, len(KMERS) + 1)],
+            "_candidate_order": range(1, len(KMERS) + 1),
+            "candidate_kmer_id": [
+                f"candidate_kmer_{number + 1:06d}"
+                for number in range(1, len(KMERS) + 1)
+            ],
             "kmer": KMERS,
         },
-        schema={"_bait_order": pl.UInt32, "bait_id": pl.String, "kmer": pl.String},
+        schema={
+            "_candidate_order": pl.UInt32,
+            "candidate_kmer_id": pl.String,
+            "kmer": pl.String,
+        },
     )
 
 
@@ -25,7 +32,6 @@ def manifest_frame() -> pl.LazyFrame:
     rows = [
         {
             "candidate_kmer_id": "candidate_kmer_000001",
-            "bait_id": "",
             "kmer": KMER_REJECTED,
             "source_copy_count": 1,
             "background_occurrences": 0,
@@ -35,7 +41,6 @@ def manifest_frame() -> pl.LazyFrame:
         *[
             {
                 "candidate_kmer_id": f"candidate_kmer_{number + 1:06d}",
-                "bait_id": f"bait_{number:06d}",
                 "kmer": kmer,
                 "source_copy_count": 1,
                 "background_occurrences": 0,
@@ -51,7 +56,7 @@ def manifest_frame() -> pl.LazyFrame:
 def hit_frame(rows: list[tuple[str, bool]]) -> pl.LazyFrame:
     return pl.LazyFrame(
         {
-            "qseqid": [bait_id for bait_id, _ in rows],
+            "qseqid": [candidate_kmer_id for candidate_kmer_id, _ in rows],
             "_on_target": [on_target for _, on_target in rows],
         },
         schema={"qseqid": pl.String, "_on_target": pl.Boolean},
@@ -59,10 +64,10 @@ def hit_frame(rows: list[tuple[str, bool]]) -> pl.LazyFrame:
 
 
 def write_inputs(tmp_path: Path, *, all_rejected: bool = False) -> tuple[Path, Path, Path]:
-    baits = tmp_path / "baits.fasta"
-    baits.write_text(
+    candidates = tmp_path / "selected_candidates.fasta"
+    candidates.write_text(
         "".join(
-            f">bait_{number:06d}\n{kmer}\n"
+            f">candidate_kmer_{number + 1:06d}\n{kmer}\n"
             for number, kmer in enumerate(KMERS, start=1)
         ),
     )
@@ -75,49 +80,49 @@ def write_inputs(tmp_path: Path, *, all_rejected: bool = False) -> tuple[Path, P
     hits = tmp_path / "blast_hits.tsv"
     blast_rows = (
         [
-            ("bait_000001", "123"),
-            ("bait_000002", "N/A"),
-            ("bait_000003", "88456;123"),
-            ("bait_000004", "999"),
-            ("bait_000005", "N/A"),
+            ("candidate_kmer_000002", "123"),
+            ("candidate_kmer_000003", "N/A"),
+            ("candidate_kmer_000004", "88456;123"),
+            ("candidate_kmer_000005", "999"),
+            ("candidate_kmer_000006", "N/A"),
         ]
         if all_rejected
         else [
-            ("bait_000001", "88456"),
-            ("bait_000001", "88456"),
-            ("bait_000003", "123"),
-            ("bait_000004", "88456"),
-            ("bait_000004", "88456;123"),
-            ("bait_000005", "N/A"),
+            ("candidate_kmer_000002", "88456"),
+            ("candidate_kmer_000002", "88456"),
+            ("candidate_kmer_000004", "123"),
+            ("candidate_kmer_000005", "88456"),
+            ("candidate_kmer_000005", "88456;123"),
+            ("candidate_kmer_000006", "N/A"),
         ]
     )
     hits.write_text(
         "\t".join(screening.BLAST_FIELDS)
         + "\n"
         + "".join(
-            f"{bait_id}\tACCESSION.1\t{taxids}\tname\t100\t5\t0\t0\t1\t5\t10\t14\ttitle\n"
-            for bait_id, taxids in blast_rows
+            f"{candidate_kmer_id}\tACCESSION.1\t{taxids}\tname\t100\t5\t0\t0\t1\t5\t10\t14\ttitle\n"
+            for candidate_kmer_id, taxids in blast_rows
         ),
     )
-    return baits, manifest, hits
+    return candidates, manifest, hits
 
 
-def command_args(tmp_path: Path, baits: Path, manifest: Path, hits: Path) -> list[str]:
+def command_args(tmp_path: Path, candidates: Path, manifest: Path, hits: Path) -> list[str]:
     return [
         "--target-taxid",
         "88456",
         "--kmer-size",
         "5",
-        "--baits",
-        str(baits),
+        "--candidates",
+        str(candidates),
         "--blast-hits",
         str(hits),
         "--manifest-in",
         str(manifest),
         "--manifest-out",
         str(tmp_path / "screened_candidate_kmers.tsv"),
-        "--baits-out",
-        str(tmp_path / "selected_baits.fasta"),
+        "--selected-candidates-out",
+        str(tmp_path / "screened_candidates.fasta"),
         "--decisions-out",
         str(tmp_path / "screening_decisions.tsv"),
     ]
@@ -126,21 +131,21 @@ def command_args(tmp_path: Path, baits: Path, manifest: Path, hits: Path) -> lis
 def test_taxonomic_screening_preserves_prior_outcomes_and_marks_off_target_matches() -> None:
     hits = hit_frame(
         [
-            ("bait_000004", False),
-            ("bait_000001", True),
-            ("bait_000003", False),
-            ("bait_000004", True),
-            ("bait_000001", True),
-            ("bait_000005", False),
+            ("candidate_kmer_000005", False),
+            ("candidate_kmer_000002", True),
+            ("candidate_kmer_000004", False),
+            ("candidate_kmer_000005", True),
+            ("candidate_kmer_000002", True),
+            ("candidate_kmer_000006", False),
         ],
     )
 
-    result = screening.construct_screening_result(bait_frame(), manifest_frame(), hits)
+    result = screening.construct_screening_result(candidate_frame(), manifest_frame(), hits)
     manifest, survivors = pl.collect_all([result.manifest, result.survivors])
 
-    assert survivors.select("bait_id", "kmer").rows() == [
-        ("bait_000001", "AACGT"),
-        ("bait_000002", "ACGTA"),
+    assert survivors.select("candidate_kmer_id", "kmer").rows() == [
+        ("candidate_kmer_000002", "AACGT"),
+        ("candidate_kmer_000003", "ACGTA"),
     ]
     assert manifest.select("kmer", "outcome").rows() == [
         (KMER_REJECTED, "low_complexity"),
@@ -153,22 +158,24 @@ def test_taxonomic_screening_preserves_prior_outcomes_and_marks_off_target_match
 
 
 def test_no_database_hits_allow_every_bait_to_pass() -> None:
-    result = screening.construct_screening_result(bait_frame(), manifest_frame(), hit_frame([]))
+    result = screening.construct_screening_result(candidate_frame(), manifest_frame(), hit_frame([]))
     assert result.decisions.collect().select("outcome").rows() == [("selected",)] * len(KMERS)
 
 
-def test_manifest_and_bait_relations_must_be_bijective() -> None:
-    missing_bait = bait_frame().filter(pl.col("bait_id") != "bait_000005")
-    with pytest.raises(screening.TaxonomicScreeningError, match="absent from the bait FASTA"):
-        screening.construct_screening_result(missing_bait, manifest_frame(), hit_frame([]))
+def test_manifest_and_candidate_fasta_relations_must_be_bijective() -> None:
+    missing_candidate = candidate_frame().filter(
+        pl.col("candidate_kmer_id") != "candidate_kmer_000006",
+    )
+    with pytest.raises(screening.TaxonomicScreeningError, match="absent from the candidate FASTA"):
+        screening.construct_screening_result(missing_candidate, manifest_frame(), hit_frame([]))
 
-    mismatched_sequence = bait_frame().with_columns(
-        pl.when(pl.col("bait_id") == "bait_000001")
+    mismatched_sequence = candidate_frame().with_columns(
+        pl.when(pl.col("candidate_kmer_id") == "candidate_kmer_000002")
         .then(pl.lit("AAAAC"))
         .otherwise(pl.col("kmer"))
         .alias("kmer"),
     )
-    with pytest.raises(screening.TaxonomicScreeningError, match="absent from the bait FASTA"):
+    with pytest.raises(screening.TaxonomicScreeningError, match="absent from the candidate FASTA"):
         screening.construct_screening_result(mismatched_sequence, manifest_frame(), hit_frame([]))
 
 
@@ -197,7 +204,7 @@ def test_blast_ingestion_rejects_invalid_exact_matches(
     row = dict.fromkeys(screening.BLAST_FIELDS, "value")
     row.update(
         {
-            "qseqid": "bait_000001",
+            "qseqid": "candidate_kmer_000002",
             "staxids": "88456",
             "pident": "100",
             "length": "5",
@@ -221,11 +228,11 @@ def test_blast_ingestion_rejects_invalid_exact_matches(
 
 
 def test_command_writes_candidate_outcomes_and_selected_baits(tmp_path: Path) -> None:
-    baits, manifest, hits = write_inputs(tmp_path)
-    screening.main(command_args(tmp_path, baits, manifest, hits))
+    candidates, manifest, hits = write_inputs(tmp_path)
+    screening.main(command_args(tmp_path, candidates, manifest, hits))
 
-    assert (tmp_path / "selected_baits.fasta").read_text() == (
-        ">bait_000001\nAACGT\n>bait_000002\nACGTA\n"
+    assert (tmp_path / "screened_candidates.fasta").read_text() == (
+        ">candidate_kmer_000002\nAACGT\n>candidate_kmer_000003\nACGTA\n"
     )
     assert pl.read_csv(tmp_path / "screened_candidate_kmers.tsv", separator="\t").get_column(
         "outcome",
@@ -240,13 +247,13 @@ def test_command_writes_candidate_outcomes_and_selected_baits(tmp_path: Path) ->
 
     terminal = tmp_path / "terminal"
     terminal.mkdir()
-    baits, manifest, hits = write_inputs(terminal, all_rejected=True)
-    screening.main(command_args(terminal, baits, manifest, hits))
-    assert not (terminal / "selected_baits.fasta").exists()
+    candidates, manifest, hits = write_inputs(terminal, all_rejected=True)
+    screening.main(command_args(terminal, candidates, manifest, hits))
+    assert not (terminal / "screened_candidates.fasta").exists()
     terminal_manifest = pl.read_csv(terminal / "screened_candidate_kmers.tsv", separator="\t")
-    assert terminal_manifest.filter(pl.col("outcome") == "off_target_match").get_column(
-        "bait_id",
-    ).fill_null("").to_list() == [""] * len(KMERS)
+    assert terminal_manifest.filter(pl.col("outcome") == "off_target_match").height == len(
+        KMERS,
+    )
 
 
 def test_blast_ingestion_accepts_reverse_strand_exact_subject_span(tmp_path: Path) -> None:
@@ -254,7 +261,7 @@ def test_blast_ingestion_accepts_reverse_strand_exact_subject_span(tmp_path: Pat
         zip(
             screening.BLAST_FIELDS,
             (
-                "bait_000001",
+                "candidate_kmer_000002",
                 "ACCESSION.1",
                 "88456",
                 "name",
@@ -292,19 +299,31 @@ def test_manifest_ingestion_rejects_overflowing_source_count(tmp_path: Path) -> 
         screening.scan_manifest(path, 5)
 
 
-def test_fasta_ingestion_requires_canonical_sequential_baits() -> None:
+def test_fasta_ingestion_requires_canonical_candidate_ids_and_sequences() -> None:
     with pytest.raises(screening.TaxonomicScreeningError, match="malformed"):
-        screening.construct_baits(
-            [SeqRecord(Seq(""), id="bait_000001", description="bait_000001")],
+        screening.construct_candidates(
+            [
+                SeqRecord(
+                    Seq(""),
+                    id="candidate_kmer_000001",
+                    description="candidate_kmer_000001",
+                ),
+            ],
             5,
         )
-    with pytest.raises(screening.TaxonomicScreeningError, match="sequential"):
-        screening.construct_baits(
-            [SeqRecord(Seq("AACGT"), id="bait_000002", description="bait_000002")],
+    with pytest.raises(screening.TaxonomicScreeningError, match="invalid candidate identifier"):
+        screening.construct_candidates(
+            [SeqRecord(Seq("AACGT"), id="candidate_000002", description="candidate_000002")],
             5,
         )
     with pytest.raises(screening.TaxonomicScreeningError, match="noncanonical"):
-        screening.construct_baits(
-            [SeqRecord(Seq("TACGG"), id="bait_000001", description="bait_000001")],
+        screening.construct_candidates(
+            [
+                SeqRecord(
+                    Seq("TACGG"),
+                    id="candidate_kmer_000001",
+                    description="candidate_kmer_000001",
+                ),
+            ],
             5,
         )

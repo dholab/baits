@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/nf-core/modules/master/modules/meta-schema.json
 name: count_read_baits
-description: Count taxonomically screened baits on individual candidate reads.
+description: Count final baits on individual candidate reads.
 keywords:
   - fastq
   - k-mer
@@ -23,7 +23,7 @@ input:
         description: Metagenome metadata.
     - baits:
         type: file
-        description: Taxonomically screened bait FASTA.
+        description: Final bait FASTA.
         ontologies: []
     - read:
         type: file

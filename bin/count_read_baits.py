@@ -42,23 +42,23 @@ class CandidateReadRecountError(ValueError):
 
     @classmethod
     def empty_bait_set(cls) -> CandidateReadRecountError:
-        return cls("Taxonomically screened bait set must not be empty")
+        return cls("Bait set must not be empty")
 
     @classmethod
     def duplicate_baits(cls) -> CandidateReadRecountError:
-        return cls("Taxonomically screened baits must be unique")
+        return cls("Baits must be unique")
 
     @classmethod
     def unequal_bait_lengths(cls) -> CandidateReadRecountError:
-        return cls("Taxonomically screened baits must have one k-mer size")
+        return cls("Baits must have one k-mer size")
 
     @classmethod
     def disagreeing_kmer_size(cls) -> CandidateReadRecountError:
-        return cls("Taxonomically screened bait length disagrees with kmer_size")
+        return cls("Bait length disagrees with kmer_size")
 
     @classmethod
     def zero_bait_candidate(cls) -> CandidateReadRecountError:
-        return cls("Deacon returned a candidate read with zero taxonomically screened baits")
+        return cls("Deacon returned a candidate read with zero baits")
 
 
 @dataclass(frozen=True)

@@ -9,8 +9,8 @@ nextflow_workflow {
             workflow {
                 """
                 input[0] = Channel.of(
-                    [[id: 'design_a'], file(\"\$baseDir/tests/data/taxonomic_input_baits.fasta\"), file(\"\$baseDir/tests/data/taxonomic_candidate_kmers.tsv\"), '88456'],
-                    [[id: 'design_b'], file(\"\$baseDir/tests/data/taxonomic_input_baits.fasta\"), file(\"\$baseDir/tests/data/taxonomic_candidate_kmers.tsv\"), '88456']
+                    [[id: 'design_a'], file(\"\$baseDir/tests/data/taxonomic_input_candidates.fasta\"), file(\"\$baseDir/tests/data/taxonomic_candidate_kmers.tsv\"), '88456'],
+                    [[id: 'design_b'], file(\"\$baseDir/tests/data/taxonomic_input_candidates.fasta\"), file(\"\$baseDir/tests/data/taxonomic_candidate_kmers.tsv\"), '88456']
                 )
                 input[1] = Channel.value(file(\"\$baseDir/tests/data/taxonomic_reference_db\"))
                 input[2] = Channel.value(31)
@@ -23,7 +23,7 @@ nextflow_workflow {
             assert workflow.out.hits.size() == 2
             assert workflow.out.decisions.size() == 2
             assert workflow.out.manifest.size() == 2
-            assert workflow.out.baits.size() == 2
+            assert workflow.out.candidates.size() == 2
             assert workflow.out.reference_database_report.size() == 2
         }
     }
