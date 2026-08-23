@@ -336,7 +336,7 @@ workflow BAITS_MAIN {
         .mix(TAXONOMIC_EXACT_MATCH_SCREENING.out.manifest)
     candidate_kmer_occurrences = FILTER_CANDIDATE_KMERS.out.occurrences
     taxonomic_blast_hits = TAXONOMIC_EXACT_MATCH_SCREENING.out.hits
-    screening_decisions = TAXONOMIC_EXACT_MATCH_SCREENING.out.decisions
+    taxonomic_candidate_kmers = TAXONOMIC_EXACT_MATCH_SCREENING.out.manifest
     baits = FILTER_CANDIDATE_KMERS.out.candidates
         .combine(ch_taxonomic_screening_not_run)
         .map { meta, candidates, manifest, not_run -> tuple(meta, candidates) }

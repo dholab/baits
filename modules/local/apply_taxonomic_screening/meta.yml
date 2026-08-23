@@ -56,16 +56,6 @@ output:
           pattern: candidate_kmers.tsv
           ontologies:
             - edam: http://edamontology.org/format_3475 # TSV
-  decisions:
-    - - meta:
-          type: map
-          description: Design metadata.
-      - screening_decisions.tsv:
-          type: file
-          description: Per-candidate exact-match taxonomic decisions.
-          pattern: screening_decisions.tsv
-          ontologies:
-            - edam: http://edamontology.org/format_3475 # TSV
   candidates:
     - - meta:
           type: map

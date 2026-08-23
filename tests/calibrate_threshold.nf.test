@@ -34,6 +34,14 @@ nextflow_pipeline {
             assert workflow.success
             def runDir = new File(outputDir).parent
             def design = new File("$runDir/results/calibrated")
+            def artifacts = new File("$runDir/results/artifacts/calibrated")
+            assert new File(artifacts, 'source_sequences.fasta').exists()
+            assert new File(artifacts, 'baits.fasta').exists()
+            assert new File(artifacts, 'deacon.idx').exists()
+            assert artifacts.list().sort() == ['baits.fasta', 'deacon.idx', 'source_sequences.fasta']
+            def taxonomicMatches = new java.util.zip.GZIPInputStream(new FileInputStream("$runDir/results/taxonomic_matches.tsv.gz")).text
+            assert taxonomicMatches.readLines()[0].startsWith('design_id\tkmer\tsubject_accession')
+            assert !new File(design, '03_taxonomic_screening').exists()
             assert new File(design, '06_calibration/candidate_read_counts.tsv').exists()
             assert new File(design, '06_calibration/candidate_read_counts.tsv').readLines().size() == 4
             def candidateLines = new File(design, '06_calibration/candidate_read_counts.tsv').readLines().drop(1)
@@ -158,7 +166,11 @@ genus_scope,88456,$outputDir/source.fasta,,,,$baseDir/tests/data/background.fast
             def runDir = new File(outputDir).parent
             def defaultDesign = new File("$runDir/results/default_scope")
             def genusDesign = new File("$runDir/results/genus_scope")
-            assert new File("$runDir/results/artifacts/default_scope/baits.fasta").bytes == new File("$runDir/results/artifacts/genus_scope/baits.fasta").bytes
+            def defaultArtifacts = new File("$runDir/results/artifacts/default_scope")
+            def genusArtifacts = new File("$runDir/results/artifacts/genus_scope")
+            assert new File(defaultArtifacts, 'baits.fasta').bytes == new File(genusArtifacts, 'baits.fasta').bytes
+            assert ['source_sequences.fasta', 'baits.fasta', 'deacon.idx'].every { new File(defaultArtifacts, it).exists() }
+            assert ['source_sequences.fasta', 'baits.fasta', 'deacon.idx'].every { new File(genusArtifacts, it).exists() }
             assert new File(defaultDesign, '06_calibration/classified_reads.tsv').text.contains('\tNON_TARGET\t')
             assert new File(genusDesign, '06_calibration/classified_reads.tsv').text.contains('\tTARGET\t')
             def defaultInputs = new File(defaultDesign, '07_provenance/inputs.tsv').text
@@ -193,9 +205,17 @@ genus_scope,88456,$outputDir/source.fasta,,,,$baseDir/tests/data/background.fast
             assert workflow.success
             def runDir = new File(outputDir).parent
             def design = new File("$runDir/results/screening_terminal")
-            assert new File("$runDir/results/candidate_kmers.tsv").text.contains('off_target_match')
+            def candidateRows = new File("$runDir/results/candidate_kmers.tsv").readLines().drop(1)*.split('\t')
+            def offTargetKmers = candidateRows.findAll { it[3] == 'off_target_match' }.collect { it[1] }.toSet()
+            assert offTargetKmers
+            def taxonomicMatches = new java.util.zip.GZIPInputStream(new FileInputStream("$runDir/results/taxonomic_matches.tsv.gz")).text
+            assert taxonomicMatches.readLines().drop(1).every { it.startsWith('screening_terminal\t') }
+            assert taxonomicMatches.readLines().size() > 1
+            def matchedKmers = taxonomicMatches.readLines().drop(1)*.split('\t')*.getAt(1).toSet()
+            assert matchedKmers.containsAll(offTargetKmers)
             assert !new File(design, '06_calibration').exists()
-            assert !new File("$runDir/results/artifacts/screening_terminal/baits.fasta").exists()
+            assert new File("$runDir/results/artifacts/screening_terminal/baits.fasta").text == ''
+            assert !new File("$runDir/results/artifacts/screening_terminal/deacon.idx").exists()
             assert new File(design, '07_provenance/inputs.tsv').text.contains('calibration_read\tscreening_terminal__sample\tfilename\tsample.fastq')
             assert !new File(design, '07_provenance/parameters.tsv').text.contains('deacon_filter_absolute_threshold')
             assert !new File(design, '07_provenance/parameters.tsv').text.contains('read_classification_tie_tolerance')

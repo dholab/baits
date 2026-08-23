@@ -1,0 +1,52 @@
+nextflow_workflow {
+    name "Report taxonomic matches subworkflow"
+    script "../subworkflows/local/report_taxonomic_matches/main.nf"
+    workflow "REPORT_TAXONOMIC_MATCH_RESULTS"
+
+    test("combines taxonomic matches across designs in design order") {
+        setup {
+            new File("$outputDir/design_a").mkdirs()
+            new File("$outputDir/design_b").mkdirs()
+            new File("$outputDir/design_a/candidate_kmers.tsv").bytes = file("$baseDir/tests/data/taxonomic_candidate_kmers.tsv").bytes
+            new File("$outputDir/design_b/candidate_kmers.tsv").bytes = file("$baseDir/tests/data/taxonomic_candidate_kmers.tsv").bytes
+        }
+        when {
+            workflow {
+                """
+                input[0] = Channel.of(
+                    [[id: 'design_b'], file(\"\$baseDir/tests/data/taxonomic_blast_hits.tsv\")],
+                    [[id: 'design_a'], file(\"\$baseDir/tests/data/taxonomic_blast_hits.tsv\")]
+                )
+                input[1] = Channel.of(
+                    [[id: 'design_a'], file("$outputDir/design_a/candidate_kmers.tsv")],
+                    [[id: 'design_b'], file("$outputDir/design_b/candidate_kmers.tsv")]
+                )
+                """
+            }
+        }
+        then {
+            assert workflow.success
+            assert workflow.out.matches.size() == 1
+            def report = new java.util.zip.GZIPInputStream(new FileInputStream(file(workflow.out.matches[0]))).text
+            assert report.readLines()[0].startsWith('design_id\tkmer\tsubject_accession')
+            assert report.readLines().drop(1).every { it.startsWith('design_a\t') || it.startsWith('design_b\t') }
+            assert report.indexOf('design_a\t') < report.indexOf('design_b\t')
+        }
+    }
+
+    test("reports a header when taxonomic screening has no inputs") {
+        when {
+            workflow {
+                """
+                input[0] = Channel.empty()
+                input[1] = Channel.empty()
+                """
+            }
+        }
+        then {
+            assert workflow.success
+            def report = new java.util.zip.GZIPInputStream(new FileInputStream(file(workflow.out.matches[0]))).text
+            assert report.readLines() == ['design_id\tkmer\tsubject_accession\ttaxids\tscientific_names\tpercent_identity\talignment_length\tmismatches\tgap_opens\tquery_start\tquery_end\tsubject_start\tsubject_end\tsubject_title']
+        }
+    }
+}

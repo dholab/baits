@@ -35,7 +35,6 @@ workflow TAXONOMIC_EXACT_MATCH_SCREENING {
     emit:
     hits = BLASTN_TAXONOMIC_SCREENING.out.hits
     reference_database_report = BLASTN_TAXONOMIC_SCREENING.out.reference_database_report
-    decisions = APPLY_TAXONOMIC_SCREENING.out.decisions
     manifest = APPLY_TAXONOMIC_SCREENING.out.manifest
     completed = APPLY_TAXONOMIC_SCREENING.out.manifest
     candidates = ch_selected_candidates

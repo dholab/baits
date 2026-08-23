@@ -57,6 +57,7 @@ include { UTILS_NFSCHEMA_PLUGIN } from './subworkflows/nf-core/utils_nfschema_pl
 include { BAITS_MAIN } from './workflows/baits'
 include { RESOLVE_CALIBRATION_READS } from './modules/local/resolve_calibration_reads/main'
 include { REPORT_CANDIDATE_KMER_RESULTS } from './subworkflows/local/report_candidate_kmers/main'
+include { REPORT_TAXONOMIC_MATCH_RESULTS } from './subworkflows/local/report_taxonomic_matches/main'
 
 workflow {
     main:
@@ -337,6 +338,10 @@ workflow {
     REPORT_CANDIDATE_KMER_RESULTS(
         BAITS_MAIN.out.candidate_kmers,
         BAITS_MAIN.out.candidate_kmer_occurrences,
+    )
+    REPORT_TAXONOMIC_MATCH_RESULTS(
+        BAITS_MAIN.out.taxonomic_blast_hits,
+        BAITS_MAIN.out.taxonomic_candidate_kmers,
     )
 
 }

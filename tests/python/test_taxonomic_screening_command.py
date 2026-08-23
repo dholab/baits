@@ -123,8 +123,6 @@ def command_args(tmp_path: Path, candidates: Path, manifest: Path, hits: Path) -
         str(tmp_path / "screened_candidate_kmers.tsv"),
         "--selected-candidates-out",
         str(tmp_path / "screened_candidates.fasta"),
-        "--decisions-out",
-        str(tmp_path / "screening_decisions.tsv"),
     ]
 
 
@@ -157,9 +155,9 @@ def test_taxonomic_screening_preserves_prior_outcomes_and_marks_off_target_match
     ]
 
 
-def test_no_database_hits_allow_every_bait_to_pass() -> None:
+def test_no_database_hits_allow_every_candidate_to_pass() -> None:
     result = screening.construct_screening_result(candidate_frame(), manifest_frame(), hit_frame([]))
-    assert result.decisions.collect().select("outcome").rows() == [("selected",)] * len(KMERS)
+    assert result.manifest.collect().filter(pl.col("outcome") == "selected").height == len(KMERS)
 
 
 def test_manifest_and_candidate_fasta_relations_must_be_bijective() -> None:

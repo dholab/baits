@@ -17,8 +17,10 @@ nextflow_pipeline {
         then {
             assert workflow.success
             def runDir = new File(outputDir).parent
-            assert new File("$runDir/results/curated_design/01_source_sequences/source_sequences.fasta").exists()
-            assert !new File("$runDir/results/curated_design/01_source_sequences/source_sequence_query_groups.tsv").exists()
+            def artifacts = new File("$runDir/results/artifacts/curated_design")
+            assert new File(artifacts, 'source_sequences.fasta').exists()
+            assert !new File(artifacts, 'source_sequence_query_groups.tsv').exists()
+            assert artifacts.list().sort() == ['baits.fasta', 'deacon.idx', 'source_sequences.fasta']
             assert new File("$runDir/results/candidate_loci.tsv").readLines().size() == 1
             assert new File("$runDir/results/source_matches.tsv.gz").exists()
             assert new File("$runDir/results/curated_design/07_provenance/inputs.tsv").exists()
@@ -45,7 +47,7 @@ discovery_design,88456,,$baseDir/tests/data/representative_queries.fasta,$baseDi
         then {
             assert workflow.success
             def runDir = new File(outputDir).parent
-            def stage = new File("$runDir/results/discovery_design/01_source_sequences")
+            def stage = new File("$runDir/results/artifacts/discovery_design")
             assert new File(stage, "source_sequences.fasta").text.contains(">source_sequence_000001")
             assert new File("$runDir/results/candidate_loci.tsv").text.contains("discovery_design\tcandidate_locus_000001")
             assert new File("$runDir/results/source_matches.tsv.gz").exists()
@@ -82,7 +84,7 @@ negative_design,88456,,$outputDir/queries.fasta,$outputDir/rules.tsv,$baseDir/te
         then {
             assert workflow.success
             def runDir = new File(outputDir).parent
-            def stage = new File("$runDir/results/negative_design/01_source_sequences")
+            def stage = new File("$runDir/results/artifacts/negative_design")
             assert new File(stage, "source_sequences.fasta").text == ''
             assert new File("$runDir/results/candidate_loci.tsv").text.contains("negative_design\tcandidate_locus_000001")
             assert new File("$runDir/results/source_matches.tsv.gz").exists()

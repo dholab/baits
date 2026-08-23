@@ -241,7 +241,7 @@ The designs system publishes two run-wide tables at the result root. Both begin 
 | `source_matches.tsv.gz` | What did each prepared representative sequence align to? |
 | `candidate_loci.tsv` | Which assembly intervals passed, and with what identity and coverage? |
 
-Each query-guided design also publishes its current `source_sequences.fasta` under `results/<id>/01_source_sequences/`. This is the assembly-derived sequence set that generated candidate k-mers.
+Each design publishes `source_sequences.fasta` under `results/artifacts/<id>/`. For a query-guided design, this is the assembly-derived sequence set that generated candidate k-mers.
 
 Do not review only the final bait FASTA. First confirm that the candidate loci and provisional source sequences represent the intended biology. A high-scoring BLAST hit is evidence for a locus; it is not automatic curation.
 

@@ -1,0 +1,83 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/nf-core/modules/master/modules/meta-schema.json
+name: report_taxonomic_matches
+description: Publish run-wide taxonomic exact-match rows joined to canonical candidate k-mers.
+keywords:
+  - taxonomy
+  - blast
+  - k-mer
+tools:
+  - python:
+      description: Python programming language.
+      homepage: https://www.python.org/
+      documentation: https://docs.python.org/3/
+      tool_dev_url: https://github.com/python/cpython
+      licence:
+        - PSF-2.0
+input:
+  - - design_ids:
+        type: file
+        description: Ordered design identifiers corresponding to the staged table directories.
+        pattern: taxonomic_match_design_ids.txt
+        ontologies: []
+    - candidate_manifests:
+        type: file
+        description: Final private candidate tables for designs that underwent taxonomic screening.
+        pattern: candidate_kmers.tsv
+        ontologies:
+          - edam: http://edamontology.org/format_3475 # TSV
+    - taxonomic_matches:
+        type: file
+        description: Private exact-match taxonomic BLAST tables.
+        pattern: taxonomic_blast_hits.tsv
+        ontologies:
+          - edam: http://edamontology.org/format_3475 # TSV
+output:
+  matches:
+    - taxonomic_matches.tsv.gz:
+        type: file
+        description: Compressed taxonomic exact-match rows across all screened designs.
+        pattern: taxonomic_matches.tsv.gz
+        ontologies:
+          - edam: http://edamontology.org/format_3475 # TSV
+  versions_python:
+    - - ${task.process}:
+          type: string
+          description: Process name.
+      - python:
+          type: string
+          description: Tool name.
+      - python --version | sed 's/Python //':
+          type: eval
+          description: Runtime Python version.
+  versions_polars:
+    - - ${task.process}:
+          type: string
+          description: Process name.
+      - polars:
+          type: string
+          description: Tool name.
+      - python -c 'import polars; print(polars.__version__)':
+          type: eval
+          description: Runtime Polars version.
+topics:
+  versions:
+    - - ${task.process}:
+          type: string
+          description: Process name.
+      - python:
+          type: string
+          description: Tool name.
+      - python --version | sed 's/Python //':
+          type: eval
+          description: Runtime Python version.
+    - - ${task.process}:
+          type: string
+          description: Process name.
+      - polars:
+          type: string
+          description: Tool name.
+      - python -c 'import polars; print(polars.__version__)':
+          type: eval
+          description: Runtime Polars version.
+authors:
+  - dholab/baits

@@ -27,7 +27,7 @@ nextflow run dholab/baits \
     --background background.fasta
 ```
 
-Nextflow fetches and caches the pipeline under `$NXF_HOME/assets` (normally `~/.nextflow/assets`), so users do not need to clone this repository. Here, `88456` is the NCBI taxonomy ID for *C. cayetanensis*; substitute the ID for your target taxon. When the run selects baits, the bait FASTA and verified Deacon index are written under `results/artifacts/<id>/`.
+Nextflow fetches and caches the pipeline under `$NXF_HOME/assets` (normally `~/.nextflow/assets`), so users do not need to clone this repository. Here, `88456` is the NCBI taxonomy ID for *C. cayetanensis*; substitute the ID for your target taxon. Each design's normalized source FASTA is written under `results/artifacts/<id>/`; when the run selects baits, its bait FASTA and verified Deacon index are written there too. Exact taxonomic matches from all screened designs are written to `results/taxonomic_matches.tsv.gz`.
 
 Use a new `--results` directory when upgrading an existing analysis. Nextflow does not remove files published by an earlier pipeline version, so reusing a result root can leave obsolete outputs beside the current results.
 

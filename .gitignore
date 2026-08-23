@@ -103,6 +103,9 @@
 !/modules/local/report_source_discovery/
 !/modules/local/report_source_discovery/*.nf
 !/modules/local/report_source_discovery/*.yml
+!/modules/local/report_taxonomic_matches/
+!/modules/local/report_taxonomic_matches/*.nf
+!/modules/local/report_taxonomic_matches/*.yml
 !/modules/local/resolve_calibration_reads/
 !/modules/local/resolve_calibration_reads/*.nf
 !/modules/local/resolve_calibration_reads/*.yml
@@ -169,6 +172,9 @@
 !/subworkflows/local/report_source_discovery/
 !/subworkflows/local/report_source_discovery/*.nf
 !/subworkflows/local/report_source_discovery/*.yml
+!/subworkflows/local/report_taxonomic_matches/
+!/subworkflows/local/report_taxonomic_matches/*.nf
+!/subworkflows/local/report_taxonomic_matches/*.yml
 !/subworkflows/local/taxonomic_exact_match_screening/
 !/subworkflows/local/taxonomic_exact_match_screening/*.nf
 !/subworkflows/local/taxonomic_exact_match_screening/*.yml

@@ -39,12 +39,6 @@ BLAST_FIELDS = [
     "send",
     "stitle",
 ]
-DECISION_FIELDS = [
-    "candidate_kmer_id",
-    "outcome",
-    "on_target_hits",
-    "off_target_hits",
-]
 EXACT_PERCENT_IDENTITY = 100.0
 
 
@@ -54,10 +48,9 @@ class TaxonomicScreeningError(ValueError):
 
 @dataclass(frozen=True)
 class TaxonomicScreeningResult:
-    """Lazy projections of one validated taxonomic-screening decision."""
+    """Final candidate outcomes and selected sequences after taxonomic screening."""
 
     manifest: pl.LazyFrame
-    decisions: pl.LazyFrame
     survivors: pl.LazyFrame
 
 
@@ -78,7 +71,6 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--manifest-in", type=Path, required=True)
     parser.add_argument("--manifest-out", type=Path, required=True)
     parser.add_argument("--selected-candidates-out", type=Path, required=True)
-    parser.add_argument("--decisions-out", type=Path, required=True)
     return parser.parse_args(argv)
 
 
@@ -418,7 +410,7 @@ def construct_screening_result(
         pl.col("_on_target").cast(pl.UInt64).sum().alias("on_target_hits"),
         (~pl.col("_on_target")).cast(pl.UInt64).sum().alias("off_target_hits"),
     )
-    decisions = (
+    screened_candidates = (
         candidates.join(hit_counts, on="candidate_kmer_id", how="left")
         .with_columns(
             pl.col("on_target_hits").fill_null(0),
@@ -431,7 +423,7 @@ def construct_screening_result(
             .alias("outcome"),
         )
     )
-    candidate_outcomes = decisions.select(
+    candidate_outcomes = screened_candidates.select(
         "candidate_kmer_id",
         pl.col("outcome").alias("_screening_outcome"),
     )
@@ -443,13 +435,11 @@ def construct_screening_result(
         .sort("_manifest_order")
         .select(MANIFEST_FIELDS)
     )
-    decision_output = decisions.sort("_candidate_order").select(DECISION_FIELDS)
-    survivors = decisions.filter(pl.col("outcome") == "selected").sort(
+    survivors = screened_candidates.filter(pl.col("outcome") == "selected").sort(
         "_candidate_order",
     )
     return TaxonomicScreeningResult(
         manifest=transitioned_manifest,
-        decisions=decision_output,
         survivors=survivors,
     )
 
@@ -460,12 +450,11 @@ def main(argv: Sequence[str] | None = None) -> None:
     manifest = scan_manifest(args.manifest_in, args.kmer_size)
     hits = scan_blast_hits(args.blast_hits, args.kmer_size, args.target_taxid)
     result = construct_screening_result(candidates, manifest, hits)
-    manifest_output, decisions, survivors = pl.collect_all(
-        [result.manifest, result.decisions, result.survivors],
+    manifest_output, survivors = pl.collect_all(
+        [result.manifest, result.survivors],
     )
 
     manifest_output.write_csv(args.manifest_out, separator="\t", quote_style="never")
-    decisions.write_csv(args.decisions_out, separator="\t", quote_style="never")
     if survivors.height:
         SeqIO.write(
             (
