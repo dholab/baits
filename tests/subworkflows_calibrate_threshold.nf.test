@@ -33,4 +33,29 @@ nextflow_workflow {
         }
     }
 
+    test("withholds an empty read-query FASTA from query splitting and BLAST") {
+        setup {
+            new File("$outputDir/baits.fasta").text = '>candidate_kmer_000001\nACGTA\n'
+            new File("$outputDir/reads.fastq").text = '@unrelated\nTTTTTTTTTT\n+\nIIIIIIIIII\n'
+            new File("$outputDir/scope.tsv").text = 'taxid\n88456\n'
+            new File("$outputDir/taxonomic_reference_db").mkdirs()
+            assert ["pixi", "run", "deacon", "index", "build", "-k", "5", "-w", "1", "-e", "0", "-o", "$outputDir/baits.idx", "$outputDir/baits.fasta"].execute().waitFor() == 0
+        }
+        when {
+            workflow {
+                """
+                input[0] = Channel.of([[id: 'design'], [id: 'design__sample', design_id: 'design', metagenome_id: 'sample'], [file("$outputDir/reads.fastq")], file("$outputDir/baits.fasta"), file("$outputDir/baits.idx"), '88456', file("$outputDir/scope.tsv")])
+                input[1] = Channel.value(file("$outputDir/taxonomic_reference_db"))
+                input[2] = Channel.value(5)
+                """
+            }
+        }
+        then {
+            assert workflow.success
+            assert workflow.out.summary.size() == 1
+            assert file(workflow.out.summary[0][1]).text.contains('calibration_status\tNO_CANDIDATE_READS')
+            assert workflow.out.reported_blast.size() == 0
+        }
+    }
+
 }

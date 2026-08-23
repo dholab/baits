@@ -29,6 +29,7 @@ workflow TAXONOMIC_EXACT_MATCH_SCREENING {
 
     ch_selected_candidates = APPLY_TAXONOMIC_SCREENING.out.manifest
         .join(APPLY_TAXONOMIC_SCREENING.out.candidates)
+        .filter { meta, manifest, candidates -> candidates.size() > 0 }
         .map { meta, manifest, candidates -> tuple(meta, candidates, manifest) }
 
     emit:

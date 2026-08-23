@@ -66,6 +66,7 @@ workflow CALIBRATE_THRESHOLD {
 
     // Split unique read queries across a bounded number of BLAST searches
     ch_split_inputs = PREPARE_READ_BLAST_QUERIES.out.queries
+        .filter { design_meta, queries -> queries.size() > 0 }
         .map { design_meta, queries -> tuple([id: design_meta.id, single_end: true, design: design_meta], queries) }
     SEQKIT_SPLIT_READ_QUERIES(ch_split_inputs)
     ch_read_blast_inputs = SEQKIT_SPLIT_READ_QUERIES.out.reads

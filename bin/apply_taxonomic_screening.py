@@ -478,8 +478,8 @@ def main(argv: Sequence[str] | None = None) -> None:
             args.selected_candidates_out,
             "fasta",
         )
-    elif args.selected_candidates_out.exists():
-        args.selected_candidates_out.unlink()
+    else:
+        args.selected_candidates_out.write_text("")
 
 
 if __name__ == "__main__":

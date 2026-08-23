@@ -11,7 +11,7 @@ process PREPARE_READ_BLAST_QUERIES {
     output:
     tuple val(meta), path('candidate_read_counts.tsv'), emit: candidate_read_counts
     tuple val(meta), path('preparation_summary.tsv'), emit: preparation_summary
-    tuple val(meta), path('read_queries.fasta'), optional: true, emit: queries
+    tuple val(meta), path('read_queries.fasta'), emit: queries
     tuple val(meta), path('read_blast_hits.tsv'), optional: true, emit: terminal_blast_hits
     tuple val(meta), path('read_blast_search_parameters.tsv'), optional: true, emit: terminal_search_parameters
     tuple val(meta), path('classified_reads.tsv'), optional: true, emit: terminal_classified_reads

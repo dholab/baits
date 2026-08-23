@@ -17,7 +17,7 @@ nextflow_process {
         }
     }
 
-    test("emits outcomes without selected candidates when nothing passes") {
+    test("emits outcomes and an empty selected-candidate FASTA when nothing passes") {
         setup {
             new File("$outputDir/empty.fasta").text = ''
         }
@@ -28,7 +28,8 @@ nextflow_process {
         }
         then {
             assert process.success
-            assert process.out.candidates.size() == 0
+            assert process.out.candidates.size() == 1
+            assert file(process.out.candidates[0][1]).text == ''
             assert file(process.out.manifest[0][1]).text.count('low_complexity') == 3
         }
     }

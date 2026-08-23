@@ -48,12 +48,12 @@ workflow FILTER_CANDIDATE_KMERS {
         }
     BUILD_CANDIDATE_TABLES(ch_candidate_inputs)
     ch_candidate_context = BUILD_CANDIDATE_TABLES.out.tables
-        .join(BUILD_CANDIDATE_TABLES.out.complexity_candidates, remainder: true)
+        .join(BUILD_CANDIDATE_TABLES.out.complexity_candidates)
     ch_terminal_before_complexity = ch_candidate_context
-        .filter { meta, manifest, occurrences, complexity_candidates -> complexity_candidates == null }
+        .filter { meta, manifest, occurrences, complexity_candidates -> complexity_candidates.size() == 0 }
         .map { meta, manifest, occurrences, complexity_candidates -> tuple(meta, manifest) }
     ch_entropy_inputs = ch_candidate_context
-        .filter { meta, manifest, occurrences, complexity_candidates -> complexity_candidates != null }
+        .filter { meta, manifest, occurrences, complexity_candidates -> complexity_candidates.size() > 0 }
         .map { meta, manifest, occurrences, complexity_candidates -> tuple(meta, complexity_candidates) }
         .combine(ch_kmer_size)
         .combine(ch_deacon_window)
@@ -69,12 +69,12 @@ workflow FILTER_CANDIDATE_KMERS {
     APPLY_COMPLEXITY_FILTER(ch_complexity_inputs)
 
     ch_complexity_results = APPLY_COMPLEXITY_FILTER.out.manifest
-        .join(APPLY_COMPLEXITY_FILTER.out.candidates, remainder: true)
+        .join(APPLY_COMPLEXITY_FILTER.out.candidates)
     ch_selected_candidates = ch_complexity_results
-        .filter { meta, manifest, candidates -> candidates != null }
+        .filter { meta, manifest, candidates -> candidates.size() > 0 }
         .map { meta, manifest, candidates -> tuple(meta, candidates, manifest) }
     ch_terminal_after_complexity = ch_complexity_results
-        .filter { meta, manifest, candidates -> candidates == null }
+        .filter { meta, manifest, candidates -> candidates.size() == 0 }
         .map { meta, manifest, candidates -> tuple(meta, manifest) }
 
     emit:

@@ -384,8 +384,7 @@ def main(argv: Sequence[str] | None = None) -> None:
         )
         return
 
-    if args.complexity_candidates_out.exists():
-        args.complexity_candidates_out.unlink()
+    args.complexity_candidates_out.write_text("")
 
 
 if __name__ == "__main__":

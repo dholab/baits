@@ -16,4 +16,18 @@ nextflow_process {
             assert process.out.complexity_candidates.size() == 1
         }
     }
+
+    test("emits an empty complexity FASTA when every candidate matches the background") {
+        when {
+            process {
+                """input[0] = [[id: 'design'], file(\"\$baseDir/tests/data/filter_source_sequences.fasta\"), file(\"\$baseDir/tests/data/filter_source_query_groups.tsv\"), file(\"\$baseDir/tests/data/filter_source_counts.tsv\"), file(\"\$baseDir/tests/data/filter_source_counts.tsv\"), 31]"""
+            }
+        }
+        then {
+            assert process.success
+            assert process.out.complexity_candidates.size() == 1
+            assert file(process.out.complexity_candidates[0][1]).text == ''
+            assert file(process.out.tables[0][1]).text.count('background_match') == 4
+        }
+    }
 }

@@ -291,7 +291,6 @@ def main(argv: Sequence[str] | None = None) -> None:
     if candidate_count:
         args.terminal_summary_out.unlink(missing_ok=True)
         return
-    args.query_out.unlink(missing_ok=True)
     blast_hits = args.terminal_blast_hits_out
     search_parameters = args.terminal_search_parameters_out
     classified_reads = args.terminal_classified_reads_out

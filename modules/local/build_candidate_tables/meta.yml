@@ -59,7 +59,7 @@ output:
           description: Design metadata.
       - complexity_candidates.fasta:
           type: file
-          description: Optional candidate k-mer FASTA for low-complexity filtering.
+          description: Candidate k-mer FASTA for low-complexity filtering; empty when every candidate matches the background.
           pattern: complexity_candidates.fasta
           ontologies: []
   versions_biopython:

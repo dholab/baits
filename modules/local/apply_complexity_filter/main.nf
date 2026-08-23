@@ -10,7 +10,7 @@ process APPLY_COMPLEXITY_FILTER {
 
     output:
     tuple val(meta), path('candidate_kmers.tsv'), emit: manifest
-    tuple val(meta), path('selected_candidates.fasta'), optional: true, emit: candidates
+    tuple val(meta), path('selected_candidates.fasta'), emit: candidates
     tuple val("${task.process}"), val('biopython'), eval("python -c 'import Bio; print(Bio.__version__)'"), topic: versions, emit: versions_biopython
     tuple val("${task.process}"), val('polars'), eval("python -c 'import polars; print(polars.__version__)'"), topic: versions, emit: versions_polars
 

@@ -43,8 +43,11 @@ workflow DISCOVER_SOURCE_SEQUENCES {
 
     EXTRACT_SOURCE_SEQUENCES(ch_extraction_inputs)
 
+    ch_source_sequences = EXTRACT_SOURCE_SEQUENCES.out.source_sequences
+        .filter { meta, source_sequences, source_sequence_query_groups -> source_sequences.size() > 0 }
+
     emit:
-    source_sequences = EXTRACT_SOURCE_SEQUENCES.out.source_sequences
+    source_sequences = ch_source_sequences
     candidate_loci = EXTRACT_SOURCE_SEQUENCES.out.candidate_loci
     blast_hits = BLASTN_SOURCE_SEQUENCES.out.txt
     discovery_status = EXTRACT_SOURCE_SEQUENCES.out.discovery_status

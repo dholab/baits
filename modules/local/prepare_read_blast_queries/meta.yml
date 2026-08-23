@@ -57,7 +57,7 @@ output:
           description: Design metadata.
       - read_queries.fasta:
           type: file
-          description: Optional globally deduplicated read BLAST query FASTA.
+          description: Globally deduplicated read BLAST query FASTA; empty when there are no candidate reads.
           pattern: read_queries.fasta
           ontologies: []
   terminal_blast_hits:

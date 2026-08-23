@@ -72,7 +72,7 @@ output:
           description: Design metadata.
       - selected_candidates.fasta:
           type: file
-          description: Optional FASTA containing candidates selected after taxonomic screening.
+          description: Candidates selected after taxonomic screening; empty when none are selected.
           pattern: selected_candidates.fasta
           ontologies: []
   versions_biopython:

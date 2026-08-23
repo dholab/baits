@@ -9,7 +9,7 @@ process EXTRACT_SOURCE_SEQUENCES {
     tuple val(meta), path(prepared_queries), path(target_assembly), path(query_rules), path(blast_hits)
 
     output:
-    tuple val(meta), path('source_sequences.fasta'), path('source_sequence_query_groups.tsv'), optional: true, emit: source_sequences
+    tuple val(meta), path('source_sequences.fasta'), path('source_sequence_query_groups.tsv'), emit: source_sequences
     tuple val(meta), path('candidate_loci.tsv')                                                    , emit: candidate_loci
     tuple val(meta), path('discovery_status.tsv')                                                  , emit: discovery_status
     tuple val(meta), path('discovery_terminal_status.tsv'), optional: true                         , emit: discovery_terminal

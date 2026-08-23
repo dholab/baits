@@ -27,4 +27,27 @@ nextflow_workflow {
             assert workflow.out.reference_database_report.size() == 2
         }
     }
+
+    test("withholds an empty selected-candidate FASTA from later processes") {
+        setup {
+            new File("$outputDir/reference.fasta").text = file("$baseDir/tests/data/taxonomic_input_candidates.fasta").text
+            new File("$outputDir/database").mkdirs()
+            assert ["pixi", "run", "--environment", "dev", "makeblastdb", "-dbtype", "nucl", "-parse_seqids", "-taxid", "1729", "-in", "$outputDir/reference.fasta", "-out", "$outputDir/database/reference"].execute().waitFor() == 0
+        }
+        when {
+            workflow {
+                """
+                input[0] = Channel.of([[id: 'design'], file(\"\$baseDir/tests/data/taxonomic_input_candidates.fasta\"), file(\"\$baseDir/tests/data/taxonomic_candidate_kmers.tsv\"), '88456'])
+                input[1] = Channel.value(file("$outputDir/database"))
+                input[2] = Channel.value(31)
+                """
+            }
+        }
+        then {
+            assert workflow.success
+            assert workflow.out.manifest.size() == 1
+            assert file(workflow.out.manifest[0][1]).text.count('off_target_match') == 2
+            assert workflow.out.candidates.size() == 0
+        }
+    }
 }

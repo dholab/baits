@@ -24,7 +24,7 @@ nextflow_process {
         }
     }
 
-    test("emits candidate loci and status but no provisional source sequence for a missing query group") {
+    test("emits an empty source set when a query group has no candidate locus") {
         when {
             process {
                 """
@@ -36,7 +36,9 @@ nextflow_process {
 
         then {
             assert process.success
-            assert process.out.source_sequences.size() == 0
+            assert process.out.source_sequences.size() == 1
+            assert file(process.out.source_sequences[0][1]).text == ''
+            assert file(process.out.source_sequences[0][2]).text == 'source_sequence_id\tquery_group\n'
             assert process.out.candidate_loci.size() == 1
             assert file(process.out.discovery_status[0][1]).text.contains('18S\tNO_CANDIDATE_LOCUS\t0')
         }

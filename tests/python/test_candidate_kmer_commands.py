@@ -252,7 +252,7 @@ def test_complexity_filter_preserves_background_matches_and_marks_low_complexity
     )
 
 
-def test_complexity_command_writes_outcomes_and_no_fasta_when_no_candidates_are_selected(tmp_path: Path) -> None:
+def test_complexity_command_writes_outcomes_and_an_empty_fasta_when_no_candidates_are_selected(tmp_path: Path) -> None:
     input_path = tmp_path / "manifest.tsv"
     pl.DataFrame(valid_manifest_rows()[:1], schema=complexity.MANIFEST_SCHEMA).write_csv(input_path, separator="\t")
     passing = tmp_path / "passing.fasta"
@@ -260,5 +260,5 @@ def test_complexity_command_writes_outcomes_and_no_fasta_when_no_candidates_are_
     output = tmp_path / "out.tsv"
     selected_candidates = tmp_path / "selected_candidates.fasta"
     complexity.main(["--manifest-in", str(input_path), "--passing-kmers", str(passing), "--manifest-out", str(output), "--selected-candidates-out", str(selected_candidates)])
-    assert not selected_candidates.exists()
+    assert selected_candidates.read_text() == ""
     assert pl.read_csv(output, separator="\t").item(0, "outcome") == "low_complexity"

@@ -83,7 +83,7 @@ negative_design,88456,,$outputDir/queries.fasta,$outputDir/rules.tsv,$baseDir/te
             assert workflow.success
             def runDir = new File(outputDir).parent
             def stage = new File("$runDir/results/negative_design/01_source_sequences")
-            assert !new File(stage, "source_sequences.fasta").exists()
+            assert new File(stage, "source_sequences.fasta").text == ''
             assert new File("$runDir/results/candidate_loci.tsv").text.contains("negative_design\tcandidate_locus_000001")
             assert new File("$runDir/results/source_matches.tsv.gz").exists()
             def provenance = new File("$runDir/results/negative_design/07_provenance")

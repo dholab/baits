@@ -432,12 +432,17 @@ def main(argv: Sequence[str] | None = None) -> None:
             separator="\t",
             quote_style="never",
         )
-    elif args.terminal_status_out:
-        status.write_csv(
-            args.terminal_status_out,
-            separator="\t",
-            quote_style="never",
+    else:
+        args.source_sequences_out.write_text("")
+        args.source_sequence_query_groups_out.write_text(
+            "source_sequence_id\tquery_group\n",
         )
+        if args.terminal_status_out:
+            status.write_csv(
+                args.terminal_status_out,
+                separator="\t",
+                quote_style="never",
+            )
 
 
 if __name__ == "__main__":

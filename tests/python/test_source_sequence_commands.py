@@ -304,8 +304,8 @@ def test_missing_candidate_locus_omits_provisional_source_sequence_outputs(tmp_p
         str(status),
     )
 
-    assert not source.exists()
-    assert not query_groups.exists()
+    assert source.read_text() == ""
+    assert query_groups.read_text() == "source_sequence_id\tquery_group\n"
     assert "beta\tNO_CANDIDATE_LOCUS\t0" in status.read_text().splitlines()
     assert loci.read_text().splitlines()[1].startswith("candidate_locus_000001\tsource_sequence_000001\tq1\talpha")
 

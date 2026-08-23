@@ -249,7 +249,7 @@ def test_command_writes_candidate_outcomes_and_selected_baits(tmp_path: Path) ->
     terminal.mkdir()
     candidates, manifest, hits = write_inputs(terminal, all_rejected=True)
     screening.main(command_args(terminal, candidates, manifest, hits))
-    assert not (terminal / "screened_candidates.fasta").exists()
+    assert (terminal / "screened_candidates.fasta").read_text() == ""
     terminal_manifest = pl.read_csv(terminal / "screened_candidate_kmers.tsv", separator="\t")
     assert terminal_manifest.filter(pl.col("outcome") == "off_target_match").height == len(
         KMERS,

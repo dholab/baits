@@ -174,7 +174,7 @@ def test_prepare_read_blast_queries_emits_complete_terminal_outputs(
 
     prepare_read_blast_queries_main(preparation_arguments(tmp_path, counts, status, fasta))
 
-    assert not (tmp_path / "read_queries.fasta").exists()
+    assert (tmp_path / "read_queries.fasta").read_text() == ""
     assert (tmp_path / "read_blast_hits.tsv").read_text() == BLAST_HEADER
     assert (tmp_path / "read_blast_search_parameters.tsv").read_text() == "parameter\tvalue\n"
     assert (tmp_path / "classified_reads.tsv").read_text() == CLASSIFIED_HEADER

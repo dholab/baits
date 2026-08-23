@@ -10,7 +10,7 @@ process BUILD_CANDIDATE_TABLES {
 
     output:
     tuple val(meta), path('candidate_kmers.tsv'), path('candidate_kmer_occurrences.tsv'), emit: tables
-    tuple val(meta), path('complexity_candidates.fasta'), optional: true, emit: complexity_candidates
+    tuple val(meta), path('complexity_candidates.fasta'), emit: complexity_candidates
     tuple val("${task.process}"), val('biopython'), eval("python -c 'import Bio; print(Bio.__version__)'"), topic: versions, emit: versions_biopython
     tuple val("${task.process}"), val('polars'), eval("python -c 'import polars; print(polars.__version__)'"), topic: versions, emit: versions_polars
     tuple val(meta), val('biopython'), eval("python -c 'import Bio; print(Bio.__version__)'"), emit: reported_biopython
