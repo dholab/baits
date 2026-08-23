@@ -176,7 +176,7 @@ every required group has an accepted sequence  → continue to candidate-k-mer g
 any required group has no accepted sequence    → terminal discovery result
 ```
 
-The terminal result is not a workflow error. The run succeeds and publishes the BLAST hits, candidate-locus table, and discovery status for review. It does not publish a source-sequence FASTA or start candidate-k-mer filtering for that incomplete design. Automation can identify this result in `discovery_status.tsv` by the `NO_CANDIDATE_LOCUS` status.
+The terminal result is not a workflow error. The run succeeds and records its BLAST matches in `source_matches.tsv.gz` and its accepted intervals in `candidate_loci.tsv`. It does not publish a source-sequence FASTA or start candidate-k-mer filtering for that incomplete design. Compare the required groups in the design's query rules with the groups represented in `candidate_loci.tsv` to identify a missing class.
 
 ## Cyclospora rRNA example
 
@@ -229,19 +229,19 @@ This separation is what makes the design both targeted and auditable:
 
 - Required groups state which sequence classes must be present.
 - Design rules state what counts as an acceptable assembly locus.
-- Candidate-locus evidence records where each provisional source came from.
+- Candidate-locus rows record where each provisional source came from.
 - The background states which declared sequence collection each candidate must survive.
 
 ## Inspect design results before using the bait set
 
-The designs system publishes these files under `results/<id>/01_source_sequences/`:
+The designs system publishes two run-wide tables at the result root. Both begin with `design_id`; curated-source designs contribute no rows:
 
 | File | Review question |
 |---|---|
-| `query_blast_hits.tsv` | What did each prepared representative sequence align to? |
+| `source_matches.tsv.gz` | What did each prepared representative sequence align to? |
 | `candidate_loci.tsv` | Which assembly intervals passed, and with what identity and coverage? |
-| `discovery_status.tsv` | Did every required group produce an accepted source sequence? |
-| `source_sequences.fasta` | Which assembly-derived sequences generated candidate k-mers? |
+
+Each query-guided design also publishes its current `source_sequences.fasta` under `results/<id>/01_source_sequences/`. This is the assembly-derived sequence set that generated candidate k-mers.
 
 Do not review only the final bait FASTA. First confirm that the candidate loci and provisional source sequences represent the intended biology. A high-scoring BLAST hit is evidence for a locus; it is not automatic curation.
 

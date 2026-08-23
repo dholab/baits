@@ -1,6 +1,7 @@
 include { NORMALIZE_CURATED_SOURCE_SEQUENCES } from '../modules/local/normalize_curated_source_sequences/main'
 include { WRITE_PROVENANCE } from '../modules/local/write_provenance/main'
 include { DISCOVER_SOURCE_SEQUENCES } from '../subworkflows/local/discover_source_sequences/main'
+include { REPORT_SOURCE_DISCOVERY_RESULTS } from '../subworkflows/local/report_source_discovery/main'
 include { FILTER_CANDIDATE_KMERS } from '../subworkflows/local/filter_candidate_kmers/main'
 include { TAXONOMIC_EXACT_MATCH_SCREENING } from '../subworkflows/local/taxonomic_exact_match_screening/main'
 include { BUILD_VERIFY_DEACON_INDEX as BUILD_VERIFY_DEACON_INDEX_WITHOUT_TAXONOMY } from '../subworkflows/local/build_verify_deacon_index/main'
@@ -29,6 +30,10 @@ workflow BAITS_MAIN {
     // Source sequence acquisition
     NORMALIZE_CURATED_SOURCE_SEQUENCES(ch_curated_inputs)
     DISCOVER_SOURCE_SEQUENCES(ch_discovery_inputs)
+    REPORT_SOURCE_DISCOVERY_RESULTS(
+        DISCOVER_SOURCE_SEQUENCES.out.candidate_loci,
+        DISCOVER_SOURCE_SEQUENCES.out.blast_hits,
+    )
 
     // Converge curated and discovered source sequences
     ch_source_sequences = NORMALIZE_CURATED_SOURCE_SEQUENCES.out.source_sequences
@@ -321,9 +326,8 @@ workflow BAITS_MAIN {
 
     emit:
     source_sequences = ch_source_sequences
-    candidate_loci = DISCOVER_SOURCE_SEQUENCES.out.candidate_loci
-    query_blast_hits = DISCOVER_SOURCE_SEQUENCES.out.blast_hits
-    discovery_status = DISCOVER_SOURCE_SEQUENCES.out.discovery_status
+    candidate_loci = REPORT_SOURCE_DISCOVERY_RESULTS.out.candidate_loci
+    source_matches = REPORT_SOURCE_DISCOVERY_RESULTS.out.source_matches
     provenance = WRITE_PROVENANCE.out.provenance
     candidate_kmers = FILTER_CANDIDATE_KMERS.out.manifest
         .combine(ch_taxonomic_screening_not_run)
@@ -347,6 +351,7 @@ workflow BAITS_MAIN {
     threshold_summary = CALIBRATE_THRESHOLD.out.summary
     versions = NORMALIZE_CURATED_SOURCE_SEQUENCES.out.versions_biopython
         .mix(DISCOVER_SOURCE_SEQUENCES.out.versions)
+        .mix(REPORT_SOURCE_DISCOVERY_RESULTS.out.versions)
         .mix(WRITE_PROVENANCE.out.versions_python)
         .mix(FILTER_CANDIDATE_KMERS.out.versions)
         .mix(TAXONOMIC_EXACT_MATCH_SCREENING.out.versions)

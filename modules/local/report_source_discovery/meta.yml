@@ -1,0 +1,90 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/nf-core/modules/master/modules/meta-schema.json
+name: report_source_discovery
+description: Publish run-wide source-discovery loci and matches.
+keywords:
+  - blast
+  - source sequence
+  - candidate locus
+tools:
+  - python:
+      description: Python programming language.
+      homepage: https://www.python.org/
+      documentation: https://docs.python.org/3/
+      tool_dev_url: https://github.com/python/cpython
+      licence:
+        - PSF-2.0
+input:
+  - - design_ids:
+        type: file
+        description: Ordered source-discovery design identifiers corresponding to the staged tables.
+        pattern: source_discovery_design_ids.txt
+        ontologies: []
+    - candidate_loci:
+        type: file
+        description: Candidate locus tables from query-guided source discovery.
+        pattern: candidate_loci.tsv
+        ontologies:
+          - edam: http://edamontology.org/format_3475 # TSV
+    - source_matches:
+        type: file
+        description: Raw source-discovery BLAST matches.
+        pattern: query_blast_hits.txt
+        ontologies:
+          - edam: http://edamontology.org/format_3475 # TSV
+output:
+  candidate_loci:
+    - candidate_loci.tsv:
+        type: file
+        description: Candidate loci across all query-guided designs.
+        pattern: candidate_loci.tsv
+        ontologies:
+          - edam: http://edamontology.org/format_3475 # TSV
+  source_matches:
+    - source_matches.tsv.gz:
+        type: file
+        description: Compressed source-discovery matches across all query-guided designs.
+        pattern: source_matches.tsv.gz
+        ontologies:
+          - edam: http://edamontology.org/format_3475 # TSV
+  versions_python:
+    - - ${task.process}:
+          type: string
+          description: Process name.
+      - python:
+          type: string
+          description: Tool name.
+      - python --version | sed 's/Python //':
+          type: eval
+          description: Runtime Python version.
+  versions_polars:
+    - - ${task.process}:
+          type: string
+          description: Process name.
+      - polars:
+          type: string
+          description: Tool name.
+      - python -c 'import polars; print(polars.__version__)':
+          type: eval
+          description: Runtime Polars version.
+topics:
+  versions:
+    - - ${task.process}:
+          type: string
+          description: Process name.
+      - python:
+          type: string
+          description: Tool name.
+      - python --version | sed 's/Python //':
+          type: eval
+          description: Runtime Python version.
+    - - ${task.process}:
+          type: string
+          description: Process name.
+      - polars:
+          type: string
+          description: Tool name.
+      - python -c 'import polars; print(polars.__version__)':
+          type: eval
+          description: Runtime Polars version.
+authors:
+  - dholab/baits

@@ -19,13 +19,14 @@ nextflow_pipeline {
             def runDir = new File(outputDir).parent
             assert new File("$runDir/results/curated_design/01_source_sequences/source_sequences.fasta").exists()
             assert !new File("$runDir/results/curated_design/01_source_sequences/source_sequence_query_groups.tsv").exists()
-            assert !new File("$runDir/results/curated_design/01_source_sequences/candidate_loci.tsv").exists()
+            assert new File("$runDir/results/candidate_loci.tsv").readLines().size() == 1
+            assert new File("$runDir/results/source_matches.tsv.gz").exists()
             assert new File("$runDir/results/curated_design/07_provenance/inputs.tsv").exists()
             assert new File("$runDir/results/curated_design/07_provenance/software_versions.tsv").readLines().collect { it.split('\t')[0] } == ['component', 'biopython', 'deacon', 'meryl', 'polars', 'python']
         }
     }
 
-    test("publishes candidate loci and query group status from real BLAST composition") {
+    test("publishes candidate loci and raw matches from real BLAST composition") {
         setup {
             new File("$outputDir/discovery_input.csv").text = """\
 id,target_taxid,curated_source_sequences,representative_queries,query_rules,target_assembly,background
@@ -46,13 +47,12 @@ discovery_design,88456,,$baseDir/tests/data/representative_queries.fasta,$baseDi
             def runDir = new File(outputDir).parent
             def stage = new File("$runDir/results/discovery_design/01_source_sequences")
             assert new File(stage, "source_sequences.fasta").text.contains(">source_sequence_000001")
-            assert new File(stage, "candidate_loci.tsv").readLines()[0] == "candidate_locus_id\tsource_sequence_id\tquery_id\tquery_group\tassembly_sequence_id\tassembly_start\tassembly_end\tstrand\tpercent_identity\tquery_coverage"
-            assert new File(stage, "query_blast_hits.tsv").exists()
-            assert new File(stage, "discovery_status.tsv").text.contains("18S\tPASS\t1")
+            assert new File("$runDir/results/candidate_loci.tsv").text.contains("discovery_design\tcandidate_locus_000001")
+            assert new File("$runDir/results/source_matches.tsv.gz").exists()
         }
     }
 
-    test("missing query group publishes candidate loci and status but no provisional source sequences") {
+    test("missing query group reports source discovery but produces no provisional source sequences") {
         setup {
             new File("$outputDir/rules.tsv").text = """\
 query_id	query_group	query_start	query_end	min_identity	min_query_coverage
@@ -84,9 +84,8 @@ negative_design,88456,,$outputDir/queries.fasta,$outputDir/rules.tsv,$baseDir/te
             def runDir = new File(outputDir).parent
             def stage = new File("$runDir/results/negative_design/01_source_sequences")
             assert !new File(stage, "source_sequences.fasta").exists()
-            assert new File(stage, "candidate_loci.tsv").exists()
-            assert new File(stage, "query_blast_hits.tsv").exists()
-            assert new File(stage, "discovery_status.tsv").text.contains("5S\tNO_CANDIDATE_LOCUS\t0")
+            assert new File("$runDir/results/candidate_loci.tsv").text.contains("negative_design\tcandidate_locus_000001")
+            assert new File("$runDir/results/source_matches.tsv.gz").exists()
             def provenance = new File("$runDir/results/negative_design/07_provenance")
             assert new File(provenance, "inputs.tsv").readLines()[0] == "input_role\tinput_id\tattribute\tvalue"
             assert new File(provenance, "inputs.tsv").text.contains("source_sequence_origin\tquery_guided_discovery")
@@ -123,10 +122,11 @@ design_b,88456,,$outputDir/queries_b.fasta,$outputDir/rules_b.tsv,$outputDir/ass
         then {
             assert workflow.success
             def runDir = new File(outputDir).parent
-            assert new File("$runDir/results/design_a/01_source_sequences/discovery_status.tsv").text.contains("A\tPASS\t1")
-            assert new File("$runDir/results/design_b/01_source_sequences/discovery_status.tsv").text.contains("B\tPASS\t1")
-            assert new File("$runDir/results/design_a/01_source_sequences/candidate_loci.tsv").text.contains("contig_a")
-            assert new File("$runDir/results/design_b/01_source_sequences/candidate_loci.tsv").text.contains("contig_b")
+            def candidateLoci = new File("$runDir/results/candidate_loci.tsv").text
+            assert candidateLoci.contains("design_a\tcandidate_locus_000001")
+            assert candidateLoci.contains("design_b\tcandidate_locus_000001")
+            assert candidateLoci.contains("contig_a")
+            assert candidateLoci.contains("contig_b")
         }
     }
 }
