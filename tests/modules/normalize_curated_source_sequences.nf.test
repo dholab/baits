@@ -19,8 +19,6 @@ nextflow_process {
             assert file(process.out.source_sequences[0][1]).text.contains('>curated_source')
             assert file(process.out.source_sequences[0][2]).text.readLines()[0] == 'source_sequence_id\tquery_group'
             assert process.out.versions_biopython[0][0] == 'NORMALIZE_CURATED_SOURCE_SEQUENCES'
-            assert process.out.reported_biopython[0][0].id == 'design'
-            assert process.out.reported_biopython[0][1] == 'biopython'
         }
     }
 }

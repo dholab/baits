@@ -55,7 +55,6 @@ workflow BUILD_VERIFY_DEACON_INDEX {
 
     emit:
     index = ch_verified_index
-    reported_deacon = DEACON_INDEX_BAIT_SET.out.reported_deacon
     versions = DEACON_INDEX_BAIT_SET.out.versions_deacon
         .mix(DEACON_BAIT_ROUNDTRIP.out.versions_deacon)
         .mix(DEACON_BACKGROUND_ROUNDTRIP.out.versions_deacon)

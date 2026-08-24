@@ -1,0 +1,47 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/nf-core/modules/master/modules/meta-schema.json
+name: describe_taxonomic_database
+description: Report the identity supplied by a taxonomy-aware BLAST nucleotide database.
+keywords:
+  - blast
+  - database
+  - taxonomy
+tools:
+  - blast:
+      description: NCBI BLAST sequence similarity search tools.
+      homepage: https://blast.ncbi.nlm.nih.gov/
+      licence:
+        - US-Government-Work
+input:
+  - taxonomic_reference_db:
+      type: directory
+      description: Taxonomy-aware BLAST nucleotide database directory.
+output:
+  description:
+    - taxonomic_database.txt:
+        type: file
+        description: Database title, build date, sequence count, and base count reported by BLAST.
+        pattern: taxonomic_database.txt
+        ontologies: []
+  versions_blast:
+    - - ${task.process}:
+          type: string
+          description: Process name.
+      - blast:
+          type: string
+          description: Tool name.
+      - blastdbcmd -version 2>&1 | sed "s/^.*blastdbcmd: //; s/ .*$//; s/+.*$//":
+          type: eval
+          description: Runtime BLAST version.
+topics:
+  versions:
+    - - ${task.process}:
+          type: string
+          description: Process name.
+      - blast:
+          type: string
+          description: Tool name.
+      - blastdbcmd -version 2>&1 | sed "s/^.*blastdbcmd: //; s/ .*$//; s/+.*$//":
+          type: eval
+          description: Runtime BLAST version.
+authors:
+  - dholab/baits

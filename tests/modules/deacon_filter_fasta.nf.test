@@ -17,7 +17,7 @@ nextflow_process {
         then {
             assert process.success
             assert process.out.fasta.size() == 1
-            assert process.out.reported_deacon[0][1] == 'deacon'
+            assert process.out.versions_deacon[0][1] == 'deacon'
         }
     }
 }

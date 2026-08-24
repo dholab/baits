@@ -3,17 +3,29 @@ nextflow_pipeline {
     script "../main.nf"
     tag "filter_candidate_kmers"
 
-    test("finishes cleanly when every candidate matches the background") {
+    test("publishes run-level reports when every candidate matches the background") {
+        setup {
+            new File("$outputDir/calibration_reads").mkdirs()
+            new File("$outputDir/calibration_reads/sample.fastq").text = '@read\nACGTTGCATGTCAGTACGATCGTAGACGTTC\n+\nIIIIIIIIIIIIIIIIIIIIIIIIIIIIIII\n'
+            new File("$outputDir/taxonomic_reference_db").mkdirs()
+            assert ["pixi", "run", "--environment", "dev", "makeblastdb", "-dbtype", "nucl", "-in", "$baseDir/tests/data/filter_source_sequences.fasta", "-out", "$outputDir/taxonomic_reference_db/reference"].execute().waitFor() == 0
+        }
         when {
             params {
                 id = "all_background"
                 source_sequences = "$baseDir/tests/data/filter_source_sequences.fasta"
                 target_taxid = "88456"
                 background = "$baseDir/tests/data/filter_source_sequences.fasta"
+                calibration_reads = "$outputDir/calibration_reads"
+                taxon_ref_db = "$outputDir/taxonomic_reference_db"
             }
         }
         then {
             assert workflow.success
+            def runDir = new File(outputDir).parent
+            assert new File("$runDir/results/taxonomic_database.txt").text.contains('Database:')
+            assert new File("$runDir/results/calibration_thresholds.tsv").text == 'design_id\trecommended_threshold\nall_background\t\n'
+            assert new File("$runDir/results/taxonomic_matches.tsv.gz").exists()
         }
     }
 }

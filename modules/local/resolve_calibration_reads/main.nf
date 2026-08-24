@@ -12,8 +12,6 @@ process RESOLVE_CALIBRATION_READS {
     tuple val(meta), path('calibration_reads.tsv'), emit: manifest
     tuple val("${task.process}"), val('python'), eval("python --version | sed 's/Python //'"), topic: versions, emit: versions_python
     tuple val("${task.process}"), val('polars'), eval("python -c 'import polars; print(polars.__version__)'"), topic: versions, emit: versions_polars
-    tuple val(meta), val('python'), eval("python --version | sed 's/Python //'"), emit: reported_python
-    tuple val(meta), val('polars'), eval("python -c 'import polars; print(polars.__version__)'"), emit: reported_polars
 
     when:
     task.ext.when == null || task.ext.when

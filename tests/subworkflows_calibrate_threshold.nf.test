@@ -55,12 +55,9 @@ nextflow_workflow {
         }
         then {
             assert workflow.success
-            assert workflow.out.prepared_reads.size() == 1
-            assert file(workflow.out.prepared_reads[0][1]).readLines().size() == 1
             assert workflow.out.calibration_reads.size() == 0
             assert workflow.out.calibration_matches.size() == 0
             assert workflow.out.recommended_threshold.size() == 0
-            assert workflow.out.reported_blast.size() == 0
         }
     }
 

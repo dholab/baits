@@ -31,26 +31,6 @@ output:
           pattern: calibration_reads.tsv
           ontologies:
             - edam: http://edamontology.org/format_3475 # TSV
-  reported_python:
-    - - meta:
-          type: map
-          description: Design metadata.
-      - python:
-          type: string
-          description: Tool name.
-      - python --version | sed 's/Python //':
-          type: eval
-          description: Runtime Python version.
-  reported_polars:
-    - - meta:
-          type: map
-          description: Design metadata.
-      - polars:
-          type: string
-          description: Tool name.
-      - python -c 'import polars; print(polars.__version__)':
-          type: eval
-          description: Runtime Polars version.
   versions_python:
     - - ${task.process}:
           type: string

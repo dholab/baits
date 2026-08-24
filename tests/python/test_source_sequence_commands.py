@@ -1,24 +1,15 @@
-import hashlib
-import json
 import subprocess
-from base64 import b64encode
 from pathlib import Path
 
 import polars as pl
 import pytest
 from Bio import SeqIO
 from extract_source_sequences import (
+    all_query_groups_have_sources,
     construct_candidate_loci,
     construct_provisional_source_sequences,
-    construct_query_group_status,
 )
 from prepare_queries import construct_prepared_queries
-from write_provenance import (
-    ProvenanceInputError,
-    ProvenanceRequest,
-    construct_provenance,
-    main,
-)
 
 PROJECT = Path(__file__).resolve().parents[2]
 
@@ -33,10 +24,6 @@ def run_failing_command(*args: str) -> subprocess.CompletedProcess[str]:
 
 def read_fasta(path: Path) -> list[tuple[str, str]]:
     return [(record.id, str(record.seq)) for record in SeqIO.parse(path, "fasta")]
-
-
-def base64_text(value: str) -> str:
-    return b64encode(value.encode()).decode()
 
 
 def read_tsv(path: Path) -> list[dict[str, str]]:
@@ -192,7 +179,7 @@ def test_construct_provisional_source_sequences_deduplicates_within_query_groups
     ]
 
 
-def test_construct_query_group_status_reports_missing_provisional_source_sequences() -> None:
+def test_all_query_groups_have_sources_detects_a_missing_group() -> None:
     query_rules = pl.LazyFrame(
         {"query_id": ["q1", "q2", "q3"], "query_group": ["alpha", "alpha", "beta"]},
     )
@@ -204,23 +191,11 @@ def test_construct_query_group_status_reports_missing_provisional_source_sequenc
         },
     )
 
-    status = construct_query_group_status(
-        query_rules,
+    assert not all_query_groups_have_sources(query_rules, provisional_source_sequences)
+    assert all_query_groups_have_sources(
+        query_rules.filter(pl.col("query_group") == "alpha"),
         provisional_source_sequences,
-    ).collect()
-
-    assert status.to_dicts() == [
-        {
-            "query_group": "alpha",
-            "status": "PASS",
-            "provisional_source_sequence_count": 1,
-        },
-        {
-            "query_group": "beta",
-            "status": "NO_CANDIDATE_LOCUS",
-            "provisional_source_sequence_count": 0,
-        },
-    ]
+    )
 
 
 def test_construct_prepared_queries_applies_one_based_closed_intervals() -> None:
@@ -282,8 +257,6 @@ def test_missing_candidate_locus_omits_provisional_source_sequence_outputs(tmp_p
     source = tmp_path / "source.fasta"
     query_groups = tmp_path / "source_sequence_query_groups.tsv"
     loci = tmp_path / "loci.tsv"
-    status = tmp_path / "status.tsv"
-
     run_command(
         "bin/extract_source_sequences.py",
         "--prepared-queries",
@@ -300,13 +273,10 @@ def test_missing_candidate_locus_omits_provisional_source_sequence_outputs(tmp_p
         str(query_groups),
         "--candidate-loci-out",
         str(loci),
-        "--discovery-status-out",
-        str(status),
     )
 
     assert source.read_text() == ""
     assert query_groups.read_text() == "source_sequence_id\tquery_group\n"
-    assert "beta\tNO_CANDIDATE_LOCUS\t0" in status.read_text().splitlines()
     assert loci.read_text().splitlines()[1].startswith("candidate_locus_000001\tsource_sequence_000001\tq1\talpha")
 
 
@@ -339,7 +309,6 @@ def test_extract_source_sequences_rejects_malformed_blast_hits(tmp_path: Path) -
             "--source-sequences-out", str(tmp_path / "source.fasta"),
             "--source-sequence-query-groups-out", str(tmp_path / "source_sequence_query_groups.tsv"),
             "--candidate-loci-out", str(tmp_path / "loci.tsv"),
-            "--discovery-status-out", str(tmp_path / "status.tsv"),
         )
         assert result.returncode != 0
         assert expected_error in result.stderr
@@ -371,7 +340,6 @@ def test_extract_source_sequences_orders_tied_loci_independent_of_blast_row_orde
             "--source-sequences-out", str(tmp_path / f"source_{index}.fasta"),
             "--source-sequence-query-groups-out", str(tmp_path / f"source_sequence_query_groups_{index}.tsv"),
             "--candidate-loci-out", str(loci),
-            "--discovery-status-out", str(tmp_path / f"status_{index}.tsv"),
         )
         outputs.append(loci.read_text())
     assert outputs[0] == outputs[1]
@@ -415,148 +383,3 @@ def test_duplicate_representative_query_ids_are_malformed_input(tmp_path: Path) 
 
     assert result.returncode != 0
     assert "Duplicate representative query FASTA record ID: q1" in result.stderr
-
-
-def construct_source_sequence_provenance(
-    tmp_path: Path,
-) -> tuple[tuple[pl.DataFrame, pl.DataFrame, pl.DataFrame], tuple[Path, Path, Path, Path]]:
-    background = tmp_path / "background.fasta"
-    background.write_text(">b1\nTTTT\n")
-    queries = tmp_path / "representative_queries.fasta"
-    queries.write_text(">q1\nACGT\n")
-    rules = tmp_path / "query_rules.tsv"
-    rules.write_text("query_id\tquery_group\tquery_start\tquery_end\tmin_identity\tmin_query_coverage\nq1\talpha\t1\t0\t98\t90\n")
-    assembly = tmp_path / "target_assembly.fasta"
-    assembly.write_text(">contig\nACGT\n")
-    provenance = construct_provenance(ProvenanceRequest(
-        '[{"input_role":"design","input_id":"design1","attribute":"source_sequence_origin","value":"query_guided_discovery"},{"input_role":"target_taxon","input_id":"design1","attribute":"target_taxid","value":"88456"}]',
-        ["background", "representative_queries", "query_rules", "target_assembly"],
-        ["background", "representative_queries", "query_rules", "target_assembly"],
-        ["file", "file", "file", "file"],
-        [background, queries, rules, assembly],
-        '[{"parameter":"target_taxid","value":"88456"}]',
-        '[{"component":"biopython","version":"1.87"},{"component":"blast","version":"2.16.0"},{"component":"biopython","version":"1.87"}]',
-    ))
-    return provenance, (background, queries, rules, assembly)
-
-
-def test_provenance_constructs_ordered_source_sequence_rows(tmp_path: Path) -> None:
-    (inputs, parameters, software), (_background, queries, _rules, _assembly) = construct_source_sequence_provenance(tmp_path)
-
-    assert inputs.to_dicts() == sorted(
-        inputs.to_dicts(),
-        key=lambda row: (row["input_role"], row["input_id"], row["attribute"]),
-    )
-    assert parameters.to_dicts() == [{"parameter": "target_taxid", "value": "88456"}]
-    assert {row["component"] for row in software.to_dicts()} == {"biopython", "blast", "python"}
-    assert {
-        (row["input_role"], row["input_id"], row["attribute"], row["value"])
-        for row in inputs.to_dicts()
-    } >= {
-        ("design", "design1", "source_sequence_origin", "query_guided_discovery"),
-        ("representative_queries", "representative_queries", "sha256", hashlib.sha256(queries.read_bytes()).hexdigest()),
-        ("target_assembly", "target_assembly", "filename", "target_assembly.fasta"),
-    }
-    assert all(not Path(row["value"]).is_absolute() for row in inputs.to_dicts())
-
-
-def test_provenance_constructs_directory_basename(tmp_path: Path) -> None:
-    directory = tmp_path / "reference"
-    directory.mkdir()
-    inputs, _parameters, _software = construct_provenance(ProvenanceRequest(
-        "[]", ["reference"], ["reference"], ["directory"], [directory], "[]", "[]",
-    ))
-    assert inputs.to_dicts() == [{"input_role": "reference", "input_id": "reference", "attribute": "directory", "value": "reference"}]
-
-
-@pytest.mark.parametrize(
-    ("input_facts", "parameters", "versions"),
-    [
-        ("{}", "[]", "[]"),
-        ('[{"input_role":"role","input_id":"id","attribute":"a","value":"v","extra":"x"}]', "[]", "[]"),
-        ('[{"input_role":"role","input_id":"id","attribute":"a","value":null}]', "[]", "[]"),
-        ('[{"input_role":" ","input_id":"id","attribute":"a","value":"v"}]', "[]", "[]"),
-        ("[]", '[{"parameter":"","value":"v"}]', "[]"),
-        ("[]", "[]", '[{"component":"tool","version":" "}]'),
-    ],
-)
-def test_provenance_rejects_malformed_or_blank_json_rows(
-    tmp_path: Path, input_facts: str, parameters: str, versions: str,
-) -> None:
-    path = tmp_path / "input.txt"
-    path.write_text("input\n")
-    with pytest.raises(ProvenanceInputError):
-        construct_provenance(ProvenanceRequest(input_facts, ["role"], ["id"], ["file"], [path], parameters, versions))
-
-
-def test_provenance_rejects_bad_file_descriptors(tmp_path: Path) -> None:
-    path = tmp_path / "input.txt"
-    path.write_text("input\n")
-    directory = tmp_path / "directory"
-    directory.mkdir()
-    with pytest.raises(ProvenanceInputError, match="equal lengths"):
-        construct_provenance(ProvenanceRequest("[]", ["role"], ["id", "other"], ["file"], [path], "[]", "[]"))
-    with pytest.raises(ProvenanceInputError, match="directory"):
-        construct_provenance(ProvenanceRequest("[]", ["role"], ["id"], ["directory"], [path], "[]", "[]"))
-    with pytest.raises(ProvenanceInputError, match="regular file"):
-        construct_provenance(ProvenanceRequest("[]", ["role"], ["id"], ["file"], [directory], "[]", "[]"))
-    with pytest.raises(ProvenanceInputError, match="nonblank"):
-        construct_provenance(ProvenanceRequest("[]", [" "], ["id"], ["file"], [path], "[]", "[]"))
-    with pytest.raises(ProvenanceInputError, match="basename"):
-        construct_provenance(ProvenanceRequest("[]", ["role"], ["id"], ["directory"], [Path("/")], "[]", "[]"))
-
-
-@pytest.mark.parametrize(
-    ("input_facts", "parameters", "versions", "message"),
-    [
-        ('[{"input_role":"role","input_id":"id","attribute":"a","value":"v"},{"input_role":"role","input_id":"id","attribute":"a","value":"other"}]', "[]", "[]", "input facts"),
-        ("[]", '[{"parameter":"p","value":"one"},{"parameter":"p","value":"two"}]', "[]", "parameters"),
-        ("[]", "[]", '[{"component":"tool","version":"one"},{"component":"tool","version":"two"}]', "software versions"),
-    ],
-)
-def test_provenance_rejects_conflicting_keys(
-    tmp_path: Path, input_facts: str, parameters: str, versions: str, message: str,
-) -> None:
-    path = tmp_path / "input.txt"
-    path.write_text("input\n")
-    with pytest.raises(ProvenanceInputError, match=message):
-        construct_provenance(ProvenanceRequest(input_facts, ["role"], ["id"], ["file"], [path], parameters, versions))
-
-
-def test_provenance_deduplicates_identical_software_facts(tmp_path: Path) -> None:
-    path = tmp_path / "input.txt"
-    path.write_text("input\n")
-    _inputs, _parameters, software = construct_provenance(ProvenanceRequest(
-        "[]", ["role"], ["id"], ["file"], [path], "[]",
-        '[{"component":"tool","version":"1"},{"component":"tool","version":"1"}]',
-    ))
-    assert [row for row in software.to_dicts() if row["component"] == "tool"] == [
-        {"component": "tool", "version": "1"},
-    ]
-
-
-def test_provenance_does_not_write_partial_outputs_after_failure(tmp_path: Path) -> None:
-    path = tmp_path / "input.txt"
-    path.write_text("input\n")
-    outputs = [tmp_path / name for name in ("inputs.tsv", "parameters.tsv", "software_versions.tsv")]
-    with pytest.raises(ProvenanceInputError):
-        main([
-            "--input-facts-base64", base64_text('[{"input_role":"role","input_id":"id","attribute":"a","value":"one"},{"input_role":"role","input_id":"id","attribute":"a","value":"two"}]'),
-            "--input-file-roles-base64", base64_text('["role"]'), "--input-file-ids-base64", base64_text('["id"]'),
-            "--input-file-kinds-base64", base64_text('["file"]'), "--input-files", str(path),
-            "--parameters-base64", base64_text("[]"), "--software-versions-base64", base64_text("[]"),
-            "--inputs-out", str(outputs[0]), "--parameters-out", str(outputs[1]), "--software-versions-out", str(outputs[2]),
-        ])
-    assert not any(output.exists() for output in outputs)
-
-
-@pytest.mark.parametrize("value", ["two\tcolumns", "two\nrows", "carriage\rreturn"])
-def test_provenance_rejects_tsv_control_characters(tmp_path: Path, value: str) -> None:
-    path = tmp_path / "input.fasta"
-    path.write_text(">input\nACGT\n")
-    facts = json.dumps([
-        {"input_role": "design", "input_id": "design", "attribute": "origin", "value": value},
-    ])
-
-    with pytest.raises(ProvenanceInputError, match="single-line TSV"):
-        construct_provenance(ProvenanceRequest(facts, ["role"], ["id"], ["file"], [path], "[]", "[]"))

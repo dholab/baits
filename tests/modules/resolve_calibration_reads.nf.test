@@ -17,12 +17,8 @@ nextflow_process {
             assert process.success
             assert process.out.manifest.size() == 1
             assert file(process.out.manifest[0][1]).text == 'id\tdesign_id\tmetagenome_id\tread\ndesign__sample_R1\tdesign\tsample_R1\tsample_R1.fastq\ndesign__sample_R2\tdesign\tsample_R2\tsample_R2.fastq\n'
-            assert process.out.reported_python[0][0] == [id: 'design', source_sequence_origin: 'curated_input']
-            assert process.out.reported_python[0][1] == 'python'
-            assert process.out.reported_python[0][2] == '3.12.13'
-            assert process.out.reported_polars[0][0] == [id: 'design', source_sequence_origin: 'curated_input']
-            assert process.out.reported_polars[0][1] == 'polars'
-            assert process.out.reported_polars[0][2] == '1.43.2'
+            assert process.out.versions_python[0][1] == 'python'
+            assert process.out.versions_polars[0][1] == 'polars'
         }
     }
 }

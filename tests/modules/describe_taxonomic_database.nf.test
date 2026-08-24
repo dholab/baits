@@ -1,0 +1,23 @@
+nextflow_process {
+    name "Describe taxonomic database process"
+    script "../../modules/local/describe_taxonomic_database/main.nf"
+    process "DESCRIBE_TAXONOMIC_DATABASE"
+
+    test("publishes one run-level database description") {
+        setup {
+            new File("$outputDir/database").mkdirs()
+            new File("$outputDir/database/reference.nin").text = "stub"
+        }
+        when {
+            options '-stub-run'
+            process {
+                """input[0] = file("$outputDir/database")"""
+            }
+        }
+        then {
+            assert process.success
+            assert file(process.out.description[0]).text == 'Taxonomic reference database stub\n'
+            assert process.out.versions_blast[0][0] == 'DESCRIBE_TAXONOMIC_DATABASE'
+        }
+    }
+}

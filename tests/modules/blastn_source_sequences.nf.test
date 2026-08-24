@@ -19,8 +19,6 @@ nextflow_process {
             assert process.out.txt.size() == 1
             assert file(process.out.txt[0][1]).exists()
             assert process.out.versions_blast[0][0] == 'BLASTN_SOURCE_SEQUENCES'
-            assert process.out.reported_blast[0][0].id == 'design'
-            assert process.out.reported_blast[0][1] == 'blast'
         }
     }
 

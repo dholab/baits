@@ -69,8 +69,6 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--source-sequences-out", type=Path, required=True)
     parser.add_argument("--source-sequence-query-groups-out", type=Path, required=True)
     parser.add_argument("--candidate-loci-out", type=Path, required=True)
-    parser.add_argument("--discovery-status-out", type=Path, required=True)
-    parser.add_argument("--terminal-status-out", type=Path)
     return parser.parse_args(argv)
 
 
@@ -319,30 +317,22 @@ def construct_provisional_source_sequences(
     )
 
 
-def construct_query_group_status(
+def all_query_groups_have_sources(
     query_rules: pl.LazyFrame,
     provisional_source_sequences: pl.LazyFrame,
-) -> pl.LazyFrame:
-    return (
+) -> bool:
+    missing = (
         query_rules.select("query_group")
         .unique()
         .join(
-            provisional_source_sequences.group_by("query_group").len(),
+            provisional_source_sequences.select("query_group").unique(),
             on="query_group",
-            how="left",
+            how="anti",
         )
-        .with_columns(
-            pl.col("len").fill_null(0).alias("provisional_source_sequence_count"),
-        )
-        .with_columns(
-            pl.when(pl.col("provisional_source_sequence_count") > 0)
-            .then(pl.lit("PASS"))
-            .otherwise(pl.lit("NO_CANDIDATE_LOCUS"))
-            .alias("status"),
-        )
-        .select("query_group", "status", "provisional_source_sequence_count")
-        .sort("query_group")
+        .limit(1)
+        .collect()
     )
+    return missing.is_empty()
 
 
 def main(argv: Sequence[str] | None = None) -> None:
@@ -390,10 +380,10 @@ def main(argv: Sequence[str] | None = None) -> None:
     provisional_source_sequences = (
         construct_provisional_source_sequences(candidate_loci).collect().lazy()
     )
-    status = construct_query_group_status(
+    complete = all_query_groups_have_sources(
         query_rules,
         provisional_source_sequences,
-    ).collect()
+    )
     candidate_loci_output = (
         candidate_loci.join(
             provisional_source_sequences,
@@ -412,12 +402,7 @@ def main(argv: Sequence[str] | None = None) -> None:
         separator="\t",
         quote_style="never",
     )
-    status.write_csv(
-        args.discovery_status_out,
-        separator="\t",
-        quote_style="never",
-    )
-    if status.get_column("provisional_source_sequence_count").gt(0).all():
+    if complete:
         source_sequences = provisional_source_sequences.collect()
         SeqIO.write(
             (
@@ -437,12 +422,6 @@ def main(argv: Sequence[str] | None = None) -> None:
         args.source_sequence_query_groups_out.write_text(
             "source_sequence_id\tquery_group\n",
         )
-        if args.terminal_status_out:
-            status.write_csv(
-                args.terminal_status_out,
-                separator="\t",
-                quote_style="never",
-            )
 
 
 if __name__ == "__main__":

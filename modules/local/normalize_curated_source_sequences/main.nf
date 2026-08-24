@@ -11,7 +11,6 @@ process NORMALIZE_CURATED_SOURCE_SEQUENCES {
     output:
     tuple val(meta), path('source_sequences.fasta'), path('source_sequence_query_groups.tsv'), emit: source_sequences
     tuple val("${task.process}"), val('biopython'), eval("python -c 'import Bio; print(Bio.__version__)'"), topic: versions, emit: versions_biopython
-    tuple val(meta), val('biopython'), eval("python -c 'import Bio; print(Bio.__version__)'"), emit: reported_biopython
 
     when:
     task.ext.when == null || task.ext.when

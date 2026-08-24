@@ -50,12 +50,6 @@ workflow CALIBRATE_THRESHOLD {
         .groupTuple(by: 0)
     FIND_CONCATENATE(ch_grouped_fastas)
     SEQKIT_RMDUP(FIND_CONCATENATE.out.file_out)
-    ch_seqkit_version = SEQKIT_RMDUP.out.versions_seqkit
-        .map { process, component, version -> version }
-        .first()
-    ch_reported_seqkit = SEQKIT_RMDUP.out.fastx
-        .combine(ch_seqkit_version)
-        .map { meta, fasta, version -> tuple(meta, 'seqkit', version) }
     ch_preparation_inputs = ch_grouped_counts
         .join(SEQKIT_RMDUP.out.fastx)
     PREPARE_READ_BLAST_QUERIES(ch_preparation_inputs)
@@ -86,12 +80,9 @@ workflow CALIBRATE_THRESHOLD {
     DERIVE_RECOMMENDED_THRESHOLD(SCORE_CALIBRATION_READS.out.reads)
 
     emit:
-    prepared_reads = PREPARE_READ_BLAST_QUERIES.out.counts
     calibration_reads = SCORE_CALIBRATION_READS.out.reads
     calibration_matches = GATHER_READ_BLAST_HITS.out.hits
     recommended_threshold = DERIVE_RECOMMENDED_THRESHOLD.out.threshold
-    reported_blast = BLASTN_CALIBRATION_READS.out.reported_blast.unique()
-    reported_seqkit = ch_reported_seqkit
     versions = DEACON_RETRIEVE_CALIBRATION_READS.out.versions_deacon
         .mix(COUNT_READ_BAITS.out.versions_biopython)
         .mix(PREPARE_READ_BLAST_QUERIES.out.versions_biopython)

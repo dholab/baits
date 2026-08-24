@@ -50,10 +50,6 @@ workflow DISCOVER_SOURCE_SEQUENCES {
     source_sequences = ch_source_sequences
     candidate_loci = EXTRACT_SOURCE_SEQUENCES.out.candidate_loci
     blast_hits = BLASTN_SOURCE_SEQUENCES.out.txt
-    discovery_status = EXTRACT_SOURCE_SEQUENCES.out.discovery_status
-    discovery_terminal = EXTRACT_SOURCE_SEQUENCES.out.discovery_terminal
-    reported_biopython = EXTRACT_SOURCE_SEQUENCES.out.reported_biopython
-    reported_blast = BLASTN_SOURCE_SEQUENCES.out.reported_blast
     versions = PREPARE_QUERIES.out.versions_biopython
         .mix(BLAST_MAKEBLASTDB.out.versions)
         .mix(BLASTN_SOURCE_SEQUENCES.out.versions_blast)

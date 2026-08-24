@@ -11,7 +11,6 @@ process DEACON_INDEX_BUILD {
     output:
     tuple val(meta), path('deacon.idx'), emit: index
     tuple val("${task.process}"), val('deacon'), eval("deacon --version | sed 's/^deacon //'"), topic: versions, emit: versions_deacon
-    tuple val(meta), val('deacon'), eval("deacon --version | sed 's/^deacon //'"), emit: reported_deacon
 
     when:
     task.ext.when == null || task.ext.when

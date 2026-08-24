@@ -1,5 +1,4 @@
 include { NORMALIZE_CURATED_SOURCE_SEQUENCES } from '../modules/local/normalize_curated_source_sequences/main'
-include { WRITE_PROVENANCE } from '../modules/local/write_provenance/main'
 include { DISCOVER_SOURCE_SEQUENCES } from '../subworkflows/local/discover_source_sequences/main'
 include { REPORT_SOURCE_DISCOVERY_RESULTS } from '../subworkflows/local/report_source_discovery/main'
 include { FILTER_CANDIDATE_KMERS } from '../subworkflows/local/filter_candidate_kmers/main'
@@ -13,8 +12,6 @@ workflow BAITS_MAIN {
     ch_design_context
     ch_curated_inputs
     ch_discovery_inputs
-    ch_curated_provenance_source_inputs
-    ch_discovery_provenance_source_inputs
     ch_kmer_size
     ch_deacon_window
     ch_entropy_threshold
@@ -22,8 +19,6 @@ workflow BAITS_MAIN {
     ch_taxonomic_screening_not_run
     ch_calibration_reads
     ch_calibration_target_scopes
-    ch_calibration_provenance_facts
-    ch_without_calibration_keys
 
     main:
 
@@ -86,253 +81,14 @@ workflow BAITS_MAIN {
         }
     CALIBRATE_THRESHOLD(ch_calibration_inputs, ch_taxonomic_reference_db, ch_kmer_size)
 
-    // Construct immutable source-input and design provenance facts
-    ch_curated_provenance_facts = ch_design_context
-        .join(ch_curated_provenance_source_inputs)
-        .join(NORMALIZE_CURATED_SOURCE_SEQUENCES.out.reported_biopython)
-        .map { meta, target_taxid, background, source_input_roles, source_input_files, component, version ->
-            tuple(
-                meta,
-                [
-                    [input_role: 'design', input_id: meta.id, attribute: 'source_sequence_origin', value: meta.source_sequence_origin],
-                    [input_role: 'target_taxon', input_id: meta.id, attribute: 'target_taxid', value: target_taxid],
-                ],
-                ['background'] + source_input_roles,
-                ['background'] + source_input_roles,
-                ['file'] * (source_input_files.size() + 1),
-                [background] + source_input_files,
-                [[parameter: 'target_taxid', value: target_taxid]],
-                [[component: component, version: version]],
-            )
-        }
-
-    ch_discovery_versions = DISCOVER_SOURCE_SEQUENCES.out.reported_biopython
-        .join(DISCOVER_SOURCE_SEQUENCES.out.reported_blast)
-    ch_discovery_provenance_facts = ch_design_context
-        .join(ch_discovery_provenance_source_inputs)
-        .join(ch_discovery_versions)
-        .map { meta, target_taxid, background, source_input_roles, source_input_files, biopython_component, biopython_version, blast_component, blast_version ->
-            tuple(
-                meta,
-                [
-                    [input_role: 'design', input_id: meta.id, attribute: 'source_sequence_origin', value: meta.source_sequence_origin],
-                    [input_role: 'target_taxon', input_id: meta.id, attribute: 'target_taxid', value: target_taxid],
-                ],
-                ['background'] + source_input_roles,
-                ['background'] + source_input_roles,
-                ['file'] * (source_input_files.size() + 1),
-                [background] + source_input_files,
-                [[parameter: 'target_taxid', value: target_taxid]],
-                [
-                    [component: biopython_component, version: biopython_version],
-                    [component: blast_component, version: blast_version],
-                ],
-            )
-        }
-
-    ch_discovery_terminal_provenance_facts = ch_discovery_provenance_facts
-        .join(DISCOVER_SOURCE_SEQUENCES.out.discovery_terminal)
-        .map { meta, input_facts, input_file_roles, input_file_ids, input_file_kinds, input_files, parameters, software_versions, discovery_terminal ->
-            tuple(meta, input_facts, input_file_roles, input_file_ids, input_file_kinds, input_files, parameters, software_versions)
-        }
-    ch_filtering_provenance_facts = ch_curated_provenance_facts
-        .mix(
-            ch_discovery_provenance_facts
-                .join(DISCOVER_SOURCE_SEQUENCES.out.source_sequences)
-                .map { meta, input_facts, input_file_roles, input_file_ids, input_file_kinds, input_files, parameters, software_versions, source_sequences, source_sequence_query_groups ->
-                    tuple(meta, input_facts, input_file_roles, input_file_ids, input_file_kinds, input_files, parameters, software_versions)
-                },
-        )
-
-    // Add facts from the filtering path that actually ran
-    ch_without_deacon_provenance_facts = ch_filtering_provenance_facts
-        .join(FILTER_CANDIDATE_KMERS.out.terminal_without_deacon)
-        .join(FILTER_CANDIDATE_KMERS.out.reported_meryl)
-        .join(FILTER_CANDIDATE_KMERS.out.reported_biopython)
-        .join(FILTER_CANDIDATE_KMERS.out.reported_polars)
-        .combine(ch_kmer_size)
-        .combine(ch_deacon_window)
-        .combine(ch_entropy_threshold)
-        .map { meta, input_facts, input_file_roles, input_file_ids, input_file_kinds, input_files, parameters, software_versions, manifest, meryl_component, meryl_version, biopython_component, biopython_version, polars_component, polars_version, kmer_size, deacon_window, entropy_threshold ->
-            tuple(
-                meta,
-                input_facts,
-                input_file_roles,
-                input_file_ids,
-                input_file_kinds,
-                input_files,
-                parameters + [
-                    [parameter: 'kmer_size', value: kmer_size.toString()],
-                    [parameter: 'deacon_window', value: deacon_window.toString()],
-                    [parameter: 'entropy_threshold', value: entropy_threshold.toString()],
-                ],
-                software_versions + [
-                    [component: meryl_component, version: meryl_version],
-                    [component: biopython_component, version: biopython_version],
-                    [component: polars_component, version: polars_version],
-                ],
-            )
-        }
-    ch_with_deacon_provenance_facts = ch_filtering_provenance_facts
-        .join(FILTER_CANDIDATE_KMERS.out.after_deacon)
-        .join(FILTER_CANDIDATE_KMERS.out.reported_meryl)
-        .join(FILTER_CANDIDATE_KMERS.out.reported_deacon)
-        .join(FILTER_CANDIDATE_KMERS.out.reported_biopython)
-        .join(FILTER_CANDIDATE_KMERS.out.reported_polars)
-        .combine(ch_kmer_size)
-        .combine(ch_deacon_window)
-        .combine(ch_entropy_threshold)
-        .map { meta, input_facts, input_file_roles, input_file_ids, input_file_kinds, input_files, parameters, software_versions, manifest, meryl_component, meryl_version, deacon_component, deacon_version, biopython_component, biopython_version, polars_component, polars_version, kmer_size, deacon_window, entropy_threshold ->
-            tuple(
-                meta,
-                input_facts,
-                input_file_roles,
-                input_file_ids,
-                input_file_kinds,
-                input_files,
-                parameters + [
-                    [parameter: 'kmer_size', value: kmer_size.toString()],
-                    [parameter: 'deacon_window', value: deacon_window.toString()],
-                    [parameter: 'entropy_threshold', value: entropy_threshold.toString()],
-                ],
-                software_versions + [
-                    [component: meryl_component, version: meryl_version],
-                    [component: deacon_component, version: deacon_version],
-                    [component: biopython_component, version: biopython_version],
-                    [component: polars_component, version: polars_version],
-                ],
-            )
-        }
-
-    // Finalize designs according to whether taxonomic exact-match screening ran
-    ch_filtering_terminal_provenance_facts = ch_without_deacon_provenance_facts
-        .mix(
-            ch_with_deacon_provenance_facts
-                .join(FILTER_CANDIDATE_KMERS.out.terminal_manifest)
-                .map { meta, input_facts, input_file_roles, input_file_ids, input_file_kinds, input_files, parameters, software_versions, manifest ->
-                    tuple(meta, input_facts, input_file_roles, input_file_ids, input_file_kinds, input_files, parameters, software_versions)
-                },
-        )
-    ch_filtering_continuation_provenance_facts = ch_with_deacon_provenance_facts
-        .join(FILTER_CANDIDATE_KMERS.out.candidates)
-        .map { meta, input_facts, input_file_roles, input_file_ids, input_file_kinds, input_files, parameters, software_versions, candidates, manifest ->
-            tuple(meta, input_facts, input_file_roles, input_file_ids, input_file_kinds, input_files, parameters, software_versions)
-        }
-
-    ch_screening_not_requested_provenance_facts = ch_filtering_terminal_provenance_facts
-        .mix(ch_filtering_continuation_provenance_facts)
-        .combine(ch_taxonomic_screening_not_run)
-        .map { meta, input_facts, input_file_roles, input_file_ids, input_file_kinds, input_files, parameters, software_versions, not_run ->
-            tuple(meta, input_facts, input_file_roles, input_file_ids, input_file_kinds, input_files, parameters, software_versions)
-        }
-    ch_filtering_terminal_with_reference_facts = ch_filtering_terminal_provenance_facts
-        .combine(ch_taxonomic_reference_db)
-        .map { meta, input_facts, input_file_roles, input_file_ids, input_file_kinds, input_files, parameters, software_versions, taxonomic_reference_db ->
-            tuple(
-                meta,
-                input_facts,
-                input_file_roles + ['taxonomic_reference_database'],
-                input_file_ids + ['taxonomic_reference_database'],
-                input_file_kinds + ['directory'],
-                input_files + [taxonomic_reference_db],
-                parameters,
-                software_versions,
-            )
-        }
-
-    ch_screened_provenance_facts = ch_filtering_continuation_provenance_facts
-        .join(TAXONOMIC_EXACT_MATCH_SCREENING.out.completed)
-        .join(TAXONOMIC_EXACT_MATCH_SCREENING.out.reported_blast)
-        .join(TAXONOMIC_EXACT_MATCH_SCREENING.out.reported_biopython)
-        .join(TAXONOMIC_EXACT_MATCH_SCREENING.out.reported_polars)
-        .combine(ch_taxonomic_reference_db)
-        .map { meta, input_facts, input_file_roles, input_file_ids, input_file_kinds, input_files, parameters, software_versions, manifest, blast_component, blast_version, biopython_component, biopython_version, polars_component, polars_version, taxonomic_reference_db ->
-            tuple(
-                meta,
-                input_facts,
-                input_file_roles + ['taxonomic_reference_database'],
-                input_file_ids + ['taxonomic_reference_database'],
-                input_file_kinds + ['directory'],
-                input_files + [taxonomic_reference_db],
-                parameters,
-                software_versions + [
-                    [component: blast_component, version: blast_version],
-                    [component: biopython_component, version: biopython_version],
-                    [component: polars_component, version: polars_version],
-                ],
-            )
-        }
-
-    ch_provenance_facts = ch_discovery_terminal_provenance_facts
-        .mix(ch_screening_not_requested_provenance_facts)
-        .mix(ch_filtering_terminal_with_reference_facts)
-        .mix(ch_screened_provenance_facts)
-
-    ch_without_calibration_provenance_facts = ch_provenance_facts
-        .join(ch_without_calibration_keys)
-        .map { meta, input_facts, input_file_roles, input_file_ids, input_file_kinds, input_files, parameters, software_versions, without_calibration ->
-            tuple(meta, input_facts, input_file_roles, input_file_ids, input_file_kinds, input_files, parameters, software_versions)
-        }
-    ch_reported_seqkit_versions = CALIBRATE_THRESHOLD.out.reported_seqkit
-        .map { meta, component, version -> tuple(meta, [[component: component, version: version]]) }
-    ch_with_calibration_provenance_facts = ch_provenance_facts
-        .join(ch_calibration_provenance_facts)
-        .join(ch_reported_seqkit_versions, remainder: true)
-        .map { meta, input_facts, input_file_roles, input_file_ids, input_file_kinds, input_files, parameters, software_versions, calibration_input_facts, calibration_file_roles, calibration_file_ids, calibration_file_kinds, calibration_files, calibration_versions, seqkit_versions ->
-            tuple(
-                meta,
-                input_facts + calibration_input_facts,
-                input_file_roles + calibration_file_roles,
-                input_file_ids + calibration_file_ids,
-                input_file_kinds + calibration_file_kinds,
-                input_files + calibration_files,
-                parameters,
-                software_versions + calibration_versions + (seqkit_versions ?: []),
-            )
-        }
-
-    ch_calibrated_design_keys = CALIBRATE_THRESHOLD.out.prepared_reads
-        .map { meta, read_bait_counts -> tuple(meta, true) }
-
-    ch_final_calibration_provenance_facts = ch_with_calibration_provenance_facts
-        .join(ch_calibrated_design_keys, remainder: true)
-        .map { meta, input_facts, input_file_roles, input_file_ids, input_file_kinds, input_files, parameters, software_versions, calibration_ran ->
-            def calibrationParameters = calibration_ran ? [
-                [parameter: 'deacon_filter_absolute_threshold', value: '1'],
-                [parameter: 'deacon_filter_relative_threshold', value: '0'],
-                [parameter: 'read_blast_dust', value: 'no'],
-                [parameter: 'read_blast_evalue', value: '1e-10'],
-                [parameter: 'max_blast_targets', value: params.max_blast_targets.toString()],
-                [parameter: 'read_blast_query_shards', value: params.blast_shards.toString()],
-                [parameter: 'read_blast_task', value: 'blastn'],
-                [parameter: 'read_classification_tie_tolerance', value: '0.1'],
-            ] : []
-            tuple(
-                meta,
-                input_facts,
-                input_file_roles,
-                input_file_ids,
-                input_file_kinds,
-                input_files,
-                parameters + calibrationParameters,
-                software_versions,
-            )
-        }
-
-    WRITE_PROVENANCE(
-        ch_without_calibration_provenance_facts
-            .mix(ch_final_calibration_provenance_facts),
-    )
-
     emit:
     source_sequences = ch_source_sequences
     candidate_loci = REPORT_SOURCE_DISCOVERY_RESULTS.out.candidate_loci
     source_matches = REPORT_SOURCE_DISCOVERY_RESULTS.out.source_matches
-    provenance = WRITE_PROVENANCE.out.provenance
     candidate_kmers = FILTER_CANDIDATE_KMERS.out.manifest
         .combine(ch_taxonomic_screening_not_run)
         .map { meta, manifest, not_run -> tuple(meta, manifest) }
-        .mix(FILTER_CANDIDATE_KMERS.out.terminal_manifest.combine(ch_taxonomic_reference_db).map { meta, manifest, taxonomic_reference_db -> tuple(meta, manifest) })
+        .mix(FILTER_CANDIDATE_KMERS.out.manifest_without_candidates.combine(ch_taxonomic_reference_db).map { meta, manifest, taxonomic_reference_db -> tuple(meta, manifest) })
         .mix(TAXONOMIC_EXACT_MATCH_SCREENING.out.manifest)
     candidate_kmer_occurrences = FILTER_CANDIDATE_KMERS.out.occurrences
     taxonomic_blast_hits = TAXONOMIC_EXACT_MATCH_SCREENING.out.hits
@@ -342,14 +98,12 @@ workflow BAITS_MAIN {
         .map { meta, candidates, manifest, not_run -> tuple(meta, candidates) }
         .mix(TAXONOMIC_EXACT_MATCH_SCREENING.out.candidates.map { meta, candidates, manifest -> tuple(meta, candidates) })
     deacon_index = ch_indexes_without_taxonomy.mix(ch_indexes_with_taxonomy)
-    taxonomic_reference_database = TAXONOMIC_EXACT_MATCH_SCREENING.out.reference_database_report
     calibration_reads = CALIBRATE_THRESHOLD.out.calibration_reads
     calibration_matches = CALIBRATE_THRESHOLD.out.calibration_matches
     recommended_threshold = CALIBRATE_THRESHOLD.out.recommended_threshold
     versions = NORMALIZE_CURATED_SOURCE_SEQUENCES.out.versions_biopython
         .mix(DISCOVER_SOURCE_SEQUENCES.out.versions)
         .mix(REPORT_SOURCE_DISCOVERY_RESULTS.out.versions)
-        .mix(WRITE_PROVENANCE.out.versions_python)
         .mix(FILTER_CANDIDATE_KMERS.out.versions)
         .mix(TAXONOMIC_EXACT_MATCH_SCREENING.out.versions)
         .mix(BUILD_VERIFY_DEACON_INDEX_WITHOUT_TAXONOMY.out.versions)

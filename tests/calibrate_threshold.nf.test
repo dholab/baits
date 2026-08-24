@@ -3,7 +3,7 @@ nextflow_pipeline {
     script "../main.nf"
     tag "calibrate_threshold"
 
-    test("publishes shared calibration tables and calibration-read provenance") {
+    test("publishes shared calibration tables and the run-level database description") {
         setup {
             def sequence = 'ACGTTGCATGTCAGTACGATCGTAG' * 4
             new File("$outputDir/source.fasta").text = ">target\n${sequence}\n"
@@ -33,6 +33,18 @@ nextflow_pipeline {
         then {
             assert workflow.success
             def runDir = new File(outputDir).parent
+            assert new File("$runDir/results").list().sort() == [
+                'artifacts',
+                'calibration_matches.tsv.gz',
+                'calibration_reads.tsv',
+                'calibration_thresholds.tsv',
+                'candidate_kmer_occurrences.tsv',
+                'candidate_kmers.tsv',
+                'candidate_loci.tsv',
+                'source_matches.tsv.gz',
+                'taxonomic_database.txt',
+                'taxonomic_matches.tsv.gz',
+            ]
             def design = new File("$runDir/results/calibrated")
             def artifacts = new File("$runDir/results/artifacts/calibrated")
             assert new File(artifacts, 'source_sequences.fasta').exists()
@@ -51,14 +63,9 @@ nextflow_pipeline {
             def calibrationMatches = new java.util.zip.GZIPInputStream(new FileInputStream("$runDir/results/calibration_matches.tsv.gz")).text
             assert calibrationMatches.readLines().size() > 1
             assert calibrationMatches.readLines()[0].startsWith('design_id\tquery_id\tquery_length')
-            def inputs = new File(design, '07_provenance/inputs.tsv').text
-            assert inputs.contains('\tfilename\tsample; one.fastq')
-            assert inputs.contains('calibration_read\tcalibrated__sample_R2\tfilename\tsample_R2.fastq.gz')
-            assert !inputs.contains('\tmate\t')
-            assert inputs.readLines().count { it ==~ /calibration_read\t[^\t]+\tsha256\t[0-9a-f]{64}/ } == 3
-            assert new File(design, '07_provenance/parameters.tsv').text.contains('read_classification_tie_tolerance\t0.1')
-            assert new File(design, '07_provenance/parameters.tsv').text.contains('max_blast_targets\t7')
-            assert new File(design, '07_provenance/software_versions.tsv').text.contains('seqkit\t2.13.0')
+            assert new File("$runDir/results/calibration_thresholds.tsv").text == 'design_id\trecommended_threshold\ncalibrated\t1\n'
+            assert !design.exists()
+            assert new File("$runDir/results/taxonomic_database.txt").text
         }
     }
 
@@ -89,10 +96,8 @@ nextflow_pipeline {
             assert new File("$runDir/results/calibration_reads.tsv").readLines().size() == 1
             def calibrationMatches = new java.util.zip.GZIPInputStream(new FileInputStream("$runDir/results/calibration_matches.tsv.gz")).text
             assert calibrationMatches.readLines().size() == 1
-            def provenance = new File("$runDir/results/no_candidates/07_provenance")
-            assert new File(provenance, 'inputs.tsv').text.contains('calibration_read\tno_candidates__sample\tfilename\tsample.fastq')
-            assert new File(provenance, 'parameters.tsv').text.contains('deacon_filter_absolute_threshold\t1')
-            assert new File(provenance, 'parameters.tsv').text.contains('read_classification_tie_tolerance\t0.1')
+            assert new File("$runDir/results/calibration_thresholds.tsv").text == 'design_id\trecommended_threshold\nno_candidates\t\n'
+            assert !new File("$runDir/results/no_candidates").exists()
         }
     }
 
@@ -135,12 +140,8 @@ genus_scope,88456,$outputDir/source.fasta,,,,$baseDir/tests/data/background.fast
             def genusRow = calibrationRows.find { it[0] == 'genus_scope' }
             assert defaultRow[6] == '' && defaultRow[7]
             assert genusRow[6] && genusRow[7] == ''
-            def defaultInputs = new File(defaultDesign, '07_provenance/inputs.tsv').text
-            def genusInputs = new File(genusDesign, '07_provenance/inputs.tsv').text
-            assert defaultInputs.contains('calibration_target_scope\tdefault_scope\ttaxids\t88456')
-            assert genusInputs.contains('calibration_target_scope\tgenus_scope\ttaxids\t44417;88456')
-            assert genusInputs.contains('calibration_target_scope\tgenus_scope\tfilename\tscope.tsv')
-            assert genusInputs ==~ /(?s).*calibration_target_scope\tgenus_scope\tsha256\t[0-9a-f]{64}.*/
+            assert !defaultDesign.exists()
+            assert !genusDesign.exists()
         }
     }
 
@@ -181,9 +182,8 @@ genus_scope,88456,$outputDir/source.fasta,,,,$baseDir/tests/data/background.fast
             assert calibrationMatches.readLines().size() == 1
             assert new File("$runDir/results/artifacts/screening_terminal/baits.fasta").text == ''
             assert !new File("$runDir/results/artifacts/screening_terminal/deacon.idx").exists()
-            assert new File(design, '07_provenance/inputs.tsv').text.contains('calibration_read\tscreening_terminal__sample\tfilename\tsample.fastq')
-            assert !new File(design, '07_provenance/parameters.tsv').text.contains('deacon_filter_absolute_threshold')
-            assert !new File(design, '07_provenance/parameters.tsv').text.contains('read_classification_tie_tolerance')
+            assert !design.exists()
+            assert new File("$runDir/results/calibration_thresholds.tsv").text == 'design_id\trecommended_threshold\nscreening_terminal\t\n'
         }
     }
 }

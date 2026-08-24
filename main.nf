@@ -55,6 +55,7 @@ def resolveCalibrationTargetScope(row) {
 
 include { UTILS_NFSCHEMA_PLUGIN } from './subworkflows/nf-core/utils_nfschema_plugin'
 include { BAITS_MAIN } from './workflows/baits'
+include { DESCRIBE_TAXONOMIC_DATABASE } from './modules/local/describe_taxonomic_database/main'
 include { RESOLVE_CALIBRATION_READS } from './modules/local/resolve_calibration_reads/main'
 include { REPORT_CANDIDATE_KMER_RESULTS } from './subworkflows/local/report_candidate_kmers/main'
 include { REPORT_TAXONOMIC_MATCH_RESULTS } from './subworkflows/local/report_taxonomic_matches/main'
@@ -128,29 +129,14 @@ workflow {
         .map { meta, calibration_target_taxids, canonical_taxids ->
             tuple(meta, calibration_target_taxids)
         }
-    ch_calibration_scope_facts = ch_calibration_scope_context
-        .map { meta, calibration_target_taxids, canonical_taxids ->
-            def hasScopeFile = calibration_target_taxids as boolean
-            tuple(
-                meta,
-                [[
-                    input_role: 'calibration_target_scope',
-                    input_id: meta.id,
-                    attribute: 'taxids',
-                    value: canonical_taxids.join(';'),
-                ]],
-                hasScopeFile ? ['calibration_target_scope'] : [],
-                hasScopeFile ? [meta.id] : [],
-                hasScopeFile ? ['file'] : [],
-                hasScopeFile ? [calibration_target_taxids] : [],
-            )
-        }
 
     // Expand each calibration directory into its direct-child FASTQs. Keeping
     // the original paths preserves per-file cache identity when membership changes.
     ch_calibration_read_sets = ch_normalized_rows
         .filter { meta, row -> row.calibration_reads != null && row.calibration_reads != '' }
         .map { meta, row -> tuple(meta, file(row.calibration_reads)) }
+    ch_calibration_designs = ch_calibration_read_sets
+        .map { meta, _calibration_read_set -> meta }
 
     ch_calibration_read_paths = ch_calibration_read_sets
         .flatMap { meta, calibration_read_set ->
@@ -184,10 +170,6 @@ workflow {
         )
         .map { _key, names_file, meta -> tuple(meta, names_file) }
 
-    ch_without_calibration_keys = ch_normalized_rows
-        .filter { meta, row -> row.calibration_reads == null || row.calibration_reads == '' }
-        .map { meta, row -> tuple(meta, true) }
-
     RESOLVE_CALIBRATION_READS(ch_calibration_resolver_inputs)
 
     // Join normalized metadata back to the corresponding original FASTQ path.
@@ -218,57 +200,6 @@ workflow {
             tuple(design_meta, read_meta, read)
         }
 
-    // Aggregate [facts, roles, IDs, kinds, files] for each design's read files.
-    ch_calibration_read_file_facts = ch_calibration_read_records
-        .map { design_meta, row, read ->
-            tuple(
-                design_meta,
-                [[input_role: 'calibration_read', input_id: row.id, attribute: 'metagenome_id', value: row.metagenome_id]],
-                ['calibration_read'],
-                [row.id],
-                ['file'],
-                [read],
-            )
-        }
-        .groupTuple(by: 0)
-        .map { design_meta, input_fact_groups, role_groups, id_groups, kind_groups, read_groups ->
-            tuple(
-                design_meta,
-                input_fact_groups.collectMany { facts -> facts },
-                role_groups.collectMany { roles -> roles },
-                id_groups.collectMany { ids -> ids },
-                kind_groups.collectMany { kinds -> kinds },
-                read_groups.collectMany { reads -> reads },
-            )
-        }
-
-    ch_calibration_resolver_versions = RESOLVE_CALIBRATION_READS.out.reported_python
-        .join(RESOLVE_CALIBRATION_READS.out.reported_polars)
-        .map { meta, python_component, python_version, polars_component, polars_version ->
-            tuple(
-                meta,
-                [
-                    [component: python_component, version: python_version],
-                    [component: polars_component, version: polars_version],
-                ],
-            )
-        }
-
-    ch_calibration_provenance_facts = ch_calibration_read_file_facts
-        .join(ch_calibration_scope_facts)
-        .join(ch_calibration_resolver_versions)
-        .map { meta, read_facts, read_file_roles, read_file_ids, read_file_kinds, read_files, scope_facts, scope_file_roles, scope_file_ids, scope_file_kinds, scope_files, software_versions ->
-            tuple(
-                meta,
-                read_facts + scope_facts,
-                read_file_roles + scope_file_roles,
-                read_file_ids + scope_file_ids,
-                read_file_kinds + scope_file_kinds,
-                read_files + scope_files,
-                software_versions,
-            )
-        }
-
     ch_kmer_size = Channel.value(params.kmer_size)
     ch_deacon_window = Channel.value(params.deacon_window)
     ch_entropy_threshold = Channel.value(params.entropy_threshold)
@@ -278,6 +209,7 @@ workflow {
     ch_taxonomic_screening_not_run = params.taxon_ref_db
         ? Channel.empty()
         : Channel.value(true)
+    DESCRIBE_TAXONOMIC_DATABASE(ch_taxonomic_reference_db)
 
     // Shared design context: [metadata, target taxid, background].
     ch_design_context = ch_normalized_rows.map { meta, row ->
@@ -303,28 +235,10 @@ workflow {
         )
     }
 
-    ch_curated_provenance_source_inputs = source_inputs.curated.map { meta, row ->
-        tuple(
-            meta,
-            ['curated_source_sequences'],
-            [file(row.curated_source_sequences)],
-        )
-    }
-
-    ch_discovery_provenance_source_inputs = source_inputs.discovery.map { meta, row ->
-        tuple(
-            meta,
-            ['representative_queries', 'query_rules', 'target_assembly'],
-            [file(row.representative_queries), file(row.query_rules), file(row.target_assembly)],
-        )
-    }
-
     BAITS_MAIN(
         ch_design_context,
         ch_curated_inputs,
         ch_discovery_inputs,
-        ch_curated_provenance_source_inputs,
-        ch_discovery_provenance_source_inputs,
         ch_kmer_size,
         ch_deacon_window,
         ch_entropy_threshold,
@@ -332,8 +246,6 @@ workflow {
         ch_taxonomic_screening_not_run,
         ch_calibration_reads,
         ch_calibration_target_scopes,
-        ch_calibration_provenance_facts,
-        ch_without_calibration_keys,
     )
 
     REPORT_CANDIDATE_KMER_RESULTS(
@@ -347,6 +259,8 @@ workflow {
     REPORT_SHARED_CALIBRATION_RESULTS(
         BAITS_MAIN.out.calibration_reads,
         BAITS_MAIN.out.calibration_matches,
+        ch_calibration_designs,
+        BAITS_MAIN.out.recommended_threshold,
     )
 
 }

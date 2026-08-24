@@ -11,7 +11,6 @@ process BLASTN_CALIBRATION_READS {
     output:
     tuple val(meta), path("${queries.simpleName}.read_blast_hits.tsv"), emit: hits
     tuple val("${task.process}"), val('blast'), eval('blastn -version 2>&1 | sed "s/^.*blastn: //; s/ .*$//; s/+.*$//"'), topic: versions, emit: versions_blast
-    tuple val(meta), val('blast'), eval('blastn -version 2>&1 | sed "s/^.*blastn: //; s/ .*$//; s/+.*$//"'), emit: reported_blast
 
     when:
     task.ext.when == null || task.ext.when

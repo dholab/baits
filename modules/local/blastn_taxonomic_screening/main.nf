@@ -10,9 +10,7 @@ process BLASTN_TAXONOMIC_SCREENING {
 
     output:
     tuple val(meta), path('taxonomic_blast_hits.tsv'), emit: hits
-    tuple val(meta), path('taxonomic_reference_database.txt'), emit: reference_database_report
     tuple val("${task.process}"), val('blast'), eval('blastn -version 2>&1 | sed "s/^.*blastn: //; s/ .*$//; s/+.*$//"'), topic: versions, emit: versions_blast
-    tuple val(meta), val('blast'), eval('blastn -version 2>&1 | sed "s/^.*blastn: //; s/ .*$//; s/+.*$//"'), emit: reported_blast
 
     when:
     task.ext.when == null || task.ext.when
@@ -42,12 +40,6 @@ process BLASTN_TAXONOMIC_SCREENING {
         exit 1
     fi
 
-    (
-        cd "\$db_dir"
-        unset BLASTDB
-        blastdbcmd -db "./\$(basename "\$db_prefix")" -info
-    ) > taxonomic_reference_database.txt
-
     printf 'qseqid\\tsaccver\\tstaxids\\tsscinames\\tpident\\tlength\\tmismatch\\tgapopen\\tqstart\\tqend\\tsstart\\tsend\\tstitle\\n' > taxonomic_blast_hits.tsv
     blastn \\
         -query ${candidates} \\
@@ -66,6 +58,5 @@ process BLASTN_TAXONOMIC_SCREENING {
     stub:
     """
     printf 'qseqid\\tsaccver\\tstaxids\\tsscinames\\tpident\\tlength\\tmismatch\\tgapopen\\tqstart\\tqend\\tsstart\\tsend\\tstitle\\n' > taxonomic_blast_hits.tsv
-    printf 'Taxonomic reference database stub\\n' > taxonomic_reference_database.txt
     """
 }

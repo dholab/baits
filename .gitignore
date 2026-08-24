@@ -76,6 +76,9 @@
 !/modules/local/deacon_index_dump/
 !/modules/local/deacon_index_dump/*.nf
 !/modules/local/deacon_index_dump/*.yml
+!/modules/local/describe_taxonomic_database/
+!/modules/local/describe_taxonomic_database/*.nf
+!/modules/local/describe_taxonomic_database/*.yml
 !/modules/local/extract_source_sequences/
 !/modules/local/extract_source_sequences/*.nf
 !/modules/local/extract_source_sequences/*.yml
@@ -103,6 +106,9 @@
 !/modules/local/report_calibration_results/
 !/modules/local/report_calibration_results/*.nf
 !/modules/local/report_calibration_results/*.yml
+!/modules/local/report_calibration_thresholds/
+!/modules/local/report_calibration_thresholds/*.nf
+!/modules/local/report_calibration_thresholds/*.yml
 !/modules/local/report_source_discovery/
 !/modules/local/report_source_discovery/*.nf
 !/modules/local/report_source_discovery/*.yml
@@ -112,9 +118,6 @@
 !/modules/local/resolve_calibration_reads/
 !/modules/local/resolve_calibration_reads/*.nf
 !/modules/local/resolve_calibration_reads/*.yml
-!/modules/local/write_provenance/
-!/modules/local/write_provenance/*.nf
-!/modules/local/write_provenance/*.yml
 !/modules/local/verify_deacon_index/
 !/modules/local/verify_deacon_index/*.nf
 !/modules/local/verify_deacon_index/*.yml

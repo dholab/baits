@@ -34,13 +34,8 @@ workflow TAXONOMIC_EXACT_MATCH_SCREENING {
 
     emit:
     hits = BLASTN_TAXONOMIC_SCREENING.out.hits
-    reference_database_report = BLASTN_TAXONOMIC_SCREENING.out.reference_database_report
     manifest = APPLY_TAXONOMIC_SCREENING.out.manifest
-    completed = APPLY_TAXONOMIC_SCREENING.out.manifest
     candidates = ch_selected_candidates
-    reported_blast = BLASTN_TAXONOMIC_SCREENING.out.reported_blast
-    reported_biopython = APPLY_TAXONOMIC_SCREENING.out.reported_biopython
-    reported_polars = APPLY_TAXONOMIC_SCREENING.out.reported_polars
     versions = BLASTN_TAXONOMIC_SCREENING.out.versions_blast
         .mix(APPLY_TAXONOMIC_SCREENING.out.versions_biopython)
         .mix(APPLY_TAXONOMIC_SCREENING.out.versions_polars)

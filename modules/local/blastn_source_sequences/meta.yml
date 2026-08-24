@@ -32,16 +32,6 @@ output:
           description: BLAST tabular hits.
           pattern: "query_blast_hits.txt"
           ontologies: []
-  reported_blast:
-    - - meta:
-          type: map
-          description: Design metadata.
-      - blast:
-          type: string
-          description: Component name.
-      - 'blastn -version 2>&1 | sed "s/^.*blastn: //; s/ .*$//; s/+.*$//"':
-          type: eval
-          description: Runtime BLAST version.
   versions_blast:
     - - ${task.process}:
           type: string

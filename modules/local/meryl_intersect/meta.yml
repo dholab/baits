@@ -43,16 +43,6 @@ output:
       - meryl --version |& sed 's/meryl //':
           type: eval
           description: Runtime Meryl version.
-  reported_meryl:
-    - - meta:
-          type: map
-          description: Design metadata.
-      - meryl:
-          type: string
-          description: Tool name.
-      - meryl --version |& sed 's/meryl //':
-          type: eval
-          description: Runtime Meryl version.
 topics:
   versions:
     - - ${task.process}:

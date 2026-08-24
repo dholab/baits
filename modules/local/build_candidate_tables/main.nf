@@ -13,8 +13,6 @@ process BUILD_CANDIDATE_TABLES {
     tuple val(meta), path('complexity_candidates.fasta'), emit: complexity_candidates
     tuple val("${task.process}"), val('biopython'), eval("python -c 'import Bio; print(Bio.__version__)'"), topic: versions, emit: versions_biopython
     tuple val("${task.process}"), val('polars'), eval("python -c 'import polars; print(polars.__version__)'"), topic: versions, emit: versions_polars
-    tuple val(meta), val('biopython'), eval("python -c 'import Bio; print(Bio.__version__)'"), emit: reported_biopython
-    tuple val(meta), val('polars'), eval("python -c 'import polars; print(polars.__version__)'"), emit: reported_polars
 
     when:
     task.ext.when == null || task.ext.when

@@ -45,16 +45,6 @@ output:
       - deacon --version | sed 's/^deacon //':
           type: eval
           description: Runtime Deacon version.
-  reported_deacon:
-    - - meta:
-          type: map
-          description: Design metadata.
-      - deacon:
-          type: string
-          description: Tool name.
-      - deacon --version | sed 's/^deacon //':
-          type: eval
-          description: Runtime Deacon version.
 topics:
   versions:
     - - ${task.process}:

@@ -23,7 +23,6 @@ nextflow_workflow {
             assert workflow.out.hits.size() == 2
             assert workflow.out.manifest.size() == 2
             assert workflow.out.candidates.size() == 2
-            assert workflow.out.reference_database_report.size() == 2
         }
     }
 

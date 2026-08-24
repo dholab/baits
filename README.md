@@ -27,11 +27,29 @@ nextflow run dholab/baits \
     --background background.fasta
 ```
 
-Nextflow fetches and caches the pipeline under `$NXF_HOME/assets` (normally `~/.nextflow/assets`), so users do not need to clone this repository. Here, `88456` is the NCBI taxonomy ID for *C. cayetanensis*; substitute the ID for your target taxon. Each design's normalized source FASTA is written under `results/artifacts/<id>/`; when the run selects baits, its bait FASTA and verified Deacon index are written there too. Exact taxonomic matches from all screened designs are written to `results/taxonomic_matches.tsv.gz`.
+Nextflow fetches and caches the pipeline under `$NXF_HOME/assets` (normally `~/.nextflow/assets`), so users do not need to clone this repository. Here, `88456` is the NCBI taxonomy ID for *C. cayetanensis*; substitute the ID for your target taxon.
 
 Use a new `--results` directory when upgrading an existing analysis. Nextflow does not remove files published by an earlier pipeline version, so reusing a result root can leave obsolete outputs beside the current results.
 
 The example follows the current `main` branch. For reproducible analyses, replace `main` with a release tag or immutable commit revision.
+
+## Results
+
+The result root contains run-wide relations. Each row identifies its design where that distinction applies:
+
+| File | Contents |
+|---|---|
+| `candidate_loci.tsv` | Assembly intervals accepted during query-guided source discovery. |
+| `source_matches.tsv.gz` | Raw source-discovery BLAST matches. |
+| `candidate_kmers.tsv` | Every candidate k-mer and its final outcome. |
+| `candidate_kmer_occurrences.tsv` | Source-sequence occurrences for candidate k-mers. |
+| `taxonomic_matches.tsv.gz` | Raw taxonomic exact-match screening results. |
+| `calibration_reads.tsv` | Per-read bait counts and best target and other bit scores. |
+| `calibration_matches.tsv.gz` | Raw calibration-read BLAST matches. |
+| `calibration_thresholds.tsv` | One recommended-threshold row per design requesting calibration; a blank value means that the supplied reads support no threshold. |
+| `taxonomic_database.txt` | BLAST's description of the run-level taxonomic database, when one was supplied. |
+
+Each design's normalized source FASTA is written under `results/artifacts/<id>/`; its bait FASTA and verified Deacon index appear there when those artifacts can be built. The input design CSV or direct command remains the authority for requested inputs and parameters and should accompany the result bundle when the analysis is archived.
 
 ## Pipeline Configuration
 

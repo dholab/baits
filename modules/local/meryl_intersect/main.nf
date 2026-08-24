@@ -11,7 +11,6 @@ process MERYL_INTERSECT {
   output:
   tuple val(meta), path('intersection.meryl'), emit: db
   tuple val("${task.process}"), val('meryl'), eval("meryl --version |& sed 's/meryl //'"), topic: versions, emit: versions_meryl
-  tuple val(meta), val('meryl'), eval("meryl --version |& sed 's/meryl //'"), emit: reported_meryl
 
   when:
   task.ext.when == null || task.ext.when

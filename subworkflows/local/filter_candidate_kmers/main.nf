@@ -49,7 +49,7 @@ workflow FILTER_CANDIDATE_KMERS {
     BUILD_CANDIDATE_TABLES(ch_candidate_inputs)
     ch_candidate_context = BUILD_CANDIDATE_TABLES.out.tables
         .join(BUILD_CANDIDATE_TABLES.out.complexity_candidates)
-    ch_terminal_before_complexity = ch_candidate_context
+    ch_manifest_without_complexity_candidates = ch_candidate_context
         .filter { meta, manifest, occurrences, complexity_candidates -> complexity_candidates.size() == 0 }
         .map { meta, manifest, occurrences, complexity_candidates -> tuple(meta, manifest) }
     ch_entropy_inputs = ch_candidate_context
@@ -73,21 +73,15 @@ workflow FILTER_CANDIDATE_KMERS {
     ch_selected_candidates = ch_complexity_results
         .filter { meta, manifest, candidates -> candidates.size() > 0 }
         .map { meta, manifest, candidates -> tuple(meta, candidates, manifest) }
-    ch_terminal_after_complexity = ch_complexity_results
+    ch_manifest_without_selected_candidates = ch_complexity_results
         .filter { meta, manifest, candidates -> candidates.size() == 0 }
         .map { meta, manifest, candidates -> tuple(meta, manifest) }
 
     emit:
     candidates = ch_selected_candidates
-    manifest = ch_terminal_before_complexity.mix(APPLY_COMPLEXITY_FILTER.out.manifest)
-    terminal_manifest = ch_terminal_before_complexity.mix(ch_terminal_after_complexity)
+    manifest = ch_manifest_without_complexity_candidates.mix(APPLY_COMPLEXITY_FILTER.out.manifest)
+    manifest_without_candidates = ch_manifest_without_complexity_candidates.mix(ch_manifest_without_selected_candidates)
     occurrences = BUILD_CANDIDATE_TABLES.out.tables.map { meta, manifest, occurrences -> tuple(meta, occurrences) }
-    reported_meryl = MERYL_INTERSECT.out.reported_meryl
-    reported_deacon = DEACON_INDEX_ENTROPY.out.reported_deacon
-    reported_biopython = BUILD_CANDIDATE_TABLES.out.reported_biopython
-    reported_polars = BUILD_CANDIDATE_TABLES.out.reported_polars
-    terminal_without_deacon = ch_terminal_before_complexity
-    after_deacon = APPLY_COMPLEXITY_FILTER.out.manifest
     versions = MERYL_COUNT_SOURCE.out.versions_meryl
         .mix(MERYL_COUNT_BACKGROUND.out.versions_meryl)
         .mix(MERYL_INTERSECT.out.versions_meryl)

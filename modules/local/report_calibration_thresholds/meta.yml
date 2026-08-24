@@ -1,0 +1,57 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/nf-core/modules/master/modules/meta-schema.json
+name: report_calibration_thresholds
+description: Publish one recommended-threshold row per design requesting calibration.
+keywords:
+  - calibration
+  - threshold
+tools:
+  - python:
+      description: Python programming language.
+      homepage: https://www.python.org/
+      documentation: https://docs.python.org/3/
+      tool_dev_url: https://github.com/python/cpython
+      licence:
+        - PSF-2.0
+input:
+  - - design_ids:
+        type: file
+        description: Ordered identifiers for designs requesting calibration.
+        pattern: calibration_design_ids.txt
+        ontologies: []
+    - recommended_thresholds:
+        type: file
+        description: Zero or more private per-design recommended thresholds.
+        pattern: recommended_threshold.tsv
+        ontologies:
+          - edam: http://edamontology.org/format_3475 # TSV
+output:
+  thresholds:
+    - calibration_thresholds.tsv:
+        type: file
+        description: Recommended threshold for each design requesting calibration.
+        pattern: calibration_thresholds.tsv
+        ontologies:
+          - edam: http://edamontology.org/format_3475 # TSV
+  versions_python:
+    - - ${task.process}:
+          type: string
+          description: Process name.
+      - python:
+          type: string
+          description: Tool name.
+      - python --version | sed 's/Python //':
+          type: eval
+          description: Runtime Python version.
+topics:
+  versions:
+    - - ${task.process}:
+          type: string
+          description: Process name.
+      - python:
+          type: string
+          description: Tool name.
+      - python --version | sed 's/Python //':
+          type: eval
+          description: Runtime Python version.
+authors:
+  - dholab/baits
