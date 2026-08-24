@@ -1,22 +1,20 @@
 nextflow_process {
-    name "Calibrate threshold process"
+    name "Derive recommended threshold process"
     script "../../modules/local/calibrate_threshold/main.nf"
-    process "CALIBRATE_THRESHOLD_EVIDENCE"
+    process "DERIVE_RECOMMENDED_THRESHOLD"
 
-    test("writes a recommended threshold") {
+    test("writes only the recommended threshold") {
         setup {
-            new File("$outputDir/classified.tsv").text = 'metagenome_id\tread_id\tread_length\tbait_count\trepresentative_id\tclassification\tbest_target_bit_score\tbest_non_target_bit_score\nsample\tread_000000000001\t5\t1\trepresentative_000001\tTARGET\t10\t\n'
-            new File("$outputDir/preparation.tsv").text = 'metric\tvalue\ndesign_id\tdesign\ndeacon_returned_read_count\t1\ncandidate_read_count\t1\nduplicate_sequence_count\t0\nread_blast_query_count\t1\n'
+            new File("$outputDir/calibration_reads.tsv").text = 'metagenome_id\tread_id\tread_length\tbait_count\tquery_id\tbest_target_bit_score\tbest_other_bit_score\nsample\tread_000000000001\t5\t1\tquery\t10\t\n'
         }
         when {
             process {
-                """input[0] = [[id: 'design'], file("$outputDir/classified.tsv"), file("$outputDir/preparation.tsv")]"""
+                """input[0] = [[id: 'design'], file("$outputDir/calibration_reads.tsv")]"""
             }
         }
         then {
             assert process.success
-            assert file(process.out.summary[0][1]).text.contains('recommended_threshold\t1')
-            assert process.out.read_counts.size() == 1
+            assert file(process.out.threshold[0][1]).text == 'design_id\trecommended_threshold\ndesign\t1\n'
         }
     }
 }

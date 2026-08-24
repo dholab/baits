@@ -27,9 +27,12 @@ nextflow_workflow {
         }
         then {
             assert workflow.success
-            assert workflow.out.summary.size() == 1
-            assert file(workflow.out.summary[0][1]).text.contains('recommended_threshold\t1')
-            assert file(workflow.out.read_blast_search_parameters[0][1]).text.contains('query_file_count\t2')
+            assert workflow.out.calibration_reads.size() == 1
+            assert file(workflow.out.calibration_reads[0][1]).readLines().size() == 3
+            assert !file(workflow.out.calibration_reads[0][1]).readLines()[0].contains('classification')
+            assert workflow.out.calibration_matches.size() == 1
+            assert workflow.out.recommended_threshold.size() == 1
+            assert file(workflow.out.recommended_threshold[0][1]).text == 'design_id\trecommended_threshold\ndesign\t1\n'
         }
     }
 
@@ -52,8 +55,11 @@ nextflow_workflow {
         }
         then {
             assert workflow.success
-            assert workflow.out.summary.size() == 1
-            assert file(workflow.out.summary[0][1]).text.contains('calibration_status\tNO_CANDIDATE_READS')
+            assert workflow.out.prepared_reads.size() == 1
+            assert file(workflow.out.prepared_reads[0][1]).readLines().size() == 1
+            assert workflow.out.calibration_reads.size() == 0
+            assert workflow.out.calibration_matches.size() == 0
+            assert workflow.out.recommended_threshold.size() == 0
             assert workflow.out.reported_blast.size() == 0
         }
     }

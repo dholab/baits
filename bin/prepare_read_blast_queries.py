@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Combine streamed read counts and prepare globally deduplicated BLAST queries."""
+"""Combine per-metagenome bait counts and prepare unique BLAST queries."""
 
 from __future__ import annotations
 
@@ -8,7 +8,6 @@ import csv
 import gzip
 import hashlib
 import re
-from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING, TextIO
 
@@ -22,165 +21,54 @@ COUNT_FIELDS = (
     "read_id",
     "read_length",
     "bait_count",
-    "representative_id",
+    "query_id",
 )
-STATUS_METRICS = (
-    "metagenome_id",
-    "deacon_returned_read_count",
-    "candidate_read_count",
-)
-SUMMARY_METRICS = (
-    "design_id",
-    "deacon_returned_read_count",
-    "candidate_read_count",
-    "duplicate_sequence_count",
-    "read_blast_query_count",
-)
-THRESHOLD_SUMMARY_METRICS = (
-    *SUMMARY_METRICS,
-    "target_classified_read_count",
-    "non_target_classified_read_count",
-    "tied_read_count",
-    "no_hit_read_count",
-    "calibration_status",
-    "recommended_threshold",
-    "conclusion",
-)
-BLAST_FIELDS = (
-    "qseqid",
-    "qlen",
-    "saccver",
-    "staxids",
-    "pident",
-    "length",
-    "mismatch",
-    "gapopen",
-    "qstart",
-    "qend",
-    "sstart",
-    "send",
-    "evalue",
-    "bitscore",
-    "qcovhsp",
-    "stitle",
-)
-CLASSIFIED_FIELDS = (
-    *COUNT_FIELDS,
-    "classification",
-    "best_target_bit_score",
-    "best_non_target_bit_score",
-)
-THRESHOLD_COUNT_FIELDS = (
-    "threshold",
-    "target_read_count",
-    "non_target_read_count",
-    "tied_read_count",
-    "no_hit_read_count",
-)
-REPRESENTATIVE_PATTERN = re.compile(r"sequence_[0-9a-f]{64}")
-RELATION_WIDTH = 2
+QUERY_PATTERN = re.compile(r"sequence_[0-9a-f]{64}")
 
 
 class BlastQueryPreparationError(ValueError):
-    """Raised when streamed candidate-read products disagree."""
+    """Raised when streamed read counts and unique queries disagree."""
+
+    @classmethod
+    def missing_counts(cls) -> BlastQueryPreparationError:
+        return cls("Read bait count directory contains no tables")
 
     @classmethod
     def malformed_counts(cls, path: Path) -> BlastQueryPreparationError:
-        return cls(f"Candidate read counts are malformed: {path}")
+        return cls(f"Read bait counts are malformed: {path}")
 
     @classmethod
-    def malformed_status(cls, path: Path) -> BlastQueryPreparationError:
-        return cls(f"Candidate read status is malformed: {path}")
-
-    @classmethod
-    def duplicate_status_metagenome(cls) -> BlastQueryPreparationError:
-        return cls("Candidate read statuses contain duplicate metagenome_id values")
-
-    @classmethod
-    def status_count_disagreement(cls, metagenome_id: str) -> BlastQueryPreparationError:
-        return cls(f"Candidate read status count disagrees for {metagenome_id}")
+    def duplicate_metagenome(cls, metagenome_id: str) -> BlastQueryPreparationError:
+        return cls(f"Read bait counts repeat metagenome_id {metagenome_id}")
 
     @classmethod
     def malformed_query(cls, identifier: str) -> BlastQueryPreparationError:
-        return cls(f"Deduplicated candidate query is malformed: {identifier}")
+        return cls(f"Deduplicated calibration query is malformed: {identifier}")
 
     @classmethod
-    def candidate_query_disagreement(cls) -> BlastQueryPreparationError:
-        return cls("Candidate reads and deduplicated BLAST queries disagree")
-
-    @classmethod
-    def unequal_input_lists(cls) -> BlastQueryPreparationError:
-        return cls("Candidate read count and status file lists have different lengths")
-
-    @classmethod
-    def missing_terminal_paths(cls) -> BlastQueryPreparationError:
-        return cls("No-candidate output paths are required")
-
-
-@dataclass(frozen=True)
-class CandidateReadStatus:
-    metagenome_id: str
-    deacon_returned_read_count: int
-    candidate_read_count: int
-
-
-@dataclass(frozen=True)
-class PreparationSummary:
-    design_id: str
-    deacon_returned_read_count: int
-    candidate_read_count: int
-    duplicate_sequence_count: int
-    read_blast_query_count: int
+    def query_disagreement(cls) -> BlastQueryPreparationError:
+        return cls("Read bait counts and deduplicated BLAST queries disagree")
 
 
 def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
-    parser = argparse.ArgumentParser(
-        description="Combine candidate-read rows and prepare unique BLAST queries.",
-    )
-    parser.add_argument("--design-id", required=True)
-    parser.add_argument("--counts", type=Path, nargs="+", required=True)
-    parser.add_argument("--statuses", type=Path, nargs="+", required=True)
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--counts-dir", type=Path, required=True)
     parser.add_argument("--unique-fasta", type=Path, required=True)
-    parser.add_argument("--candidate-counts-out", type=Path, required=True)
-    parser.add_argument("--query-out", type=Path, required=True)
-    parser.add_argument("--summary-out", type=Path, required=True)
-    parser.add_argument("--terminal-blast-hits-out", type=Path)
-    parser.add_argument("--terminal-search-parameters-out", type=Path)
-    parser.add_argument("--terminal-classified-reads-out", type=Path)
-    parser.add_argument("--terminal-read-counts-out", type=Path)
-    parser.add_argument("--terminal-summary-out", type=Path, required=True)
+    parser.add_argument("--counts-out", type=Path, required=True)
+    parser.add_argument("--queries-out", type=Path, required=True)
     return parser.parse_args(argv)
 
 
-def read_nonnegative_integer(value: str, path: Path) -> int:
-    if not value.isascii() or not value.isdecimal():
-        raise BlastQueryPreparationError.malformed_status(path)
-    return int(value)
+def discover_count_tables(root: Path) -> tuple[Path, ...]:
+    tables = tuple(sorted(root.glob("*.read_bait_counts.tsv")))
+    if not tables:
+        raise BlastQueryPreparationError.missing_counts()
+    return tables
 
 
-def read_status(path: Path) -> CandidateReadStatus:
-    try:
-        with path.open(newline="") as handle:
-            rows = tuple(csv.reader(handle, delimiter="\t"))
-    except (OSError, csv.Error) as error:
-        raise BlastQueryPreparationError.malformed_status(path) from error
-    if not rows or rows[0] != ["metric", "value"] or tuple(row[0] for row in rows[1:]) != STATUS_METRICS:
-        raise BlastQueryPreparationError.malformed_status(path)
-    if any(len(row) != RELATION_WIDTH for row in rows[1:]) or not rows[1][1]:
-        raise BlastQueryPreparationError.malformed_status(path)
-    status = CandidateReadStatus(
-        rows[1][1],
-        read_nonnegative_integer(rows[2][1], path),
-        read_nonnegative_integer(rows[3][1], path),
-    )
-    if status.deacon_returned_read_count != status.candidate_read_count:
-        raise BlastQueryPreparationError.status_count_disagreement(status.metagenome_id)
-    return status
-
-
-def valid_count_row(row: dict[str, str | None], metagenome_id: str, ordinal: int) -> bool:
+def valid_count_row(row: dict[str, str | None], ordinal: int) -> bool:
     return (
-        row["metagenome_id"] == metagenome_id
+        bool(row["metagenome_id"])
         and row["read_id"] == f"read_{ordinal:012d}"
         and (row["read_length"] or "").isascii()
         and (row["read_length"] or "").isdecimal()
@@ -188,52 +76,60 @@ def valid_count_row(row: dict[str, str | None], metagenome_id: str, ordinal: int
         and (row["bait_count"] or "").isascii()
         and (row["bait_count"] or "").isdecimal()
         and int(row["bait_count"] or "0") > 0
-        and REPRESENTATIVE_PATTERN.fullmatch(row["representative_id"] or "") is not None
+        and QUERY_PATTERN.fullmatch(row["query_id"] or "") is not None
     )
 
 
-def combine_candidate_counts(
-    count_paths: Sequence[Path],
-    status_paths: Sequence[Path],
+def combine_read_bait_counts(
+    paths: Sequence[Path],
     output: Path,
-) -> tuple[int, frozenset[str]]:
-    status_by_source = {
-        path.name.removesuffix(".candidate_read_status.tsv"): read_status(path)
-        for path in status_paths
-    }
-    count_by_source = {
-        path.name.removesuffix(".counted_reads.tsv"): path
-        for path in count_paths
-    }
-    if status_by_source.keys() != count_by_source.keys():
-        raise BlastQueryPreparationError.unequal_input_lists()
-    total = 0
-    representative_ids: set[str] = set()
+) -> frozenset[str]:
+    metagenome_ids: set[str] = set()
+    query_ids: set[str] = set()
     with output.open("w", newline="") as output_handle:
-        writer = csv.DictWriter(output_handle, fieldnames=COUNT_FIELDS, delimiter="\t", lineterminator="\n")
+        writer = csv.DictWriter(
+            output_handle,
+            fieldnames=COUNT_FIELDS,
+            delimiter="\t",
+            lineterminator="\n",
+        )
         writer.writeheader()
-        for source in sorted(count_by_source):
-            path = count_by_source[source]
-            status = status_by_source[source]
-            try:
-                with path.open(newline="") as input_handle:
-                    reader = csv.DictReader(input_handle, delimiter="\t")
-                    if tuple(reader.fieldnames or ()) != COUNT_FIELDS:
-                        raise BlastQueryPreparationError.malformed_counts(path)
-                    rows = 0
-                    for rows, row in enumerate(reader, start=1):
-                        if not valid_count_row(row, status.metagenome_id, rows):
-                            raise BlastQueryPreparationError.malformed_counts(path)
-                        representative_ids.add(row["representative_id"] or "")
-                        writer.writerow(row)
-            except (OSError, csv.Error, KeyError, ValueError) as error:
-                if isinstance(error, BlastQueryPreparationError):
-                    raise
-                raise BlastQueryPreparationError.malformed_counts(path) from error
-            if rows != status.candidate_read_count:
-                raise BlastQueryPreparationError.status_count_disagreement(status.metagenome_id)
-            total += rows
-    return total, frozenset(representative_ids)
+        for path in paths:
+            table_metagenome, table_queries = copy_count_table(path, writer)
+            query_ids.update(table_queries)
+            if table_metagenome is not None:
+                if table_metagenome in metagenome_ids:
+                    raise BlastQueryPreparationError.duplicate_metagenome(table_metagenome)
+                metagenome_ids.add(table_metagenome)
+    return frozenset(query_ids)
+
+
+def copy_count_table(
+    path: Path,
+    writer: csv.DictWriter[str],
+) -> tuple[str | None, frozenset[str]]:
+    table_metagenome: str | None = None
+    query_ids: set[str] = set()
+    try:
+        with path.open(newline="") as input_handle:
+            reader = csv.DictReader(input_handle, delimiter="\t")
+            if tuple(reader.fieldnames or ()) != COUNT_FIELDS:
+                raise BlastQueryPreparationError.malformed_counts(path)
+            for ordinal, row in enumerate(reader, start=1):
+                if not valid_count_row(row, ordinal):
+                    raise BlastQueryPreparationError.malformed_counts(path)
+                metagenome_id = row["metagenome_id"] or ""
+                if table_metagenome is None:
+                    table_metagenome = metagenome_id
+                elif table_metagenome != metagenome_id:
+                    raise BlastQueryPreparationError.malformed_counts(path)
+                query_ids.add(row["query_id"] or "")
+                writer.writerow(row)
+    except (OSError, csv.Error, KeyError, ValueError) as error:
+        if isinstance(error, BlastQueryPreparationError):
+            raise
+        raise BlastQueryPreparationError.malformed_counts(path) from error
+    return table_metagenome, frozenset(query_ids)
 
 
 def open_text(path: Path) -> TextIO:
@@ -253,74 +149,15 @@ def write_unique_queries(source: Path, destination: Path) -> frozenset[str]:
     return frozenset(query_ids)
 
 
-def write_relation(path: Path, fields: Sequence[str], rows: Sequence[Sequence[object]]) -> None:
-    with path.open("w", newline="") as handle:
-        writer = csv.writer(handle, delimiter="\t", lineterminator="\n")
-        writer.writerow(fields)
-        writer.writerows(rows)
-
-
-def write_summary(path: Path, summary: PreparationSummary) -> None:
-    write_relation(path, ("metric", "value"), tuple(zip(SUMMARY_METRICS, summary.__dict__.values(), strict=True)))
-
-
 def main(argv: Sequence[str] | None = None) -> None:
     args = parse_args(argv)
-    if len(args.counts) != len(args.statuses):
-        raise BlastQueryPreparationError.unequal_input_lists()
-    statuses = tuple(read_status(path) for path in args.statuses)
-    if len({status.metagenome_id for status in statuses}) != len(statuses):
-        raise BlastQueryPreparationError.duplicate_status_metagenome()
-    candidate_count, candidate_representatives = combine_candidate_counts(
-        args.counts,
-        args.statuses,
-        args.candidate_counts_out,
+    counted_query_ids = combine_read_bait_counts(
+        discover_count_tables(args.counts_dir),
+        args.counts_out,
     )
-    query_ids = write_unique_queries(args.unique_fasta, args.query_out)
-    if candidate_representatives != query_ids:
-        raise BlastQueryPreparationError.candidate_query_disagreement()
-    query_count = len(query_ids)
-    summary = PreparationSummary(
-        args.design_id,
-        sum(status.deacon_returned_read_count for status in statuses),
-        candidate_count,
-        candidate_count - query_count,
-        query_count,
-    )
-    write_summary(args.summary_out, summary)
-    if candidate_count:
-        args.terminal_summary_out.unlink(missing_ok=True)
-        return
-    blast_hits = args.terminal_blast_hits_out
-    search_parameters = args.terminal_search_parameters_out
-    classified_reads = args.terminal_classified_reads_out
-    read_counts = args.terminal_read_counts_out
-    if (
-        blast_hits is None
-        or search_parameters is None
-        or classified_reads is None
-        or read_counts is None
-    ):
-        raise BlastQueryPreparationError.missing_terminal_paths()
-    write_relation(blast_hits, BLAST_FIELDS, ())
-    write_relation(search_parameters, ("parameter", "value"), ())
-    write_relation(classified_reads, CLASSIFIED_FIELDS, ())
-    write_relation(read_counts, THRESHOLD_COUNT_FIELDS, ((1, 0, 0, 0, 0),))
-    values = (
-        *summary.__dict__.values(),
-        0,
-        0,
-        0,
-        0,
-        "NO_CANDIDATE_READS",
-        "",
-        "The calibration reads contain no candidate reads.",
-    )
-    write_relation(
-        args.terminal_summary_out,
-        ("metric", "value"),
-        tuple(zip(THRESHOLD_SUMMARY_METRICS, values, strict=True)),
-    )
+    query_ids = write_unique_queries(args.unique_fasta, args.queries_out)
+    if counted_query_ids != query_ids:
+        raise BlastQueryPreparationError.query_disagreement()
 
 
 if __name__ == "__main__":

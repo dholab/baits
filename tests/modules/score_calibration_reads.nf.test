@@ -1,0 +1,43 @@
+nextflow_process {
+    name "Score calibration reads process"
+    script "../../modules/local/score_calibration_reads/main.nf"
+    process "SCORE_CALIBRATION_READS"
+
+    test("projects best target and other scores onto every read") {
+        setup {
+            def query = 'sequence_8be635b3b461bfc5d03b08aa3ee554d044abedfa1ee7dc70ee5fbf7f665ae219'
+            new File("$outputDir/reads.tsv").text = "metagenome_id\tread_id\tread_length\tbait_count\tquery_id\nsample\tread_000000000001\t5\t1\t${query}\nsample\tread_000000000002\t5\t1\t${query}\n"
+            new File("$outputDir/hits.tsv").text = "qseqid\tqlen\tsaccver\tstaxids\tpident\tlength\tmismatch\tgapopen\tqstart\tqend\tsstart\tsend\tevalue\tbitscore\tqcovhsp\tstitle\n${query}\t5\ttarget\t88456\t100\t5\t0\t0\t1\t5\t1\t5\t0\t10\t100\ttarget\n${query}\t5\tother\t123\t100\t5\t0\t0\t1\t5\t1\t5\t0\t8\t100\tother\n"
+        }
+        when {
+            process {
+                """input[0] = [[id: 'design'], file("$outputDir/reads.tsv"), file("$outputDir/hits.tsv"), '88456', []]"""
+            }
+        }
+        then {
+            assert process.success
+            def rows = file(process.out.reads[0][1]).readLines()
+            assert rows[0] == 'metagenome_id\tread_id\tread_length\tbait_count\tquery_id\tbest_target_bit_score\tbest_other_bit_score'
+            assert rows.drop(1).every { it.endsWith('\t10\t8') }
+            assert rows.size() == 3
+        }
+    }
+
+    test("uses a supplied calibration target scope") {
+        setup {
+            def query = 'sequence_8be635b3b461bfc5d03b08aa3ee554d044abedfa1ee7dc70ee5fbf7f665ae219'
+            new File("$outputDir/reads.tsv").text = "metagenome_id\tread_id\tread_length\tbait_count\tquery_id\nsample\tread_000000000001\t5\t1\t${query}\n"
+            new File("$outputDir/hits.tsv").text = "qseqid\tqlen\tsaccver\tstaxids\tpident\tlength\tmismatch\tgapopen\tqstart\tqend\tsstart\tsend\tevalue\tbitscore\tqcovhsp\tstitle\n${query}\t5\tgenus_target\t44417\t100\t5\t0\t0\t1\t5\t1\t5\t0\t10\t100\tgenus target\n"
+            new File("$outputDir/scope.tsv").text = 'taxid\n44417\n88456\n'
+        }
+        when {
+            process {
+                """input[0] = [[id: 'design'], file("$outputDir/reads.tsv"), file("$outputDir/hits.tsv"), '88456', file("$outputDir/scope.tsv")]"""
+            }
+        }
+        then {
+            assert process.success
+            assert file(process.out.reads[0][1]).text.contains('\t10\t\n')
+        }
+    }
+}

@@ -9,9 +9,8 @@ process COUNT_READ_BAITS {
     tuple val(design_meta), val(read_meta), path(baits, stageAs: 'baits.fasta'), path(read, stageAs: 'candidate_read'), val(kmer_size)
 
     output:
-    tuple val(design_meta), val(read_meta), path("${read_meta.id}.counted_reads.tsv"), emit: counts
+    tuple val(design_meta), val(read_meta), path("${read_meta.id}.read_bait_counts.tsv"), emit: counts
     tuple val(design_meta), val(read_meta), path("${read_meta.id}.candidate_reads.fasta"), emit: fasta
-    tuple val(design_meta), val(read_meta), path("${read_meta.id}.candidate_read_status.tsv"), emit: status
     tuple val("${task.process}"), val('biopython'), eval("python -c 'import Bio; print(Bio.__version__)'"), topic: versions, emit: versions_biopython
 
     when:
@@ -24,8 +23,7 @@ process COUNT_READ_BAITS {
         --baits baits.fasta \
         --kmer-size ${kmer_size} \
         --read candidate_read \
-        --counts-out '${read_meta.id}.counted_reads.tsv' \
-        --fasta-out '${read_meta.id}.candidate_reads.fasta' \
-        --status-out '${read_meta.id}.candidate_read_status.tsv'
+        --counts-out '${read_meta.id}.read_bait_counts.tsv' \
+        --fasta-out '${read_meta.id}.candidate_reads.fasta'
     """
 }

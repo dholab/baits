@@ -1,299 +1,175 @@
 #!/usr/bin/env python3
-"""Calibrate a threshold from classified candidate reads."""
+"""Derive the recommended threshold from scored calibration reads."""
 
 from __future__ import annotations
 
 import argparse
 import csv
 from dataclasses import dataclass
-from enum import StrEnum
+from decimal import Decimal, InvalidOperation
 from pathlib import Path
-from typing import TYPE_CHECKING, cast
-
-import polars as pl
+from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
 
-CLASSIFIED_FIELDS = (
-    "metagenome_id", "read_id", "read_length", "bait_count",
-    "representative_id", "classification",
-    "best_target_bit_score", "best_non_target_bit_score",
+READ_FIELDS = (
+    "metagenome_id",
+    "read_id",
+    "read_length",
+    "bait_count",
+    "query_id",
+    "best_target_bit_score",
+    "best_other_bit_score",
 )
-PREPARATION_METRICS = (
-    "design_id", "deacon_returned_read_count", "candidate_read_count",
-    "duplicate_sequence_count", "read_blast_query_count",
-)
-SUMMARY_METRICS = (
-    *PREPARATION_METRICS, "target_classified_read_count", "non_target_classified_read_count",
-    "tied_read_count", "no_hit_read_count", "calibration_status",
-    "recommended_threshold", "conclusion",
-)
-READ_COUNT_FIELDS = (
-    "threshold", "target_read_count", "non_target_read_count", "tied_read_count",
-    "no_hit_read_count",
-)
-CLASSIFIED_SCHEMA = {
-    "metagenome_id": pl.String,
-    "read_id": pl.String,
-    "read_length": pl.Int64,
-    "bait_count": pl.Int64,
-    "representative_id": pl.String,
-    "classification": pl.String,
-    "best_target_bit_score": pl.String,
-    "best_non_target_bit_score": pl.String,
-}
+TIE_TOLERANCE = Decimal("0.1")
+MAX_COUNT = 2**63 - 1
 
 
-class DeaconThresholdCalibrationError(ValueError):
-    """Raised when threshold calibration evidence is malformed."""
-
-    @classmethod
-    def malformed_classified_reads(cls, path: Path) -> DeaconThresholdCalibrationError:
-        return cls(f"Classified-read evidence is malformed: {path}")
-
-    @classmethod
-    def duplicate_identity(cls) -> DeaconThresholdCalibrationError:
-        return cls("Classified-read identity is duplicated")
-
-    @classmethod
-    def no_classified_reads(cls) -> DeaconThresholdCalibrationError:
-        return cls("Classified-read evidence must contain at least one candidate read")
-
-    @classmethod
-    def malformed_preparation_summary(cls, path: Path) -> DeaconThresholdCalibrationError:
-        return cls(f"Candidate read preparation summary is malformed: {path}")
-
-    @classmethod
-    def design_mismatch(cls) -> DeaconThresholdCalibrationError:
-        return cls("Candidate read preparation summary design_id does not match")
-
-    @classmethod
-    def candidate_count_mismatch(cls) -> DeaconThresholdCalibrationError:
-        return cls("Classified-read count disagrees with candidate-read preparation")
-
-
-class CalibrationStatus(StrEnum):
-    RECOMMENDED_THRESHOLD = "RECOMMENDED_THRESHOLD"
-    NO_SUPPORTED_THRESHOLD = "NO_SUPPORTED_THRESHOLD"
+class ThresholdCalibrationError(ValueError):
+    """Raised when scored calibration reads cannot support threshold derivation."""
 
 
 @dataclass(frozen=True)
-class PreparationSummary:
-    design_id: str
-    deacon_returned_read_count: int
-    candidate_read_count: int
-    duplicate_sequence_count: int
-    read_blast_query_count: int
-
-
-@dataclass(frozen=True)
-class CalibrationConclusion:
-    status: CalibrationStatus
-    recommended_threshold: int | None
-    conclusion: str
-
-
-@dataclass(frozen=True)
-class ThresholdCalibration:
-    read_counts: pl.LazyFrame
-    summary: pl.LazyFrame
-    conclusion: CalibrationConclusion
+class CalibrationRead:
+    metagenome_id: str
+    read_id: str
+    read_length: int
+    bait_count: int
+    query_id: str
+    best_target_bit_score: Decimal | None
+    best_other_bit_score: Decimal | None
 
 
 def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Calibrate a threshold.")
+    parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--design-id", required=True)
-    parser.add_argument("--classified-reads", type=Path, required=True)
-    parser.add_argument("--preparation-summary", type=Path, required=True)
-    parser.add_argument("--read-counts-out", type=Path, required=True)
-    parser.add_argument("--summary-out", type=Path, required=True)
+    parser.add_argument("--calibration-reads", type=Path, required=True)
+    parser.add_argument("--output", type=Path, required=True)
     return parser.parse_args(argv)
 
 
-def first_error(errors: pl.LazyFrame) -> str | None:
-    error = errors.limit(1).collect()
-    return None if error.is_empty() else error.item(0, "error")
-
-
-def has_expected_header(path: Path, fields: tuple[str, ...]) -> bool:
-    try:
-        with path.open(newline="") as source:
-            return next(csv.reader(source, delimiter="\t")) == list(fields)
-    except (OSError, StopIteration, csv.Error):
-        return False
-
-
-def classified_read_errors(reads: pl.LazyFrame) -> pl.LazyFrame:
-    valid_row = pl.all_horizontal(
-        pl.col("metagenome_id").is_not_null(),
-        pl.col("read_id").is_not_null(),
-        pl.col("representative_id").is_not_null(),
-        pl.col("classification").is_not_null(),
-        pl.col("read_length").is_not_null(),
-        pl.col("bait_count").is_not_null(),
-        pl.col("metagenome_id").str.strip_chars().str.len_chars() > 0,
-        pl.col("read_id").str.strip_chars().str.len_chars() > 0,
-        pl.col("representative_id").str.strip_chars().str.len_chars() > 0,
-        pl.col("read_length") > 0,
-        pl.col("bait_count") > 0,
-        pl.col("classification").is_in(("TARGET", "NON_TARGET", "TIED", "NO_HIT")),
-    )
-    return pl.concat(
-        [
-            reads.filter(~valid_row.fill_null(value=False)).with_columns(
-                pl.lit("malformed").alias("error"),
-            ).select("error"),
-            reads.group_by("metagenome_id", "read_id").len().filter(
-                pl.col("len") > 1,
-            ).with_columns(pl.lit("duplicate_identity").alias("error")).select("error"),
-        ],
-        how="vertical",
-    )
-
-
-def construct_classified_reads(path: Path) -> pl.LazyFrame:
-    try:
-        if not has_expected_header(path, CLASSIFIED_FIELDS):
-            raise DeaconThresholdCalibrationError.malformed_classified_reads(path)
-        reads = pl.scan_csv(
-            path,
-            separator="\t",
-            schema=CLASSIFIED_SCHEMA,
-            null_values=[],
-            raise_if_empty=False,
-        )
-        error = first_error(classified_read_errors(reads))
-        count = reads.select(pl.len()).collect().item()
-    except pl.exceptions.PolarsError as exception:
-        raise DeaconThresholdCalibrationError.malformed_classified_reads(path) from exception
-    if count == 0:
-        raise DeaconThresholdCalibrationError.no_classified_reads()
-    match error:
-        case "duplicate_identity":
-            raise DeaconThresholdCalibrationError.duplicate_identity()
-        case None:
-            return reads
-        case _:
-            raise DeaconThresholdCalibrationError.malformed_classified_reads(path)
-
-
-def parse_nonnegative_int64(value: str | None, path: Path) -> int:
+def parse_positive_integer(value: str | None, field: str) -> int:
     if value is None or not value.isascii() or not value.isdecimal():
-        raise DeaconThresholdCalibrationError.malformed_preparation_summary(path)
+        message = f"Calibration reads contain an invalid {field}"
+        raise ThresholdCalibrationError(message)
     parsed = int(value)
-    if parsed > 2**63 - 1:
-        raise DeaconThresholdCalibrationError.malformed_preparation_summary(path)
+    if parsed <= 0 or parsed > MAX_COUNT:
+        message = f"Calibration reads contain an invalid {field}"
+        raise ThresholdCalibrationError(message)
     return parsed
 
 
-def construct_preparation_summary(path: Path, design_id: str) -> PreparationSummary:
+def parse_score(value: str | None, field: str) -> Decimal | None:
+    if value in {None, ""}:
+        return None
     try:
-        if not has_expected_header(path, ("metric", "value")):
-            raise DeaconThresholdCalibrationError.malformed_preparation_summary(path)
-        summary = pl.scan_csv(
-            path,
-            separator="\t",
-            schema={"metric": pl.String, "value": pl.String},
-            null_values=[],
-            raise_if_empty=False,
-        ).collect()
-    except pl.exceptions.PolarsError as exception:
-        raise DeaconThresholdCalibrationError.malformed_preparation_summary(path) from exception
-    if tuple(summary.get_column("metric")) != PREPARATION_METRICS:
-        raise DeaconThresholdCalibrationError.malformed_preparation_summary(path)
-    values = summary.get_column("value").to_list()
-    if values[0] is None or values[0].strip() == "":
-        raise DeaconThresholdCalibrationError.malformed_preparation_summary(path)
-    if values[0] != design_id:
-        raise DeaconThresholdCalibrationError.design_mismatch()
-    counts = tuple(parse_nonnegative_int64(value, path) for value in values[1:])
-    return PreparationSummary(str(values[0]), *counts)
+        score = Decimal(value)
+    except InvalidOperation as error:
+        message = f"Calibration reads contain an invalid {field}"
+        raise ThresholdCalibrationError(message) from error
+    if not score.is_finite():
+        message = f"Calibration reads contain an invalid {field}"
+        raise ThresholdCalibrationError(message)
+    return score
 
 
-def conclusion_from_counts(read_counts: pl.DataFrame) -> CalibrationConclusion:
-    supported = read_counts.filter(
-        (pl.col("target_read_count") > 0)
-        & (pl.col("non_target_read_count") == 0)
-        & (pl.col("tied_read_count") == 0)
-        & (pl.col("no_hit_read_count") == 0),
-    )
-    if supported.height:
-        threshold = supported.item(0, "threshold")
-        return CalibrationConclusion(
-            CalibrationStatus.RECOMMENDED_THRESHOLD,
-            threshold,
-            f"The recommended threshold is {threshold} for these calibration reads.",
-        )
-    return CalibrationConclusion(
-        CalibrationStatus.NO_SUPPORTED_THRESHOLD,
+def read_calibration_reads(path: Path) -> tuple[CalibrationRead, ...]:
+    try:
+        with path.open(newline="") as handle:
+            reader = csv.DictReader(handle, delimiter="\t")
+            if tuple(reader.fieldnames or ()) != READ_FIELDS:
+                message = "Calibration reads have an unexpected schema"
+                raise ThresholdCalibrationError(message)
+            reads = tuple(
+                CalibrationRead(
+                    metagenome_id=row["metagenome_id"] or "",
+                    read_id=row["read_id"] or "",
+                    read_length=parse_positive_integer(row["read_length"], "read_length"),
+                    bait_count=parse_positive_integer(row["bait_count"], "bait_count"),
+                    query_id=row["query_id"] or "",
+                    best_target_bit_score=parse_score(
+                        row["best_target_bit_score"],
+                        "best_target_bit_score",
+                    ),
+                    best_other_bit_score=parse_score(
+                        row["best_other_bit_score"],
+                        "best_other_bit_score",
+                    ),
+                )
+                for row in reader
+            )
+    except (OSError, csv.Error, KeyError) as error:
+        message = f"Could not parse calibration reads: {path}"
+        raise ThresholdCalibrationError(message) from error
+    if not reads:
+        message = "Threshold derivation requires at least one calibration read"
+        raise ThresholdCalibrationError(message)
+    invalid_identity = next(
+        (
+            read
+            for read in reads
+            if not read.metagenome_id or not read.read_id or not read.query_id
+        ),
         None,
-        "No threshold is supported by these calibration reads.",
     )
+    if invalid_identity is not None:
+        message = "Calibration reads contain a blank identity"
+        raise ThresholdCalibrationError(message)
+    identities = {(read.metagenome_id, read.read_id) for read in reads}
+    if len(identities) != len(reads):
+        message = "Calibration read identity is duplicated"
+        raise ThresholdCalibrationError(message)
+    return reads
 
 
-def summary_relation(preparation: PreparationSummary, totals: pl.DataFrame, conclusion: CalibrationConclusion) -> pl.LazyFrame:
-    return pl.DataFrame(
-        {
-            "metric": SUMMARY_METRICS,
-            "value": (
-                preparation.design_id,
-                *(str(value) for value in (
-                    preparation.deacon_returned_read_count,
-                    preparation.candidate_read_count,
-                    preparation.duplicate_sequence_count,
-                    preparation.read_blast_query_count,
-                )),
-                *(str(totals.item(0, field)) for field in READ_COUNT_FIELDS[1:]),
-                conclusion.status.value,
-                "" if conclusion.recommended_threshold is None else str(conclusion.recommended_threshold),
-                conclusion.conclusion,
-            ),
-        },
-    ).lazy()
+def category_counts(read: CalibrationRead) -> tuple[int, int, int, int]:
+    target = read.best_target_bit_score
+    other = read.best_other_bit_score
+    if target is None and other is None:
+        return 0, 0, 0, 1
+    if target is None:
+        return 0, 1, 0, 0
+    if other is None:
+        return 1, 0, 0, 0
+    if abs(target - other) <= TIE_TOLERANCE:
+        return 0, 0, 1, 0
+    return (1, 0, 0, 0) if target > other else (0, 1, 0, 0)
 
 
-def construct_threshold_calibration(
-    classified_reads: pl.LazyFrame,
-    preparation: PreparationSummary,
-) -> ThresholdCalibration:
-    grouped_counts = classified_reads.group_by("bait_count").agg(
-        pl.len().alias("candidate_read_count"),
-        (pl.col("classification") == "TARGET").sum().alias("target_read_count"),
-        (pl.col("classification") == "NON_TARGET").sum().alias("non_target_read_count"),
-        (pl.col("classification") == "TIED").sum().alias("tied_read_count"),
-        (pl.col("classification") == "NO_HIT").sum().alias("no_hit_read_count"),
-    ).collect()
-    if grouped_counts.get_column("candidate_read_count").sum() != preparation.candidate_read_count:
-        raise DeaconThresholdCalibrationError.candidate_count_mismatch()
-    maximum = cast("int", grouped_counts.get_column("bait_count").max())
-    exact_counts = {
-        cast("int", row[0]): tuple(cast("int", value) for value in row[2:])
-        for row in grouped_counts.iter_rows()
-    }
+def recommended_threshold(reads: Sequence[CalibrationRead]) -> int | None:
+    counts_by_bait_count: dict[int, list[int]] = {}
+    for read in reads:
+        totals = counts_by_bait_count.setdefault(read.bait_count, [0, 0, 0, 0])
+        for index, count in enumerate(category_counts(read)):
+            totals[index] += count
     running = [0, 0, 0, 0]
-    rows: list[tuple[int, int, int, int, int]] = [(maximum + 1, 0, 0, 0, 0)]
+    supported: int | None = None
+    maximum = max(counts_by_bait_count)
     for threshold in range(maximum, 0, -1):
-        counts = exact_counts.get(threshold, (0, 0, 0, 0))
-        running = [total + count for total, count in zip(running, counts, strict=True)]
-        rows.append((threshold, running[0], running[1], running[2], running[3]))
-    materialized_counts = pl.DataFrame(
-        reversed(rows),
-        schema=dict.fromkeys(READ_COUNT_FIELDS, pl.Int64),
-        orient="row",
-    )
-    conclusion = conclusion_from_counts(materialized_counts)
-    summary = summary_relation(preparation, materialized_counts.head(1), conclusion)
-    return ThresholdCalibration(materialized_counts.lazy(), summary, conclusion)
+        exact = counts_by_bait_count.get(threshold, [0, 0, 0, 0])
+        running = [total + count for total, count in zip(running, exact, strict=True)]
+        target, other, tied, no_hit = running
+        if target > 0 and other == 0 and tied == 0 and no_hit == 0:
+            supported = threshold
+    return supported
+
+
+def write_recommended_threshold(path: Path, design_id: str, threshold: int | None) -> None:
+    with path.open("w", newline="") as handle:
+        writer = csv.writer(handle, delimiter="\t", lineterminator="\n")
+        writer.writerow(("design_id", "recommended_threshold"))
+        writer.writerow((design_id, "" if threshold is None else threshold))
 
 
 def main(argv: Sequence[str] | None = None) -> None:
     args = parse_args(argv)
-    classified_reads = construct_classified_reads(args.classified_reads)
-    preparation = construct_preparation_summary(args.preparation_summary, args.design_id)
-    calibration = construct_threshold_calibration(classified_reads, preparation)
-    calibration.read_counts.collect().write_csv(args.read_counts_out, separator="\t", quote_style="never")
-    calibration.summary.collect().write_csv(args.summary_out, separator="\t", quote_style="never")
+    reads = read_calibration_reads(args.calibration_reads)
+    write_recommended_threshold(
+        args.output,
+        args.design_id,
+        recommended_threshold(reads),
+    )
 
 
 if __name__ == "__main__":

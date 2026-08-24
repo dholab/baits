@@ -1,10 +1,10 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/nf-core/modules/master/modules/meta-schema.json
-name: classify_read_hits
-description: Classify candidate reads from read BLAST evidence.
+name: score_calibration_reads
+description: Project each calibration query's best target and other BLAST scores onto every read observation.
 keywords:
   - blast
+  - calibration
   - reads
-  - taxonomy
 tools:
   - python:
       description: Python programming language.
@@ -17,31 +17,34 @@ input:
   - - meta:
         type: map
         description: Design metadata.
-    - candidate_read_counts:
+    - read_bait_counts:
         type: file
-        description: Candidate read bait counts and BLAST representative IDs.
-        ontologies: []
-    - blast_hits:
+        description: Bait count and shared query identity for every candidate read.
+        pattern: read_bait_counts.tsv
+        ontologies:
+          - edam: http://edamontology.org/format_3475 # TSV
+    - blast_matches:
         type: file
-        description: Read BLAST evidence.
-        ontologies: []
+        description: Gathered calibration-query BLAST matches.
+        pattern: read_blast_hits.tsv
+        ontologies:
+          - edam: http://edamontology.org/format_3475 # TSV
     - target_taxid:
         type: string
-        description: Target taxon identifier.
+        description: Target NCBI taxonomy identifier.
     - calibration_target_taxids:
         type: file
-        description: Optional one-column TSV declaring taxids treated as target-compatible during calibration.
-        pattern: "*.tsv"
+        description: Optional taxid scope used only for calibration-read score interpretation.
         ontologies: []
 output:
-  classified_reads:
+  reads:
     - - meta:
           type: map
           description: Design metadata.
-      - classified_reads.tsv:
+      - calibration_reads.tsv:
           type: file
-          description: Classified candidate reads.
-          pattern: classified_reads.tsv
+          description: Per-read bait counts and best target and other scores for one design.
+          pattern: calibration_reads.tsv
           ontologies:
             - edam: http://edamontology.org/format_3475 # TSV
   versions_python:

@@ -1,7 +1,7 @@
 nextflow_process {
-    name "BLASTN read classification process"
-    script "../../modules/local/blastn_read_classification/main.nf"
-    process "BLASTN_READ_CLASSIFICATION"
+    name "BLASTN calibration reads process"
+    script "../../modules/local/blastn_calibration_reads/main.nf"
+    process "BLASTN_CALIBRATION_READS"
 
     test("writes the accepted read BLAST schema in stub mode") {
         setup {
@@ -21,7 +21,7 @@ nextflow_process {
         }
     }
 
-    test("bounds co-best subjects at the configured limit") {
+    test("bounds co-best subjects at the default limit") {
         setup {
             def sequence = 'ACGTTGCATGTCAGTACGATCGTAG' * 4
             def subjects = (1..101).collect { index ->
@@ -50,12 +50,9 @@ nextflow_process {
                 [accession: fields[2], taxid: fields[3]]
             }.unique { subject -> subject.accession }
             assert subjects.size() == 100
-            assert file(process.out.search_parameters[0][1]).readLines() == [
-                'parameter\tvalue',
-                'max_target_seqs\t100',
-            ]
             def command = new File(file(process.out.hits[0][1]).parent, '.command.sh').text
             assert command.contains('-num_threads 2')
+            assert command.contains('-max_target_seqs 100')
         }
     }
 }

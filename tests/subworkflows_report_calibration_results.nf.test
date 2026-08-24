@@ -1,0 +1,52 @@
+nextflow_workflow {
+    name "Report shared calibration results subworkflow"
+    script "../subworkflows/local/report_calibration_results/main.nf"
+    workflow "REPORT_SHARED_CALIBRATION_RESULTS"
+
+    test("combines calibration reads and matches across designs") {
+        setup {
+            ['design_a', 'design_b'].each { design ->
+                new File("$outputDir/${design}").mkdirs()
+                new File("$outputDir/${design}/calibration_reads.tsv").text = "metagenome_id\tread_id\tread_length\tbait_count\tquery_id\tbest_target_bit_score\tbest_other_bit_score\nsample\tread_000000000001\t100\t1\tquery_${design}\t100\t\n"
+                new File("$outputDir/${design}/read_blast_hits.tsv").text = "qseqid\tqlen\tsaccver\tstaxids\tpident\tlength\tmismatch\tgapopen\tqstart\tqend\tsstart\tsend\tevalue\tbitscore\tqcovhsp\tstitle\nquery_${design}\t100\ttarget\t88456\t100\t100\t0\t0\t1\t100\t1\t100\t1e-20\t100\t100\ttarget\n"
+            }
+        }
+        when {
+            workflow {
+                """
+                input[0] = Channel.of(
+                    [[id: 'design_b'], file("$outputDir/design_b/calibration_reads.tsv")],
+                    [[id: 'design_a'], file("$outputDir/design_a/calibration_reads.tsv")]
+                )
+                input[1] = Channel.of(
+                    [[id: 'design_a'], file("$outputDir/design_a/read_blast_hits.tsv")],
+                    [[id: 'design_b'], file("$outputDir/design_b/read_blast_hits.tsv")]
+                )
+                """
+            }
+        }
+        then {
+            assert workflow.success
+            assert file(workflow.out.reads[0]).readLines()*.split('\t')*.first() == ['design_id', 'design_a', 'design_b']
+            def matches = new java.util.zip.GZIPInputStream(new FileInputStream(file(workflow.out.matches[0]))).text
+            assert matches.indexOf('design_a\t') < matches.indexOf('design_b\t')
+        }
+    }
+
+    test("reports headers when calibration has no candidate reads") {
+        when {
+            workflow {
+                """
+                input[0] = Channel.empty()
+                input[1] = Channel.empty()
+                """
+            }
+        }
+        then {
+            assert workflow.success
+            assert file(workflow.out.reads[0]).readLines().size() == 1
+            def matches = new java.util.zip.GZIPInputStream(new FileInputStream(file(workflow.out.matches[0]))).text
+            assert matches.readLines().size() == 1
+        }
+    }
+}

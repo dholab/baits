@@ -23,12 +23,7 @@ COUNT_FIELDS = (
     "read_id",
     "read_length",
     "bait_count",
-    "representative_id",
-)
-STATUS_FIELDS = (
-    "metagenome_id",
-    "deacon_returned_read_count",
-    "candidate_read_count",
+    "query_id",
 )
 COMPLEMENT = str.maketrans("ACGTRYKMSWBDHVN", "TGCAYRMKSWVHDBN")
 
@@ -62,13 +57,6 @@ class CandidateReadRecountError(ValueError):
 
 
 @dataclass(frozen=True)
-class RecountStatus:
-    metagenome_id: str
-    deacon_returned_read_count: int
-    candidate_read_count: int
-
-
-@dataclass(frozen=True)
 class CandidateWriters:
     counts: TextIO
     fasta: TextIO
@@ -84,7 +72,6 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--read", type=Path, required=True)
     parser.add_argument("--counts-out", type=Path, required=True)
     parser.add_argument("--fasta-out", type=Path, required=True)
-    parser.add_argument("--status-out", type=Path, required=True)
     return parser.parse_args(argv)
 
 
@@ -131,7 +118,7 @@ def matched_baits(sequence: str, baits: frozenset[str], kmer_size: int) -> froze
     )
 
 
-def representative_id(sequence: str) -> str:
+def query_id_for_sequence(sequence: str) -> str:
     digest = hashlib.sha256(sequence.encode()).hexdigest()
     return f"sequence_{digest}"
 
@@ -143,7 +130,7 @@ def write_candidate_reads(
     baits: frozenset[str],
     kmer_size: int,
     writers: CandidateWriters,
-) -> RecountStatus:
+) -> None:
     writer = csv.writer(writers.counts, delimiter="\t", lineterminator="\n")
     writer.writerow(COUNT_FIELDS)
     candidate_read_count = 0
@@ -152,7 +139,7 @@ def write_candidate_reads(
         bait_count = len(matched_baits(sequence, baits, kmer_size))
         if bait_count == 0:
             raise CandidateReadRecountError.zero_bait_candidate()
-        query_id = representative_id(sequence)
+        query_id = query_id_for_sequence(sequence)
         writer.writerow(
             (
                 metagenome_id,
@@ -163,32 +150,19 @@ def write_candidate_reads(
             ),
         )
         writers.fasta.write(f">{query_id}\n{sequence}\n")
-    return RecountStatus(
-        metagenome_id,
-        candidate_read_count,
-        candidate_read_count,
-    )
-
-
-def write_status(path: Path, status: RecountStatus) -> None:
-    with path.open("w", newline="") as handle:
-        writer = csv.writer(handle, delimiter="\t", lineterminator="\n")
-        writer.writerow(("metric", "value"))
-        writer.writerows(zip(STATUS_FIELDS, status.__dict__.values(), strict=True))
 
 
 def main(argv: Sequence[str] | None = None) -> None:
     args = parse_args(argv)
     baits = load_bait_set(args.baits, args.kmer_size)
     with args.counts_out.open("w", newline="") as counts_handle, args.fasta_out.open("w") as fasta_handle:
-        status = write_candidate_reads(
+        write_candidate_reads(
             metagenome_id=args.metagenome_id,
             records=iter_reads(args.read),
             baits=baits,
             kmer_size=args.kmer_size,
             writers=CandidateWriters(counts_handle, fasta_handle),
         )
-    write_status(args.status_out, status)
 
 
 if __name__ == "__main__":

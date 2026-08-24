@@ -2,7 +2,7 @@
     "$schema": "https://json-schema.org/draft/2020-12/schema",
     "$id": "https://raw.githubusercontent.com/dholab/baits/main/assets/schema_calibration_target_taxids.json",
     "title": "dholab/baits calibration target scope",
-    "description": "Taxids treated as target-compatible when classifying calibration reads.",
+    "description": "Taxids treated as target-compatible when scoring calibration-read alignments.",
     "type": "array",
     "minItems": 1,
     "items": {

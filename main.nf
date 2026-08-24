@@ -58,6 +58,7 @@ include { BAITS_MAIN } from './workflows/baits'
 include { RESOLVE_CALIBRATION_READS } from './modules/local/resolve_calibration_reads/main'
 include { REPORT_CANDIDATE_KMER_RESULTS } from './subworkflows/local/report_candidate_kmers/main'
 include { REPORT_TAXONOMIC_MATCH_RESULTS } from './subworkflows/local/report_taxonomic_matches/main'
+include { REPORT_SHARED_CALIBRATION_RESULTS } from './subworkflows/local/report_calibration_results/main'
 
 workflow {
     main:
@@ -342,6 +343,10 @@ workflow {
     REPORT_TAXONOMIC_MATCH_RESULTS(
         BAITS_MAIN.out.taxonomic_blast_hits,
         BAITS_MAIN.out.taxonomic_candidate_kmers,
+    )
+    REPORT_SHARED_CALIBRATION_RESULTS(
+        BAITS_MAIN.out.calibration_reads,
+        BAITS_MAIN.out.calibration_matches,
     )
 
 }

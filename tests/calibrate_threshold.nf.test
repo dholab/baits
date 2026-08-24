@@ -3,7 +3,7 @@ nextflow_pipeline {
     script "../main.nf"
     tag "calibrate_threshold"
 
-    test("publishes calibration evidence and calibration-read provenance") {
+    test("publishes shared calibration tables and calibration-read provenance") {
         setup {
             def sequence = 'ACGTTGCATGTCAGTACGATCGTAG' * 4
             new File("$outputDir/source.fasta").text = ">target\n${sequence}\n"
@@ -42,28 +42,15 @@ nextflow_pipeline {
             def taxonomicMatches = new java.util.zip.GZIPInputStream(new FileInputStream("$runDir/results/taxonomic_matches.tsv.gz")).text
             assert taxonomicMatches.readLines()[0].startsWith('design_id\tkmer\tsubject_accession')
             assert !new File(design, '03_taxonomic_screening').exists()
-            assert new File(design, '06_calibration/candidate_read_counts.tsv').exists()
-            assert new File(design, '06_calibration/candidate_read_counts.tsv').readLines().size() == 4
-            def candidateLines = new File(design, '06_calibration/candidate_read_counts.tsv').readLines().drop(1)
-            assert candidateLines*.split('\t')*.first().toSet().size() == 3
-            assert new File(design, '06_calibration/read_blast_hits.tsv').exists()
-            assert new File(design, '06_calibration/read_blast_search_parameters.tsv').readLines() == [
-                'parameter\tvalue',
-                'max_target_seqs\t7',
-                'query_file_count\t1',
-            ]
-            assert new File(design, '06_calibration/classified_reads.tsv').readLines().size() == 4
-            assert new File(design, '06_calibration/classified_reads.tsv').text.contains('sample_R2\tread_000000000001\t')
-            assert new File(design, '06_calibration/classified_reads.tsv').text.contains('\tTARGET\t')
-            assert new File(design, '06_calibration/threshold_read_counts.tsv').exists()
-            assert !new File(design, '06_calibration/threshold_curve.tsv').exists()
-            assert !new File(design, '06_calibration/whole_read_blast_hits.tsv').exists()
-            def thresholdSummary = new File(design, '06_calibration/threshold_summary.tsv').text
-            assert thresholdSummary.contains('deacon_returned_read_count\t3')
-            assert thresholdSummary.contains('candidate_read_count\t3')
-            assert thresholdSummary.contains('duplicate_sequence_count\t2')
-            assert thresholdSummary.contains('read_blast_query_count\t1')
-            assert thresholdSummary.contains('calibration_status\tRECOMMENDED_THRESHOLD')
+            assert !new File(design, '06_calibration').exists()
+            def calibrationReads = new File("$runDir/results/calibration_reads.tsv")
+            assert calibrationReads.readLines().size() == 4
+            assert calibrationReads.readLines()[0] == 'design_id\tmetagenome_id\tread_id\tread_length\tbait_count\tquery_id\tbest_target_bit_score\tbest_other_bit_score'
+            assert calibrationReads.text.contains('calibrated\tsample_R2\tread_000000000001\t')
+            assert !calibrationReads.readLines()[0].contains('classification')
+            def calibrationMatches = new java.util.zip.GZIPInputStream(new FileInputStream("$runDir/results/calibration_matches.tsv.gz")).text
+            assert calibrationMatches.readLines().size() > 1
+            assert calibrationMatches.readLines()[0].startsWith('design_id\tquery_id\tquery_length')
             def inputs = new File(design, '07_provenance/inputs.tsv').text
             assert inputs.contains('\tfilename\tsample; one.fastq')
             assert inputs.contains('calibration_read\tcalibrated__sample_R2\tfilename\tsample_R2.fastq.gz')
@@ -75,7 +62,7 @@ nextflow_pipeline {
         }
     }
 
-    test("publishes complete NO_CANDIDATE_READS evidence without read BLAST") {
+    test("publishes header-only calibration tables without candidate reads") {
         setup {
             def sequence = 'ACGTTGCATGTCAGTACGATCGTAG' * 4
             def unrelated = 'T' * sequence.size()
@@ -98,38 +85,10 @@ nextflow_pipeline {
         then {
             assert workflow.success
             def runDir = new File(outputDir).parent
-            def calibration = new File("$runDir/results/no_candidates/06_calibration")
-            assert [
-                'candidate_read_counts.tsv',
-                'read_blast_hits.tsv',
-                'read_blast_search_parameters.tsv',
-                'classified_reads.tsv',
-                'threshold_read_counts.tsv',
-                'threshold_summary.tsv',
-            ].every { new File(calibration, it).exists() }
-            assert new File(calibration, 'candidate_read_counts.tsv').text == 'metagenome_id\tread_id\tread_length\tbait_count\trepresentative_id\n'
-            assert new File(calibration, 'read_blast_hits.tsv').text == 'qseqid\tqlen\tsaccver\tstaxids\tpident\tlength\tmismatch\tgapopen\tqstart\tqend\tsstart\tsend\tevalue\tbitscore\tqcovhsp\tstitle\n'
-            assert new File(calibration, 'read_blast_search_parameters.tsv').text == 'parameter\tvalue\n'
-            assert new File(calibration, 'classified_reads.tsv').text == 'metagenome_id\tread_id\tread_length\tbait_count\trepresentative_id\tclassification\tbest_target_bit_score\tbest_non_target_bit_score\n'
-            assert new File(calibration, 'threshold_read_counts.tsv').text == 'threshold\ttarget_read_count\tnon_target_read_count\ttied_read_count\tno_hit_read_count\n1\t0\t0\t0\t0\n'
-            assert new File(calibration, 'threshold_summary.tsv').readLines() == [
-                'metric\tvalue',
-                'design_id\tno_candidates',
-                'deacon_returned_read_count\t0',
-                'candidate_read_count\t0',
-                'duplicate_sequence_count\t0',
-                'read_blast_query_count\t0',
-                'target_classified_read_count\t0',
-                'non_target_classified_read_count\t0',
-                'tied_read_count\t0',
-                'no_hit_read_count\t0',
-                'calibration_status\tNO_CANDIDATE_READS',
-                'recommended_threshold\t',
-                'conclusion\tThe calibration reads contain no candidate reads.',
-            ]
-            assert !new File(calibration, 'threshold_curve.tsv').exists()
-            assert !new File(calibration, 'whole_read_blast_hits.tsv').exists()
-            assert new File(calibration, 'threshold_summary.tsv').text.contains('calibration_status\tNO_CANDIDATE_READS')
+            assert !new File("$runDir/results/no_candidates/06_calibration").exists()
+            assert new File("$runDir/results/calibration_reads.tsv").readLines().size() == 1
+            def calibrationMatches = new java.util.zip.GZIPInputStream(new FileInputStream("$runDir/results/calibration_matches.tsv.gz")).text
+            assert calibrationMatches.readLines().size() == 1
             def provenance = new File("$runDir/results/no_candidates/07_provenance")
             assert new File(provenance, 'inputs.tsv').text.contains('calibration_read\tno_candidates__sample\tfilename\tsample.fastq')
             assert new File(provenance, 'parameters.tsv').text.contains('deacon_filter_absolute_threshold\t1')
@@ -171,8 +130,11 @@ genus_scope,88456,$outputDir/source.fasta,,,,$baseDir/tests/data/background.fast
             assert new File(defaultArtifacts, 'baits.fasta').bytes == new File(genusArtifacts, 'baits.fasta').bytes
             assert ['source_sequences.fasta', 'baits.fasta', 'deacon.idx'].every { new File(defaultArtifacts, it).exists() }
             assert ['source_sequences.fasta', 'baits.fasta', 'deacon.idx'].every { new File(genusArtifacts, it).exists() }
-            assert new File(defaultDesign, '06_calibration/classified_reads.tsv').text.contains('\tNON_TARGET\t')
-            assert new File(genusDesign, '06_calibration/classified_reads.tsv').text.contains('\tTARGET\t')
+            def calibrationRows = new File("$runDir/results/calibration_reads.tsv").readLines().drop(1).collect { it.split('\t', -1) }
+            def defaultRow = calibrationRows.find { it[0] == 'default_scope' }
+            def genusRow = calibrationRows.find { it[0] == 'genus_scope' }
+            assert defaultRow[6] == '' && defaultRow[7]
+            assert genusRow[6] && genusRow[7] == ''
             def defaultInputs = new File(defaultDesign, '07_provenance/inputs.tsv').text
             def genusInputs = new File(genusDesign, '07_provenance/inputs.tsv').text
             assert defaultInputs.contains('calibration_target_scope\tdefault_scope\ttaxids\t88456')
@@ -214,6 +176,9 @@ genus_scope,88456,$outputDir/source.fasta,,,,$baseDir/tests/data/background.fast
             def matchedKmers = taxonomicMatches.readLines().drop(1)*.split('\t')*.getAt(1).toSet()
             assert matchedKmers.containsAll(offTargetKmers)
             assert !new File(design, '06_calibration').exists()
+            assert new File("$runDir/results/calibration_reads.tsv").readLines().size() == 1
+            def calibrationMatches = new java.util.zip.GZIPInputStream(new FileInputStream("$runDir/results/calibration_matches.tsv.gz")).text
+            assert calibrationMatches.readLines().size() == 1
             assert new File("$runDir/results/artifacts/screening_terminal/baits.fasta").text == ''
             assert !new File("$runDir/results/artifacts/screening_terminal/deacon.idx").exists()
             assert new File(design, '07_provenance/inputs.tsv').text.contains('calibration_read\tscreening_terminal__sample\tfilename\tsample.fastq')

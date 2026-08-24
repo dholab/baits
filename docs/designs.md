@@ -59,7 +59,7 @@ The designs CSV schema enforces one source-sequence path per row. A curated-sequ
 | Curated sequences | `curated_source_sequences` |
 | Designs | `representative_queries`, `query_rules`, and `target_assembly` |
 
-`calibration_reads` is optional with either input system. When calibration uses a target-compatible scope broader than `target_taxid`, `calibration_target_taxids` names a one-column TSV with the exact header `taxid`. Its positive unique taxids must include `target_taxid`. The scope changes calibration-read classification only; bait design and taxonomic exact-match screening continue to use `target_taxid`. `background` is required because background cancellation is part of every run.
+`calibration_reads` is optional with either input system. When calibration uses a target-compatible scope broader than `target_taxid`, `calibration_target_taxids` names a one-column TSV with the exact header `taxid`. Its positive unique taxids must include `target_taxid`. The scope changes which calibration alignments contribute to the best target and other scores; bait design and taxonomic exact-match screening continue to use `target_taxid`. `background` is required because background cancellation is part of every run.
 
 ## What each input contributes
 

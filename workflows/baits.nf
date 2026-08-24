@@ -291,8 +291,8 @@ workflow BAITS_MAIN {
             )
         }
 
-    ch_calibrated_design_keys = CALIBRATE_THRESHOLD.out.summary
-        .map { meta, summary -> tuple(meta, true) }
+    ch_calibrated_design_keys = CALIBRATE_THRESHOLD.out.prepared_reads
+        .map { meta, read_bait_counts -> tuple(meta, true) }
 
     ch_final_calibration_provenance_facts = ch_with_calibration_provenance_facts
         .join(ch_calibrated_design_keys, remainder: true)
@@ -343,12 +343,9 @@ workflow BAITS_MAIN {
         .mix(TAXONOMIC_EXACT_MATCH_SCREENING.out.candidates.map { meta, candidates, manifest -> tuple(meta, candidates) })
     deacon_index = ch_indexes_without_taxonomy.mix(ch_indexes_with_taxonomy)
     taxonomic_reference_database = TAXONOMIC_EXACT_MATCH_SCREENING.out.reference_database_report
-    candidate_read_counts = CALIBRATE_THRESHOLD.out.candidate_read_counts
-    read_blast_hits = CALIBRATE_THRESHOLD.out.read_blast_hits
-    read_blast_search_parameters = CALIBRATE_THRESHOLD.out.read_blast_search_parameters
-    classified_reads = CALIBRATE_THRESHOLD.out.classified_reads
-    threshold_read_counts = CALIBRATE_THRESHOLD.out.threshold_read_counts
-    threshold_summary = CALIBRATE_THRESHOLD.out.summary
+    calibration_reads = CALIBRATE_THRESHOLD.out.calibration_reads
+    calibration_matches = CALIBRATE_THRESHOLD.out.calibration_matches
+    recommended_threshold = CALIBRATE_THRESHOLD.out.recommended_threshold
     versions = NORMALIZE_CURATED_SOURCE_SEQUENCES.out.versions_biopython
         .mix(DISCOVER_SOURCE_SEQUENCES.out.versions)
         .mix(REPORT_SOURCE_DISCOVERY_RESULTS.out.versions)

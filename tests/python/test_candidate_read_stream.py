@@ -19,7 +19,6 @@ def test_candidate_read_stream_ignores_headers_and_preserves_observations(
     )
     counts = tmp_path / "counts.tsv"
     candidates = tmp_path / "candidates.fasta"
-    status = tmp_path / "status.tsv"
 
     count_read_baits_main(
         [
@@ -35,13 +34,11 @@ def test_candidate_read_stream_ignores_headers_and_preserves_observations(
             str(counts),
             "--fasta-out",
             str(candidates),
-            "--status-out",
-            str(status),
         ],
     )
 
     assert counts.read_text().splitlines() == [
-        "metagenome_id\tread_id\tread_length\tbait_count\trepresentative_id",
+        "metagenome_id\tread_id\tread_length\tbait_count\tquery_id",
         "sample\tread_000000000001\t5\t1\tsequence_8be635b3b461bfc5d03b08aa3ee554d044abedfa1ee7dc70ee5fbf7f665ae219",
         "sample\tread_000000000002\t5\t1\tsequence_8be635b3b461bfc5d03b08aa3ee554d044abedfa1ee7dc70ee5fbf7f665ae219",
         "sample\tread_000000000003\t5\t1\tsequence_8be635b3b461bfc5d03b08aa3ee554d044abedfa1ee7dc70ee5fbf7f665ae219",
@@ -64,12 +61,6 @@ def test_candidate_read_stream_ignores_headers_and_preserves_observations(
             "sequence_17b80bc751e1f35c75d6ada07267a5fd9981b7b3655cffcaf94a636e93eb27ba",
             "CCCCC",
         ),
-    ]
-    assert status.read_text().splitlines() == [
-        "metric\tvalue",
-        "metagenome_id\tsample",
-        "deacon_returned_read_count\t4",
-        "candidate_read_count\t4",
     ]
 
 

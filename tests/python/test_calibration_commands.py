@@ -1,38 +1,36 @@
+import hashlib
+from decimal import Decimal
 from pathlib import Path
 
 import pytest
 from calibrate_threshold import (
-    CalibrationStatus,
-    DeaconThresholdCalibrationError,
-    PreparationSummary,
-    ThresholdCalibration,
-    construct_classified_reads,
-    construct_preparation_summary,
-    construct_threshold_calibration,
+    CalibrationRead,
+    ThresholdCalibrationError,
+    category_counts,
+    read_calibration_reads,
+    recommended_threshold,
 )
 from calibrate_threshold import main as calibrate_threshold_main
-from classify_read_hits import (
-    CandidateReadClassificationError,
-    construct_candidate_read_classifications,
-    construct_candidate_read_counts,
-    construct_read_hits,
-    load_calibration_target_taxids,
-)
-from classify_read_hits import main as classify_read_hits_main
 from prepare_read_blast_queries import BlastQueryPreparationError
 from prepare_read_blast_queries import main as prepare_read_blast_queries_main
+from score_calibration_reads import (
+    BLAST_FIELDS,
+    CalibrationReadScoreError,
+    construct_read_bait_counts,
+    construct_read_hits,
+    construct_scored_reads,
+    load_calibration_target_taxids,
+)
+from score_calibration_reads import main as score_calibration_reads_main
 
-CANDIDATE_HEADER = (
-    "metagenome_id\tread_id\tread_length\tbait_count\trepresentative_id\n"
+QUERY_A = f"sequence_{hashlib.sha256(b'AAAAA').hexdigest()}"
+QUERY_B = f"sequence_{hashlib.sha256(b'CCCCC').hexdigest()}"
+READ_HEADER = "metagenome_id\tread_id\tread_length\tbait_count\tquery_id\n"
+SCORED_HEADER = (
+    "metagenome_id\tread_id\tread_length\tbait_count\tquery_id\t"
+    "best_target_bit_score\tbest_other_bit_score\n"
 )
-CLASSIFIED_HEADER = (
-    "metagenome_id\tread_id\tread_length\tbait_count\trepresentative_id\t"
-    "classification\tbest_target_bit_score\tbest_non_target_bit_score\n"
-)
-BLAST_HEADER = (
-    "qseqid\tqlen\tsaccver\tstaxids\tpident\tlength\tmismatch\tgapopen\tqstart\tqend\t"
-    "sstart\tsend\tevalue\tbitscore\tqcovhsp\tstitle\n"
-)
+BLAST_HEADER = "\t".join(BLAST_FIELDS) + "\n"
 
 
 def write_calibration_target_taxids(tmp_path: Path, rows: str) -> Path:
@@ -43,16 +41,10 @@ def write_calibration_target_taxids(tmp_path: Path, rows: str) -> Path:
 
 def test_load_calibration_target_taxids_uses_a_supplied_scope(tmp_path: Path) -> None:
     scope = write_calibration_target_taxids(tmp_path, "44417\n88456\n")
-
-    assert load_calibration_target_taxids(scope, target_taxid="88456") == frozenset(
+    assert load_calibration_target_taxids(scope, "88456") == frozenset(
         {"44417", "88456"},
     )
-
-
-def test_load_calibration_target_taxids_defaults_to_the_bait_set_target() -> None:
-    assert load_calibration_target_taxids(None, target_taxid="88456") == frozenset(
-        {"88456"},
-    )
+    assert load_calibration_target_taxids(None, "88456") == frozenset({"88456"})
 
 
 @pytest.mark.parametrize(
@@ -60,7 +52,7 @@ def test_load_calibration_target_taxids_defaults_to_the_bait_set_target() -> Non
     [
         ("target_taxid\n88456\n", "exactly one header"),
         ("taxid\n88456\n88456\n", "unique"),
-        ("taxid\n088456\n", "canonical positive taxid"),
+        ("taxid\n088456\n", "canonical positive taxids"),
         ("taxid\n44417\n", "must include target_taxid 88456"),
     ],
 )
@@ -71,366 +63,211 @@ def test_load_calibration_target_taxids_rejects_invalid_scopes(
 ) -> None:
     scope = tmp_path / "calibration_target_taxids.tsv"
     scope.write_text(content)
-
-    with pytest.raises(CandidateReadClassificationError, match=error):
-        load_calibration_target_taxids(scope, target_taxid="88456")
-
-
-def write_preparation_inputs(
-    tmp_path: Path,
-    *,
-    rows: str,
-    candidate_count: int,
-    unique_fasta: str,
-) -> tuple[Path, Path, Path]:
-    counts = tmp_path / "sample.counted_reads.tsv"
-    counts.write_text(CANDIDATE_HEADER + rows)
-    status = tmp_path / "sample.candidate_read_status.tsv"
-    status.write_text(
-        "metric\tvalue\n"
-        "metagenome_id\tsample\n"
-        f"deacon_returned_read_count\t{candidate_count}\n"
-        f"candidate_read_count\t{candidate_count}\n",
-    )
-    fasta = tmp_path / "unique.fasta"
-    fasta.write_text(unique_fasta)
-    return counts, status, fasta
+    with pytest.raises(CalibrationReadScoreError, match=error):
+        load_calibration_target_taxids(scope, "88456")
 
 
-def preparation_arguments(
-    tmp_path: Path,
-    counts: Path,
-    status: Path,
-    fasta: Path,
-) -> list[str]:
+def write_count_table(root: Path, name: str, rows: str) -> Path:
+    path = root / f"{name}.read_bait_counts.tsv"
+    path.write_text(READ_HEADER + rows)
+    return path
+
+
+def preparation_arguments(tmp_path: Path, unique_fasta: Path) -> list[str]:
     return [
-        "--design-id",
-        "design",
-        "--counts",
-        str(counts),
-        "--statuses",
-        str(status),
+        "--counts-dir",
+        str(tmp_path / "counts"),
         "--unique-fasta",
-        str(fasta),
-        "--candidate-counts-out",
-        str(tmp_path / "candidate_read_counts.tsv"),
-        "--query-out",
+        str(unique_fasta),
+        "--counts-out",
+        str(tmp_path / "read_bait_counts.tsv"),
+        "--queries-out",
         str(tmp_path / "read_queries.fasta"),
-        "--summary-out",
-        str(tmp_path / "preparation_summary.tsv"),
-        "--terminal-blast-hits-out",
-        str(tmp_path / "read_blast_hits.tsv"),
-        "--terminal-search-parameters-out",
-        str(tmp_path / "read_blast_search_parameters.tsv"),
-        "--terminal-classified-reads-out",
-        str(tmp_path / "classified_reads.tsv"),
-        "--terminal-read-counts-out",
-        str(tmp_path / "threshold_read_counts.tsv"),
-        "--terminal-summary-out",
-        str(tmp_path / "threshold_summary.tsv"),
     ]
 
 
-def test_prepare_read_blast_queries_preserves_rows_and_uses_unique_queries(
+def test_prepare_read_blast_queries_preserves_observations_and_unique_queries(
     tmp_path: Path,
 ) -> None:
-    representative = (
-        "sequence_8be635b3b461bfc5d03b08aa3ee554d044abedfa1ee7dc70ee5fbf7f665ae219"
+    counts = tmp_path / "counts"
+    counts.mkdir()
+    write_count_table(
+        counts,
+        "design__sample_a",
+        f"sample_a\tread_000000000001\t5\t1\t{QUERY_A}\n"
+        f"sample_a\tread_000000000002\t5\t1\t{QUERY_A}\n",
     )
-    counts, status, fasta = write_preparation_inputs(
-        tmp_path,
-        rows=(
-            f"sample\tread_000000000001\t5\t1\t{representative}\n"
-            f"sample\tread_000000000002\t5\t1\t{representative}\n"
-        ),
-        candidate_count=2,
-        unique_fasta=f">{representative}\nACGTA\n",
+    write_count_table(
+        counts,
+        "design__sample_b",
+        f"sample_b\tread_000000000001\t5\t1\t{QUERY_B}\n",
     )
+    unique = tmp_path / "unique.fasta"
+    unique.write_text(f">{QUERY_A}\nAAAAA\n>{QUERY_B}\nCCCCC\n")
 
-    prepare_read_blast_queries_main(preparation_arguments(tmp_path, counts, status, fasta))
+    prepare_read_blast_queries_main(preparation_arguments(tmp_path, unique))
 
-    assert (tmp_path / "candidate_read_counts.tsv").read_text().splitlines() == [
-        CANDIDATE_HEADER.rstrip(),
-        f"sample\tread_000000000001\t5\t1\t{representative}",
-        f"sample\tread_000000000002\t5\t1\t{representative}",
+    assert (tmp_path / "read_bait_counts.tsv").read_text().splitlines() == [
+        READ_HEADER.rstrip(),
+        f"sample_a\tread_000000000001\t5\t1\t{QUERY_A}",
+        f"sample_a\tread_000000000002\t5\t1\t{QUERY_A}",
+        f"sample_b\tread_000000000001\t5\t1\t{QUERY_B}",
     ]
-    assert (tmp_path / "read_queries.fasta").read_text() == f">{representative}\nACGTA\n"
-    summary = (tmp_path / "preparation_summary.tsv").read_text()
-    assert "candidate_read_count\t2" in summary
-    assert "duplicate_sequence_count\t1" in summary
-    assert "read_blast_query_count\t1" in summary
-    assert not (tmp_path / "threshold_summary.tsv").exists()
-
-
-def test_prepare_read_blast_queries_emits_complete_terminal_outputs(
-    tmp_path: Path,
-) -> None:
-    counts, status, fasta = write_preparation_inputs(
-        tmp_path,
-        rows="",
-        candidate_count=0,
-        unique_fasta="",
+    assert (tmp_path / "read_queries.fasta").read_text() == (
+        f">{QUERY_A}\nAAAAA\n>{QUERY_B}\nCCCCC\n"
     )
 
-    prepare_read_blast_queries_main(preparation_arguments(tmp_path, counts, status, fasta))
 
+def test_prepare_read_blast_queries_emits_only_empty_primary_outputs(
+    tmp_path: Path,
+) -> None:
+    counts = tmp_path / "counts"
+    counts.mkdir()
+    write_count_table(counts, "design__sample", "")
+    unique = tmp_path / "unique.fasta"
+    unique.write_text("")
+
+    prepare_read_blast_queries_main(preparation_arguments(tmp_path, unique))
+
+    assert (tmp_path / "read_bait_counts.tsv").read_text() == READ_HEADER
     assert (tmp_path / "read_queries.fasta").read_text() == ""
-    assert (tmp_path / "read_blast_hits.tsv").read_text() == BLAST_HEADER
-    assert (tmp_path / "read_blast_search_parameters.tsv").read_text() == "parameter\tvalue\n"
-    assert (tmp_path / "classified_reads.tsv").read_text() == CLASSIFIED_HEADER
-    assert (tmp_path / "threshold_read_counts.tsv").read_text().endswith("1\t0\t0\t0\t0\n")
-    assert "calibration_status\tNO_CANDIDATE_READS" in (
-        tmp_path / "threshold_summary.tsv"
-    ).read_text()
+    assert sorted(path.name for path in tmp_path.iterdir()) == [
+        "counts",
+        "read_bait_counts.tsv",
+        "read_queries.fasta",
+        "unique.fasta",
+    ]
 
 
-def test_prepare_read_blast_queries_rejects_a_query_identifier_disagreement(
-    tmp_path: Path,
-) -> None:
-    counts, status, fasta = write_preparation_inputs(
-        tmp_path,
-        rows=(
-            "sample\tread_000000000001\t5\t1\t"
-            "sequence_8be635b3b461bfc5d03b08aa3ee554d044abedfa1ee7dc70ee5fbf7f665ae219\n"
-        ),
-        candidate_count=1,
-        unique_fasta=(
-            ">sequence_17b80bc751e1f35c75d6ada07267a5fd9981b7b3655cffcaf94a636e93eb27ba\n"
-            "CCCCC\n"
-        ),
+def test_prepare_read_blast_queries_rejects_query_disagreement(tmp_path: Path) -> None:
+    counts = tmp_path / "counts"
+    counts.mkdir()
+    write_count_table(
+        counts,
+        "design__sample",
+        f"sample\tread_000000000001\t5\t1\t{QUERY_A}\n",
     )
+    unique = tmp_path / "unique.fasta"
+    unique.write_text(f">{QUERY_B}\nCCCCC\n")
 
     with pytest.raises(BlastQueryPreparationError, match="queries disagree"):
-        prepare_read_blast_queries_main(preparation_arguments(tmp_path, counts, status, fasta))
+        prepare_read_blast_queries_main(preparation_arguments(tmp_path, unique))
 
 
-def test_prepare_read_blast_queries_matches_counts_and_statuses_by_source(
-    tmp_path: Path,
-) -> None:
-    representative = (
-        "sequence_8be635b3b461bfc5d03b08aa3ee554d044abedfa1ee7dc70ee5fbf7f665ae219"
-    )
-    count_paths = []
-    status_paths = []
-    for source in ("sample", "sample.cat"):
-        counts = tmp_path / f"design__{source}.counted_reads.tsv"
-        counts.write_text(
-            CANDIDATE_HEADER
-            + f"{source}\tread_000000000001\t5\t1\t{representative}\n",
-        )
-        status = tmp_path / f"design__{source}.candidate_read_status.tsv"
-        status.write_text(
-            "metric\tvalue\n"
-            f"metagenome_id\t{source}\n"
-            "deacon_returned_read_count\t1\n"
-            "candidate_read_count\t1\n",
-        )
-        count_paths.append(counts)
-        status_paths.append(status)
-    unique = tmp_path / "unique.fasta"
-    unique.write_text(f">{representative}\nACGTA\n")
-    arguments = preparation_arguments(tmp_path, count_paths[0], status_paths[0], unique)
-    counts_index = arguments.index("--counts") + 1
-    arguments[counts_index:counts_index + 1] = [str(path) for path in count_paths]
-    statuses_index = arguments.index("--statuses") + 1
-    arguments[statuses_index:statuses_index + 1] = [
-        str(path) for path in reversed(status_paths)
-    ]
-
-    prepare_read_blast_queries_main(arguments)
-
-    assert (tmp_path / "candidate_read_counts.tsv").read_text().count("read_000000000001") == 2
+def write_read_bait_counts(tmp_path: Path, rows: str) -> Path:
+    path = tmp_path / "read_bait_counts.tsv"
+    path.write_text(READ_HEADER + rows)
+    return path
 
 
-def write_classification_candidates(tmp_path: Path, rows: str) -> Path:
-    candidates = tmp_path / "candidate_read_counts.tsv"
-    candidates.write_text(CANDIDATE_HEADER + rows)
-    return candidates
+def write_blast_matches(tmp_path: Path, rows: str) -> Path:
+    path = tmp_path / "read_blast_hits.tsv"
+    path.write_text(BLAST_HEADER + rows)
+    return path
 
 
-def write_classification_hits(tmp_path: Path, rows: str) -> Path:
-    hits = tmp_path / "read_blast_hits.tsv"
-    hits.write_text(BLAST_HEADER + rows)
-    return hits
-
-
-def blast_row(query: str, taxids: str, bitscore: str, *, qlen: str = "100") -> str:
+def blast_row(query: str, taxids: str, bitscore: str) -> str:
     return (
-        f"{query}\t{qlen}\taccession\t{taxids}\t100\t100\t0\t0\t1\t100\t1\t100\t0\t"
+        f"{query}\t100\taccession\t{taxids}\t100\t100\t0\t0\t1\t100\t1\t100\t0\t"
         f"{bitscore}\t100\ttitle\n"
     )
 
 
-def classification_rows(
+def scored_rows(
     tmp_path: Path,
-    candidate_rows: str,
-    hit_rows: str,
+    read_rows: str,
+    match_rows: str,
     *,
-    calibration_target_taxids: frozenset[str] | None = None,
+    target_scope: frozenset[str] | None = None,
 ) -> list[dict[str, object]]:
-    candidates = construct_candidate_read_counts(
-        write_classification_candidates(tmp_path, candidate_rows),
-    )
+    reads = construct_read_bait_counts(write_read_bait_counts(tmp_path, read_rows))
     hits = construct_read_hits(
-        write_classification_hits(tmp_path, hit_rows),
-        candidate_representatives=candidates.select("representative_id").unique(),
+        write_blast_matches(tmp_path, match_rows),
+        query_ids=reads.select("query_id").unique(),
         target_taxid="88456",
-        calibration_target_taxids=calibration_target_taxids,
+        calibration_target_taxids=target_scope,
     )
-    return construct_candidate_read_classifications(candidates, hits).collect().to_dicts()
+    return construct_scored_reads(reads, hits).collect().to_dicts()
 
 
-def test_classification_projects_one_query_result_to_every_candidate_read(
-    tmp_path: Path,
-) -> None:
-    rows = classification_rows(
+def test_scoring_projects_each_shared_query_back_to_every_read(tmp_path: Path) -> None:
+    rows = scored_rows(
         tmp_path,
-        "sample\tread_000000000001\t100\t2\tquery_a\n"
-        "sample\tread_000000000002\t100\t2\tquery_a\n"
-        "sample\tread_000000000003\t100\t1\tquery_b\n",
-        blast_row("query_a", "88456", "100") + blast_row("query_b", "123", "90"),
+        f"sample\tread_000000000001\t100\t2\t{QUERY_A}\n"
+        f"sample\tread_000000000002\t100\t2\t{QUERY_A}\n"
+        f"sample\tread_000000000003\t100\t1\t{QUERY_B}\n",
+        blast_row(QUERY_A, "88456", "100") + blast_row(QUERY_B, "123", "90"),
     )
-
-    assert [(row["read_id"], row["classification"]) for row in rows] == [
-        ("read_000000000001", "TARGET"),
-        ("read_000000000002", "TARGET"),
-        ("read_000000000003", "NON_TARGET"),
+    assert [
+        (row["read_id"], row["best_target_bit_score"], row["best_other_bit_score"])
+        for row in rows
+    ] == [
+        ("read_000000000001", "100", ""),
+        ("read_000000000002", "100", ""),
+        ("read_000000000003", "", "90"),
     ]
 
 
-def test_classification_preserves_target_tie_non_target_and_no_hit_order(
-    tmp_path: Path,
-) -> None:
-    rows = classification_rows(
+def test_scoring_preserves_best_scores_and_blank_no_hit_rows(tmp_path: Path) -> None:
+    rows = scored_rows(
         tmp_path,
-        "sample\tread_000000000001\t100\t4\tq1\n"
-        "sample\tread_000000000002\t100\t3\tq2\n"
-        "sample\tread_000000000003\t100\t2\tq3\n"
-        "sample\tread_000000000004\t100\t1\tq4\n",
-        blast_row("q1", "88456", "100")
-        + blast_row("q2", "123", "100")
-        + blast_row("q3", "88456;123", "100"),
+        f"sample\tread_000000000001\t100\t1\t{QUERY_A}\n"
+        f"sample\tread_000000000002\t100\t1\t{QUERY_B}\n",
+        blast_row(QUERY_A, "88456", "99")
+        + blast_row(QUERY_A, "123", "80")
+        + blast_row(QUERY_A, "88456;123", "95")
+        + blast_row(QUERY_A, "88456", "100")
+        + blast_row(QUERY_A, "123", "90"),
     )
-
-    assert [row["classification"] for row in rows] == [
-        "TARGET",
-        "NON_TARGET",
-        "TIED",
-        "NO_HIT",
-    ]
-
-
-def test_classification_uses_the_supplied_target_scope(tmp_path: Path) -> None:
-    rows = classification_rows(
-        tmp_path,
-        "sample\tread_000000000001\t100\t1\tq1\n",
-        blast_row("q1", "44417", "100"),
-        calibration_target_taxids=frozenset({"44417", "88456"}),
-    )
-
-    assert rows[0]["classification"] == "TARGET"
-
-
-def test_classification_keeps_the_26th_co_best_subject_decisive(
-    tmp_path: Path,
-) -> None:
-    target_hits = "".join(
-        blast_row("q1", "88456", "100").replace("accession", f"target_{index:02d}")
-        for index in range(1, 26)
-    )
-    rows = classification_rows(
-        tmp_path,
-        "sample\tread_000000000001\t100\t1\tq1\n",
-        target_hits
-        + blast_row("q1", "123", "100").replace("accession", "non_target_26"),
-    )
-
-    assert rows[0]["classification"] == "TIED"
     assert rows[0]["best_target_bit_score"] == "100"
-    assert rows[0]["best_non_target_bit_score"] == "100"
+    assert rows[0]["best_other_bit_score"] == "95"
+    assert rows[1]["best_target_bit_score"] == ""
+    assert rows[1]["best_other_bit_score"] == ""
 
 
-def test_classification_uses_the_decimal_tie_boundary(tmp_path: Path) -> None:
-    rows = classification_rows(
+def test_scoring_uses_calibration_target_scope_and_unknown_taxonomy(tmp_path: Path) -> None:
+    rows = scored_rows(
         tmp_path,
-        "sample\tread_000000000001\t100\t1\tq1\n"
-        "sample\tread_000000000002\t100\t1\tq2\n",
-        blast_row("q1", "88456", "100.1")
-        + blast_row("q1", "123", "100")
-        + blast_row("q2", "88456", "100.1001")
-        + blast_row("q2", "123", "100"),
+        f"sample\tread_000000000001\t100\t1\t{QUERY_A}\n",
+        blast_row(QUERY_A, "44417", "100") + blast_row(QUERY_A, "N/A", "90"),
+        target_scope=frozenset({"44417", "88456"}),
     )
-
-    assert [row["classification"] for row in rows] == ["TIED", "TARGET"]
-
-
-def test_classification_treats_unknown_taxonomy_as_non_target(
-    tmp_path: Path,
-) -> None:
-    rows = classification_rows(
-        tmp_path,
-        "sample\tread_000000000001\t100\t1\tq1\n",
-        blast_row("q1", "N/A", "100"),
-    )
-
-    assert rows[0]["classification"] == "NON_TARGET"
-
-
-def test_candidate_counts_reject_duplicate_read_identity_but_share_queries(
-    tmp_path: Path,
-) -> None:
-    repeated_query = construct_candidate_read_counts(
-        write_classification_candidates(
-            tmp_path,
-            "sample\tread_000000000001\t100\t1\tq1\n"
-            "sample\tread_000000000002\t100\t1\tq1\n",
-        ),
-    )
-    assert repeated_query.collect().height == 2
-
-    with pytest.raises(CandidateReadClassificationError, match="identity is duplicated"):
-        construct_candidate_read_counts(
-            write_classification_candidates(
-                tmp_path,
-                "sample\tread_000000000001\t100\t1\tq1\n"
-                "sample\tread_000000000001\t100\t1\tq2\n",
-            ),
-        )
+    assert rows[0]["best_target_bit_score"] == "100"
+    assert rows[0]["best_other_bit_score"] == "90"
 
 
 @pytest.mark.parametrize("taxids", ["88456;", "0", "-1", "088456"])
-def test_read_hits_reject_malformed_taxids(tmp_path: Path, taxids: str) -> None:
-    candidates = construct_candidate_read_counts(
-        write_classification_candidates(
+def test_scoring_rejects_malformed_taxids(tmp_path: Path, taxids: str) -> None:
+    reads = construct_read_bait_counts(
+        write_read_bait_counts(
             tmp_path,
-            "sample\tread_000000000001\t100\t1\tq1\n",
+            f"sample\tread_000000000001\t100\t1\t{QUERY_A}\n",
         ),
     )
-
-    with pytest.raises(CandidateReadClassificationError, match="malformed staxids"):
+    with pytest.raises(CalibrationReadScoreError, match="malformed staxids"):
         construct_read_hits(
-            write_classification_hits(tmp_path, blast_row("q1", taxids, "100")),
-            candidate_representatives=candidates.select("representative_id"),
+            write_blast_matches(tmp_path, blast_row(QUERY_A, taxids, "100")),
+            query_ids=reads.select("query_id").unique(),
             target_taxid="88456",
         )
 
 
-def test_classify_read_hits_main_writes_exact_header_and_blank_scores(
+def test_score_calibration_reads_main_writes_no_classification_column(
     tmp_path: Path,
 ) -> None:
-    candidates = write_classification_candidates(
+    reads = write_read_bait_counts(
         tmp_path,
-        "sample\tread_000000000001\t100\t1\tq1\n",
+        f"sample\tread_000000000001\t100\t1\t{QUERY_A}\n",
     )
-    hits = write_classification_hits(tmp_path, "")
-    output = tmp_path / "classified_reads.tsv"
+    matches = write_blast_matches(tmp_path, "")
+    output = tmp_path / "calibration_reads.tsv"
 
-    classify_read_hits_main(
+    score_calibration_reads_main(
         [
-            "--candidate-read-counts",
-            str(candidates),
-            "--blast-hits",
-            str(hits),
+            "--read-bait-counts",
+            str(reads),
+            "--blast-matches",
+            str(matches),
             "--target-taxid",
             "88456",
             "--output",
@@ -439,168 +276,75 @@ def test_classify_read_hits_main_writes_exact_header_and_blank_scores(
     )
 
     assert output.read_text() == (
-        CLASSIFIED_HEADER
-        + "sample\tread_000000000001\t100\t1\tq1\tNO_HIT\t\t\n"
+        SCORED_HEADER
+        + f"sample\tread_000000000001\t100\t1\t{QUERY_A}\t\t\n"
     )
 
 
-def write_classified_reads(tmp_path: Path, rows: str) -> Path:
-    path = tmp_path / "classified_reads.tsv"
-    path.write_text(CLASSIFIED_HEADER + rows)
-    return path
-
-
-def write_preparation_summary(tmp_path: Path, candidate_count: int) -> Path:
-    path = tmp_path / "preparation_summary.tsv"
-    path.write_text(
-        "metric\tvalue\n"
-        "design_id\tdesign\n"
-        f"deacon_returned_read_count\t{candidate_count}\n"
-        f"candidate_read_count\t{candidate_count}\n"
-        "duplicate_sequence_count\t1\n"
-        "read_blast_query_count\t4\n",
-    )
-    return path
-
-
-def calibration(tmp_path: Path, rows: str) -> ThresholdCalibration:
-    classified = construct_classified_reads(write_classified_reads(tmp_path, rows))
-    candidate_count = len(rows.strip().splitlines())
-    preparation = construct_preparation_summary(
-        write_preparation_summary(tmp_path, candidate_count),
-        "design",
-    )
-    return construct_threshold_calibration(classified, preparation)
-
-
-def classified_row(
+def calibration_read(
     read_id: str,
     bait_count: int,
-    classification: str,
-) -> str:
-    target = "100" if classification in {"TARGET", "TIED"} else ""
-    non_target = "100" if classification in {"NON_TARGET", "TIED"} else ""
-    return (
-        f"sample\t{read_id}\t100\t{bait_count}\tquery_{read_id}\t{classification}\t"
-        f"{target}\t{non_target}\n"
+    target: str = "",
+    other: str = "",
+) -> CalibrationRead:
+    return CalibrationRead(
+        "sample",
+        read_id,
+        100,
+        bait_count,
+        f"query_{read_id}",
+        None if target == "" else Decimal(target),
+        None if other == "" else Decimal(other),
     )
 
 
-def test_threshold_calibration_builds_the_complete_cumulative_curve(
+def test_threshold_categories_are_derived_only_from_scores() -> None:
+    assert category_counts(calibration_read("target", 1, target="100")) == (1, 0, 0, 0)
+    assert category_counts(calibration_read("other", 1, other="100")) == (0, 1, 0, 0)
+    assert category_counts(calibration_read("tie", 1, target="100.1", other="100")) == (0, 0, 1, 0)
+    assert category_counts(calibration_read("target_above_tie", 1, target="100.1001", other="100")) == (1, 0, 0, 0)
+    assert category_counts(calibration_read("no_hit", 1)) == (0, 0, 0, 1)
+
+
+def test_recommended_threshold_uses_the_smallest_supported_count() -> None:
+    reads = (
+        calibration_read("bad", 1, other="100"),
+        calibration_read("target_low", 2, target="100"),
+        calibration_read("target_high", 3, target="100"),
+    )
+    assert recommended_threshold(reads) == 2
+    assert recommended_threshold(tuple(reversed(reads))) == 2
+    assert recommended_threshold((calibration_read("bad", 3, other="100"),)) is None
+
+
+def test_calibrate_threshold_main_writes_only_the_recommended_value(
     tmp_path: Path,
 ) -> None:
-    rows = (
-        classified_row("bad_1", 1, "NON_TARGET")
-        + classified_row("bad_2", 1, "NON_TARGET")
-        + classified_row("target_1", 2, "TARGET")
-        + classified_row("target_2", 2, "TARGET")
-        + classified_row("target_3", 2, "TARGET")
-        + classified_row("tie", 2, "TIED")
-        + classified_row("no_hit", 2, "NO_HIT")
-        + classified_row("target_high", 3, "TARGET")
+    reads = tmp_path / "calibration_reads.tsv"
+    reads.write_text(
+        SCORED_HEADER
+        + f"sample\tread_000000000001\t100\t1\t{QUERY_A}\t100\t\n",
     )
-
-    result = calibration(tmp_path, rows)
-
-    assert result.read_counts.collect().to_dicts() == [
-        {
-            "threshold": 1,
-            "target_read_count": 4,
-            "non_target_read_count": 2,
-            "tied_read_count": 1,
-            "no_hit_read_count": 1,
-        },
-        {
-            "threshold": 2,
-            "target_read_count": 4,
-            "non_target_read_count": 0,
-            "tied_read_count": 1,
-            "no_hit_read_count": 1,
-        },
-        {
-            "threshold": 3,
-            "target_read_count": 1,
-            "non_target_read_count": 0,
-            "tied_read_count": 0,
-            "no_hit_read_count": 0,
-        },
-        {
-            "threshold": 4,
-            "target_read_count": 0,
-            "non_target_read_count": 0,
-            "tied_read_count": 0,
-            "no_hit_read_count": 0,
-        },
-    ]
-    assert result.conclusion.status is CalibrationStatus.RECOMMENDED_THRESHOLD
-    assert result.conclusion.recommended_threshold == 3
-
-
-def test_threshold_calibration_reports_no_supported_threshold(
-    tmp_path: Path,
-) -> None:
-    result = calibration(
-        tmp_path,
-        classified_row("target", 2, "TARGET")
-        + classified_row("bad", 3, "NON_TARGET"),
-    )
-
-    assert result.conclusion.status is CalibrationStatus.NO_SUPPORTED_THRESHOLD
-    assert result.conclusion.recommended_threshold is None
-
-
-def test_threshold_calibration_is_invariant_to_input_order(tmp_path: Path) -> None:
-    rows = [
-        classified_row("target", 3, "TARGET"),
-        classified_row("bad", 2, "NON_TARGET"),
-        classified_row("tie", 1, "TIED"),
-    ]
-    forward = calibration(tmp_path, "".join(rows))
-    reverse = calibration(tmp_path, "".join(reversed(rows)))
-
-    assert forward.read_counts.collect().to_dicts() == reverse.read_counts.collect().to_dicts()
-    assert forward.conclusion == reverse.conclusion
-
-
-def test_threshold_calibration_rejects_candidate_count_disagreement(
-    tmp_path: Path,
-) -> None:
-    classified = construct_classified_reads(
-        write_classified_reads(tmp_path, classified_row("target", 1, "TARGET")),
-    )
-    preparation = PreparationSummary("design", 2, 2, 1, 1)
-
-    with pytest.raises(DeaconThresholdCalibrationError, match="count disagrees"):
-        construct_threshold_calibration(classified, preparation)
-
-
-def test_calibrate_threshold_main_writes_exact_outputs(tmp_path: Path) -> None:
-    classified = write_classified_reads(
-        tmp_path,
-        classified_row("target", 1, "TARGET"),
-    )
-    preparation = write_preparation_summary(tmp_path, 1)
-    counts = tmp_path / "threshold_read_counts.tsv"
-    summary = tmp_path / "threshold_summary.tsv"
+    output = tmp_path / "recommended_threshold.tsv"
 
     calibrate_threshold_main(
         [
             "--design-id",
             "design",
-            "--classified-reads",
-            str(classified),
-            "--preparation-summary",
-            str(preparation),
-            "--read-counts-out",
-            str(counts),
-            "--summary-out",
-            str(summary),
+            "--calibration-reads",
+            str(reads),
+            "--output",
+            str(output),
         ],
     )
 
-    assert counts.read_text().splitlines() == [
-        "threshold\ttarget_read_count\tnon_target_read_count\ttied_read_count\tno_hit_read_count",
-        "1\t1\t0\t0\t0",
-        "2\t0\t0\t0\t0",
-    ]
-    assert "recommended_threshold\t1" in summary.read_text()
+    assert read_calibration_reads(reads)[0].query_id == QUERY_A
+    assert output.read_text() == "design_id\trecommended_threshold\ndesign\t1\n"
+
+
+def test_threshold_rejects_duplicate_read_identity(tmp_path: Path) -> None:
+    reads = tmp_path / "calibration_reads.tsv"
+    row = f"sample\tread_000000000001\t100\t1\t{QUERY_A}\t100\t\n"
+    reads.write_text(SCORED_HEADER + row + row)
+    with pytest.raises(ThresholdCalibrationError, match="duplicated"):
+        read_calibration_reads(reads)

@@ -1,8 +1,8 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/nf-core/modules/master/modules/meta-schema.json
-name: calibrate_threshold
-description: Sweep classified calibration reads to recommend a threshold.
+name: derive_recommended_threshold
+description: Derive one recommended bait-count threshold from scored calibration reads.
 keywords:
-  - deacon
+  - calibration
   - threshold
   - reads
 tools:
@@ -17,33 +17,21 @@ input:
   - - meta:
         type: map
         description: Design metadata.
-    - classified_reads:
+    - calibration_reads:
         type: file
-        description: Classified calibration reads.
-        ontologies: []
-    - preparation_summary:
-        type: file
-        description: Aggregate candidate read preparation counts.
-        ontologies: []
+        description: Per-read bait counts and best target and other bit scores.
+        pattern: calibration_reads.tsv
+        ontologies:
+          - edam: http://edamontology.org/format_3475 # TSV
 output:
-  read_counts:
+  threshold:
     - - meta:
           type: map
           description: Design metadata.
-      - threshold_read_counts.tsv:
+      - recommended_threshold.tsv:
           type: file
-          description: Read-class counts at each threshold.
-          pattern: threshold_read_counts.tsv
-          ontologies:
-            - edam: http://edamontology.org/format_3475 # TSV
-  summary:
-    - - meta:
-          type: map
-          description: Design metadata.
-      - threshold_summary.tsv:
-          type: file
-          description: Threshold recommendation or unsupported result.
-          pattern: threshold_summary.tsv
+          description: Internal recommended threshold projection for one design.
+          pattern: recommended_threshold.tsv
           ontologies:
             - edam: http://edamontology.org/format_3475 # TSV
   versions_python:
@@ -56,16 +44,6 @@ output:
       - python --version | sed 's/Python //':
           type: eval
           description: Runtime Python version.
-  versions_polars:
-    - - ${task.process}:
-          type: string
-          description: Process name.
-      - polars:
-          type: string
-          description: Tool name.
-      - python -c 'import polars; print(polars.__version__)':
-          type: eval
-          description: Runtime Polars version.
 topics:
   versions:
     - - ${task.process}:
@@ -77,14 +55,5 @@ topics:
       - python --version | sed 's/Python //':
           type: eval
           description: Runtime Python version.
-    - - ${task.process}:
-          type: string
-          description: Process name.
-      - polars:
-          type: string
-          description: Tool name.
-      - python -c 'import polars; print(polars.__version__)':
-          type: eval
-          description: Runtime Polars version.
 authors:
   - dholab/baits

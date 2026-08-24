@@ -133,7 +133,7 @@ The main software components are:
 | [Nextflow](https://www.nextflow.io/) | Host-side workflow runner that fetches the pipeline and orchestrates local or cluster execution. |
 | [Meryl](https://github.com/marbl/meryl) | Counts source k-mers and finds exact occurrences in the background. |
 | [Deacon](https://github.com/bede/deacon) | Filters low-complexity k-mers and builds the final read-filtering index. |
-| [BLAST+](https://blast.ncbi.nlm.nih.gov/doc/blast-help/downloadblastdata.html) | Locates source sequences, screens baits taxonomically, and classifies calibration reads. |
+| [BLAST+](https://blast.ncbi.nlm.nih.gov/doc/blast-help/downloadblastdata.html) | Locates source sequences, screens baits taxonomically, and scores calibration-read alignments. |
 | [Biopython](https://biopython.org/) and [Polars](https://pola.rs/) | Parse sequence data and construct candidate, match, and calibration tables. |
 
 Reference databases and sequencing reads remain user-supplied. In particular, the pipeline does not download or manage a taxonomic BLAST database such as `core_nt`.

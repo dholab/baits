@@ -40,10 +40,10 @@ output:
       - read_meta:
           type: map
           description: Metagenome metadata.
-      - "${read_meta.id}.counted_reads.tsv":
+      - "${read_meta.id}.read_bait_counts.tsv":
           type: file
           description: Internal bait count for each candidate read.
-          pattern: "*.counted_reads.tsv"
+          pattern: "*.read_bait_counts.tsv"
           ontologies:
             - edam: http://edamontology.org/format_3475 # TSV
   fasta:
@@ -58,19 +58,6 @@ output:
           description: Canonical candidate read observations for global sequence deduplication.
           pattern: "*.candidate_reads.fasta"
           ontologies: []
-  status:
-    - - design_meta:
-          type: map
-          description: Design metadata.
-      - read_meta:
-          type: map
-          description: Metagenome metadata.
-      - "${read_meta.id}.candidate_read_status.tsv":
-          type: file
-          description: Per-metagenome candidate read preparation counts.
-          pattern: "*.candidate_read_status.tsv"
-          ontologies:
-            - edam: http://edamontology.org/format_3475 # TSV
   versions_biopython:
     - - ${task.process}:
           type: string

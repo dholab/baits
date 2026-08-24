@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/nf-core/modules/master/modules/meta-schema.json
 name: prepare_read_blast_queries
-description: Combine streamed read counts with globally deduplicated BLAST queries.
+description: Combine per-metagenome bait counts and prepare unique calibration BLAST queries.
 keywords:
   - blast
   - reads
@@ -20,35 +20,23 @@ input:
         description: Design metadata.
     - counts:
         type: file
-        description: Per-metagenome internal candidate read count tables.
-        ontologies: []
-    - statuses:
-        type: file
-        description: Per-source candidate read preparation statuses.
-        ontologies: []
+        description: Per-metagenome read bait count tables.
+        pattern: "*.read_bait_counts.tsv"
+        ontologies:
+          - edam: http://edamontology.org/format_3475 # TSV
     - unique_fasta:
         type: file
         description: Globally deduplicated canonical candidate sequences.
         ontologies: []
 output:
-  candidate_read_counts:
+  counts:
     - - meta:
           type: map
           description: Design metadata.
-      - candidate_read_counts.tsv:
+      - read_bait_counts.tsv:
           type: file
-          description: Bait count for each candidate read.
-          pattern: candidate_read_counts.tsv
-          ontologies:
-            - edam: http://edamontology.org/format_3475 # TSV
-  preparation_summary:
-    - - meta:
-          type: map
-          description: Design metadata.
-      - preparation_summary.tsv:
-          type: file
-          description: Aggregate candidate read preparation counts.
-          pattern: preparation_summary.tsv
+          description: Bait count and shared query identity for every candidate read.
+          pattern: read_bait_counts.tsv
           ontologies:
             - edam: http://edamontology.org/format_3475 # TSV
   queries:
@@ -60,56 +48,6 @@ output:
           description: Globally deduplicated read BLAST query FASTA; empty when there are no candidate reads.
           pattern: read_queries.fasta
           ontologies: []
-  terminal_blast_hits:
-    - - meta:
-          type: map
-          description: Design metadata.
-      - read_blast_hits.tsv:
-          type: file
-          description: Empty read BLAST table when there are no candidate reads.
-          pattern: read_blast_hits.tsv
-          ontologies:
-            - edam: http://edamontology.org/format_3475 # TSV
-  terminal_classified_reads:
-    - - meta:
-          type: map
-          description: Design metadata.
-      - classified_reads.tsv:
-          type: file
-          description: Empty classified-read table when there are no candidate reads.
-          pattern: classified_reads.tsv
-          ontologies:
-            - edam: http://edamontology.org/format_3475 # TSV
-  terminal_search_parameters:
-    - - meta:
-          type: map
-          description: Design metadata.
-      - read_blast_search_parameters.tsv:
-          type: file
-          description: Empty search-parameter table when no read BLAST runs.
-          pattern: read_blast_search_parameters.tsv
-          ontologies:
-            - edam: http://edamontology.org/format_3475 # TSV
-  terminal_read_counts:
-    - - meta:
-          type: map
-          description: Design metadata.
-      - threshold_read_counts.tsv:
-          type: file
-          description: Zero-valued threshold counts when there are no candidate reads.
-          pattern: threshold_read_counts.tsv
-          ontologies:
-            - edam: http://edamontology.org/format_3475 # TSV
-  terminal_summary:
-    - - meta:
-          type: map
-          description: Design metadata.
-      - threshold_summary.tsv:
-          type: file
-          description: Optional summary for a design with no candidate reads.
-          pattern: threshold_summary.tsv
-          ontologies:
-            - edam: http://edamontology.org/format_3475 # TSV
   versions_biopython:
     - - ${task.process}:
           type: string

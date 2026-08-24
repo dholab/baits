@@ -4,10 +4,10 @@ include { FIND_CONCATENATE } from '../../../modules/nf-core/find/concatenate/mai
 include { SEQKIT_RMDUP } from '../../../modules/nf-core/seqkit/rmdup/main'
 include { SEQKIT_SPLIT2 as SEQKIT_SPLIT_READ_QUERIES } from '../../../modules/nf-core/seqkit/split2/main'
 include { PREPARE_READ_BLAST_QUERIES } from '../../../modules/local/prepare_read_blast_queries/main'
-include { BLASTN_READ_CLASSIFICATION } from '../../../modules/local/blastn_read_classification/main'
+include { BLASTN_CALIBRATION_READS } from '../../../modules/local/blastn_calibration_reads/main'
 include { GATHER_READ_BLAST_HITS } from '../../../modules/local/gather_read_blast_hits/main'
-include { CLASSIFY_READ_HITS } from '../../../modules/local/classify_read_hits/main'
-include { CALIBRATE_THRESHOLD_EVIDENCE } from '../../../modules/local/calibrate_threshold/main'
+include { SCORE_CALIBRATION_READS } from '../../../modules/local/score_calibration_reads/main'
+include { DERIVE_RECOMMENDED_THRESHOLD } from '../../../modules/local/calibrate_threshold/main'
 
 
 workflow CALIBRATE_THRESHOLD {
@@ -48,9 +48,6 @@ workflow CALIBRATE_THRESHOLD {
     ch_grouped_fastas = COUNT_READ_BAITS.out.fasta
         .map { design_meta, read_meta, fasta -> tuple(design_meta, fasta) }
         .groupTuple(by: 0)
-    ch_grouped_statuses = COUNT_READ_BAITS.out.status
-        .map { design_meta, read_meta, status -> tuple(design_meta, status) }
-        .groupTuple(by: 0)
     FIND_CONCATENATE(ch_grouped_fastas)
     SEQKIT_RMDUP(FIND_CONCATENATE.out.file_out)
     ch_seqkit_version = SEQKIT_RMDUP.out.versions_seqkit
@@ -60,7 +57,6 @@ workflow CALIBRATE_THRESHOLD {
         .combine(ch_seqkit_version)
         .map { meta, fasta, version -> tuple(meta, 'seqkit', version) }
     ch_preparation_inputs = ch_grouped_counts
-        .join(ch_grouped_statuses)
         .join(SEQKIT_RMDUP.out.fastx)
     PREPARE_READ_BLAST_QUERIES(ch_preparation_inputs)
 
@@ -73,38 +69,28 @@ workflow CALIBRATE_THRESHOLD {
         .transpose()
         .map { split_meta, queries -> tuple(split_meta.design, queries) }
         .combine(ch_taxonomic_reference_db)
-    BLASTN_READ_CLASSIFICATION(ch_read_blast_inputs)
-    ch_grouped_blast_hits = BLASTN_READ_CLASSIFICATION.out.hits.groupTuple(by: 0)
-    ch_grouped_search_parameters = BLASTN_READ_CLASSIFICATION.out.search_parameters.groupTuple(by: 0)
-    GATHER_READ_BLAST_HITS(ch_grouped_blast_hits.join(ch_grouped_search_parameters))
+    BLASTN_CALIBRATION_READS(ch_read_blast_inputs)
+    ch_grouped_blast_hits = BLASTN_CALIBRATION_READS.out.hits.groupTuple(by: 0)
+    GATHER_READ_BLAST_HITS(ch_grouped_blast_hits)
 
-    // Classify each candidate read from its representative's best alignments
-    ch_classification_inputs = PREPARE_READ_BLAST_QUERIES.out.candidate_read_counts
+    // Project each shared query's best target and other scores onto every read
+    ch_scoring_inputs = PREPARE_READ_BLAST_QUERIES.out.counts
         .join(GATHER_READ_BLAST_HITS.out.hits)
         .join(ch_design_context)
-        .map { design_meta, candidate_read_counts, blast_hits, target_taxid, calibration_target_taxids ->
-            tuple(design_meta, candidate_read_counts, blast_hits, target_taxid, calibration_target_taxids)
+        .map { design_meta, read_bait_counts, blast_hits, target_taxid, calibration_target_taxids ->
+            tuple(design_meta, read_bait_counts, blast_hits, target_taxid, calibration_target_taxids)
         }
-    CLASSIFY_READ_HITS(ch_classification_inputs)
+    SCORE_CALIBRATION_READS(ch_scoring_inputs)
 
-    // Sweep every observed threshold plus the all-reads-removed boundary
-    ch_threshold_inputs = CLASSIFY_READ_HITS.out.classified_reads
-        .join(PREPARE_READ_BLAST_QUERIES.out.preparation_summary)
-    CALIBRATE_THRESHOLD_EVIDENCE(ch_threshold_inputs)
+    // Keep only the recommended value needed by the final per-design projection
+    DERIVE_RECOMMENDED_THRESHOLD(SCORE_CALIBRATION_READS.out.reads)
 
     emit:
-    candidate_read_counts = PREPARE_READ_BLAST_QUERIES.out.candidate_read_counts
-    read_blast_hits = GATHER_READ_BLAST_HITS.out.hits
-        .mix(PREPARE_READ_BLAST_QUERIES.out.terminal_blast_hits)
-    read_blast_search_parameters = GATHER_READ_BLAST_HITS.out.search_parameters
-        .mix(PREPARE_READ_BLAST_QUERIES.out.terminal_search_parameters)
-    classified_reads = CLASSIFY_READ_HITS.out.classified_reads
-        .mix(PREPARE_READ_BLAST_QUERIES.out.terminal_classified_reads)
-    threshold_read_counts = CALIBRATE_THRESHOLD_EVIDENCE.out.read_counts
-        .mix(PREPARE_READ_BLAST_QUERIES.out.terminal_read_counts)
-    summary = PREPARE_READ_BLAST_QUERIES.out.terminal_summary
-        .mix(CALIBRATE_THRESHOLD_EVIDENCE.out.summary)
-    reported_blast = BLASTN_READ_CLASSIFICATION.out.reported_blast.unique()
+    prepared_reads = PREPARE_READ_BLAST_QUERIES.out.counts
+    calibration_reads = SCORE_CALIBRATION_READS.out.reads
+    calibration_matches = GATHER_READ_BLAST_HITS.out.hits
+    recommended_threshold = DERIVE_RECOMMENDED_THRESHOLD.out.threshold
+    reported_blast = BLASTN_CALIBRATION_READS.out.reported_blast.unique()
     reported_seqkit = ch_reported_seqkit
     versions = DEACON_RETRIEVE_CALIBRATION_READS.out.versions_deacon
         .mix(COUNT_READ_BAITS.out.versions_biopython)
@@ -114,10 +100,9 @@ workflow CALIBRATE_THRESHOLD {
         .mix(FIND_CONCATENATE.out.versions_coreutils)
         .mix(SEQKIT_RMDUP.out.versions_seqkit)
         .mix(SEQKIT_SPLIT_READ_QUERIES.out.versions_seqkit)
-        .mix(BLASTN_READ_CLASSIFICATION.out.versions_blast)
+        .mix(BLASTN_CALIBRATION_READS.out.versions_blast)
         .mix(GATHER_READ_BLAST_HITS.out.versions_python)
-        .mix(CLASSIFY_READ_HITS.out.versions_python)
-        .mix(CLASSIFY_READ_HITS.out.versions_polars)
-        .mix(CALIBRATE_THRESHOLD_EVIDENCE.out.versions_python)
-        .mix(CALIBRATE_THRESHOLD_EVIDENCE.out.versions_polars)
+        .mix(SCORE_CALIBRATION_READS.out.versions_python)
+        .mix(SCORE_CALIBRATION_READS.out.versions_polars)
+        .mix(DERIVE_RECOMMENDED_THRESHOLD.out.versions_python)
 }

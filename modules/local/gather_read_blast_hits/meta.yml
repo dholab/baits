@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/nf-core/modules/master/modules/meta-schema.json
 name: gather_read_blast_hits
-description: Combine calibration-read BLAST results into one evidence table.
+description: Combine calibration-read BLAST match shards into one table.
 keywords:
   - blast
   - reads
@@ -19,13 +19,9 @@ input:
     - blast_hit_shards:
         type: file
         description: BLAST result tables for the query files.
-        pattern: "*.tsv"
-        ontologies: []
-    - search_parameter_shards:
-        type: file
-        description: Search-parameter tables for the query files.
-        pattern: "*.tsv"
-        ontologies: []
+        pattern: "*.read_blast_hits.tsv"
+        ontologies:
+          - edam: http://edamontology.org/format_3475 # TSV
 output:
   hits:
     - - meta:
@@ -33,18 +29,8 @@ output:
           description: Design metadata.
       - read_blast_hits.tsv:
           type: file
-          description: Combined read BLAST evidence.
+          description: Combined calibration-read BLAST matches.
           pattern: read_blast_hits.tsv
-          ontologies:
-            - edam: http://edamontology.org/format_3475 # TSV
-  search_parameters:
-    - - meta:
-          type: map
-          description: Design metadata.
-      - read_blast_search_parameters.tsv:
-          type: file
-          description: Parameters shared by the BLAST searches.
-          pattern: read_blast_search_parameters.tsv
           ontologies:
             - edam: http://edamontology.org/format_3475 # TSV
   versions_python:

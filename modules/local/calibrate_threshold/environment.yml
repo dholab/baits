@@ -3,5 +3,4 @@
 channels:
   - conda-forge
 dependencies:
-  - polars=1.43.2
   - python=3.12

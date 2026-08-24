@@ -3,25 +3,38 @@ nextflow_process {
     script "../../modules/local/prepare_read_blast_queries/main.nf"
     process "PREPARE_READ_BLAST_QUERIES"
 
-    test("preserves read rows while consuming globally unique queries") {
+    test("keeps the task script independent of count-file cardinality") {
         setup {
-            def representative = 'sequence_8be635b3b461bfc5d03b08aa3ee554d044abedfa1ee7dc70ee5fbf7f665ae219'
-            new File("$outputDir/design__sample.counted_reads.tsv").text = "metagenome_id\tread_id\tread_length\tbait_count\trepresentative_id\nsample\tread_000000000001\t5\t1\t${representative}\nsample\tread_000000000002\t5\t1\t${representative}\n"
-            new File("$outputDir/unique.fasta").text = ">${representative}\nACGTA\n"
-            new File("$outputDir/design__sample.candidate_read_status.tsv").text = 'metric\tvalue\nmetagenome_id\tsample\ndeacon_returned_read_count\t2\ncandidate_read_count\t2\n'
+            def query = 'sequence_8be635b3b461bfc5d03b08aa3ee554d044abedfa1ee7dc70ee5fbf7f665ae219'
+            new File("$outputDir/one.read_bait_counts.tsv").text = "metagenome_id\tread_id\tread_length\tbait_count\tquery_id\none\tread_000000000001\t5\t1\t${query}\n"
+            (1..64).each { index ->
+                new File("$outputDir/many_${index}.read_bait_counts.tsv").text = "metagenome_id\tread_id\tread_length\tbait_count\tquery_id\nsample_${index}\tread_000000000001\t5\t1\t${query}\n"
+            }
+            new File("$outputDir/unique.fasta").text = ">${query}\nACGTA\n"
         }
         when {
             process {
-                """input[0] = [[id: 'design'], [file("$outputDir/design__sample.counted_reads.tsv")], [file("$outputDir/design__sample.candidate_read_status.tsv")], file("$outputDir/unique.fasta")]"""
+                """
+                input[0] = Channel.of(
+                    [[id: 'one'], [file("$outputDir/one.read_bait_counts.tsv")], file("$outputDir/unique.fasta")],
+                    [[id: 'many'], (1..64).collect { file("$outputDir/many_\${it}.read_bait_counts.tsv") }, file("$outputDir/unique.fasta")]
+                )
+                """
             }
         }
         then {
             assert process.success
-            assert process.out.candidate_read_counts.size() == 1
-            assert process.out.queries.size() == 1
-            assert process.out.terminal_summary.size() == 0
-            assert file(process.out.candidate_read_counts[0][1]).readLines().size() == 3
-            assert file(process.out.preparation_summary[0][1]).text.contains('duplicate_sequence_count\t1')
+            assert process.out.counts.size() == 2
+            assert process.out.queries.size() == 2
+            def one = file(process.out.counts.find { it[0].id == 'one' }[1])
+            def many = file(process.out.counts.find { it[0].id == 'many' }[1])
+            assert one.readLines().size() == 2
+            assert many.readLines().size() == 65
+            def oneCommand = new File(one.parent, '.command.sh').text
+            def manyCommand = new File(many.parent, '.command.sh').text
+            assert oneCommand == manyCommand
+            assert manyCommand.contains('--counts-dir read_bait_counts')
+            assert !manyCommand.contains('many_64.read_bait_counts.tsv')
         }
     }
 }
