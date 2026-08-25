@@ -3,23 +3,15 @@ name = "baits"
 version = "0.1.0.dev0"
 description = "Build auditable bait sets for biological targets"
 requires-python = ">=3.12,<3.13"
-dependencies = [
-  "biopython==1.87",
-  "polars==1.43.2",
-]
+dependencies = ["biopython==1.87", "polars==1.43.2"]
 
 [dependency-groups]
-dev = [
-  "nf-core==4.1.0",
-  "pytest==8.4.2",
-  "ruff==0.16.2",
-  "ty==0.0.70",
-]
+dev = ["nf-core==4.1.0", "pytest==8.4.2", "ruff==0.16.2", "ty==0.0.70"]
 
 [tool.pixi.workspace]
 channels = ["conda-forge", "bioconda"]
 platforms = ["osx-arm64", "linux-64", "linux-aarch64"]
-requires-pixi = ">=0.74.0,<0.77"
+requires-pixi = ">=0.74.0,<0.80"
 
 [tool.pixi.dependencies]
 python = "3.12.*"

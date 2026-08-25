@@ -4,13 +4,13 @@
 
 ## Overview
 
-`dholab/baits` is a generalization of the idea developed in our study [*Putative Cyclospora cayetanensis detection in wastewater metagenomic datasets*](https://github.com/dholab/cyclospora-in-wastewater-metagenomics). The corrected analysis has 1,670 baits before taxonomic exact-match screening; the final bait set remains pending a new `core_nt` run. With `dholab/baits` and the right choice of reference databases, users can identify baits for any taxon.
+`dholab/baits` is a generalization of the idea developed in our study [*Putative Cyclospora cayetanensis detection in wastewater metagenomic datasets*](https://github.com/dholab/cyclospora-in-wastewater-metagenomics). With `dholab/baits` and the right choice of reference databases, users can identify baits for any taxon.
 
 `dholab/baits` offers three major operations for each target taxon. First, all k-mer subsequences from the provided source sequences are checked against a "background", which can be any reference in FASTA format. For the aforementioned *Cyclospora* study, the ribosomal rRNA databases SILVA and Rfam together with NCBI GenBank *Cyclospora* sequences comprised the background. Any k-mers from the source sequences that are present in the background are rejected. Give `dholab/baits` source sequences and a background, and it will find the source k-mers that distinguish it from the background.
 
 K-mers that are absent from the background are filtered for low complexity. The survivors can then go through the second operation: an exact, taxonomically informed screening against NCBI Core NT. Core NT can be swapped for another taxonomic BLAST database, and this step can also be skipped. If a database is provided, k-mers matching sequences from any taxon other than the target are rejected.
 
-Third, `dholab/baits` can use provided sequencing reads to estimate how many bait matches are required before off-target hits go to zero. For many sequencing reads, a single bait match may still allow off-target hits. In the *Cyclospora* study, we found that requiring 20 bait matches reduced off-target hits to zero in the tested reads. `dholab/baits` can help you calibrate your own threshold for your own baits and your own data.
+Third, `dholab/baits` can use provided sequencing reads to estimate how many bait matches are required before off-target hits go to zero. For many sequencing reads, a single bait match may still allow off-target hits. In the *Cyclospora* study, we found that requiring 24 bait matches reduced off-target hits to zero in the tested reads. `dholab/baits` can help you calibrate your own threshold for your own baits and your own data.
 
 In summary, `dholab/baits` allows you to bring your own source sequences, your own background reference, your own BLAST-compatible taxonomic database, and your own calibration reads. In return, it gives you baits for your target, each candidate k-mer's outcome, and the number of bait matches you should require to call a detection "good".
 
