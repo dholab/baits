@@ -10,7 +10,7 @@ process APPLY_TAXONOMIC_SCREENING {
 
     output:
     tuple val(meta), path('candidate_kmers.tsv'), emit: manifest
-    tuple val(meta), path('selected_candidates.fasta'), emit: candidates
+    tuple val(meta), path('taxonomically_screened_candidates.fasta'), emit: candidates
     tuple val("${task.process}"), val('biopython'), eval("python -c 'import Bio; print(Bio.__version__)'"), topic: versions, emit: versions_biopython
     tuple val("${task.process}"), val('polars'), eval("python -c 'import polars; print(polars.__version__)'"), topic: versions, emit: versions_polars
 
@@ -26,6 +26,6 @@ process APPLY_TAXONOMIC_SCREENING {
         --blast-hits ${blast_hits} \
         --manifest-in ${candidate_kmer_manifest} \
         --manifest-out candidate_kmers.tsv \
-        --selected-candidates-out selected_candidates.fasta
+        --selected-candidates-out taxonomically_screened_candidates.fasta
     """
 }

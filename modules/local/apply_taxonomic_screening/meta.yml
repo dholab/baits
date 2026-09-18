@@ -60,10 +60,10 @@ output:
     - - meta:
           type: map
           description: Design metadata.
-      - selected_candidates.fasta:
+      - taxonomically_screened_candidates.fasta:
           type: file
           description: Candidates selected after taxonomic screening; empty when none are selected.
-          pattern: selected_candidates.fasta
+          pattern: taxonomically_screened_candidates.fasta
           ontologies: []
   versions_biopython:
     - - ${task.process}:

@@ -225,6 +225,60 @@ def test_blast_ingestion_rejects_invalid_exact_matches(
         screening.scan_blast_hits(path, 5, 88456)
 
 
+@pytest.mark.parametrize("alias_kind", ["same_path", "symlink", "hardlink"])
+@pytest.mark.parametrize("output_flag", ["--manifest-out", "--selected-candidates-out"])
+@pytest.mark.parametrize("input_index", [0, 1, 2], ids=["candidates", "manifest", "hits"])
+def test_command_rejects_output_aliasing_an_input_before_writing(
+    tmp_path: Path,
+    alias_kind: str,
+    output_flag: str,
+    input_index: int,
+) -> None:
+    inputs = write_inputs(tmp_path)
+    originals = [path.read_bytes() for path in inputs]
+    args = command_args(tmp_path, *inputs)
+    destination = inputs[input_index]
+    if alias_kind != "same_path":
+        destination = tmp_path / "aliased_output"
+        if alias_kind == "symlink":
+            destination.symlink_to(inputs[input_index])
+        else:
+            destination.hardlink_to(inputs[input_index])
+    args[args.index(output_flag) + 1] = str(destination)
+
+    with pytest.raises(screening.TaxonomicScreeningError, match="alias"):
+        screening.main(args)
+
+    assert [path.read_bytes() for path in inputs] == originals
+    assert not (tmp_path / "screened_candidate_kmers.tsv").exists()
+    assert not (tmp_path / "screened_candidates.fasta").exists()
+
+
+@pytest.mark.parametrize("alias_kind", ["same_path", "symlink", "hardlink"])
+def test_command_rejects_aliased_outputs_before_writing(tmp_path: Path, alias_kind: str) -> None:
+    inputs = write_inputs(tmp_path)
+    args = command_args(tmp_path, *inputs)
+    manifest_output = tmp_path / "screened_candidate_kmers.tsv"
+    fasta_output = tmp_path / "screened_candidates.fasta"
+    if alias_kind == "same_path":
+        args[args.index("--selected-candidates-out") + 1] = str(manifest_output)
+    elif alias_kind == "symlink":
+        fasta_output.symlink_to(manifest_output)
+    else:
+        manifest_output.write_text("existing output\n")
+        fasta_output.hardlink_to(manifest_output)
+
+    with pytest.raises(screening.TaxonomicScreeningError, match="alias"):
+        screening.main(args)
+
+    if alias_kind == "hardlink":
+        assert manifest_output.read_text() == "existing output\n"
+        assert fasta_output.read_text() == "existing output\n"
+    else:
+        assert not manifest_output.exists()
+        assert not fasta_output.exists()
+
+
 def test_command_writes_candidate_outcomes_and_selected_baits(tmp_path: Path) -> None:
     candidates, manifest, hits = write_inputs(tmp_path)
     screening.main(command_args(tmp_path, candidates, manifest, hits))

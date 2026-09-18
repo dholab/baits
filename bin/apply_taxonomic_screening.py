@@ -444,8 +444,24 @@ def construct_screening_result(
     )
 
 
+def reject_path_aliases(outputs: Sequence[Path], inputs: Sequence[Path]) -> None:
+    protected = list(inputs)
+    for output in outputs:
+        for source in protected:
+            if output.resolve() == source.resolve() or (
+                output.exists() and source.exists() and output.samefile(source)
+            ):
+                message = f"Output path {output} aliases another input or output path {source}"
+                raise TaxonomicScreeningError(message)
+        protected.append(output)
+
+
 def main(argv: Sequence[str] | None = None) -> None:
     args = parse_args(argv)
+    reject_path_aliases(
+        [args.manifest_out, args.selected_candidates_out],
+        [args.candidates, args.manifest_in, args.blast_hits],
+    )
     candidates = read_candidates(args.candidates, args.kmer_size)
     manifest = scan_manifest(args.manifest_in, args.kmer_size)
     hits = scan_blast_hits(args.blast_hits, args.kmer_size, args.target_taxid)
