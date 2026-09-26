@@ -42,6 +42,11 @@ input:
     - target_taxid:
         type: string
         description: Target NCBI taxonomy identifier.
+    - taxonomic_screening_taxids:
+        type: file
+        description: Authoritative screening-scope TSV, or an empty list when omitted.
+        ontologies:
+          - edam: http://edamontology.org/format_3475 # TSV
     - kmer_size:
         type: integer
         description: Exact candidate k-mer length.

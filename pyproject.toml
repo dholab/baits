@@ -11,7 +11,7 @@ dev = ["nf-core==4.1.0", "pytest==8.4.2", "ruff==0.16.2", "ty==0.0.70"]
 [tool.pixi.workspace]
 channels = ["conda-forge", "bioconda"]
 platforms = ["osx-arm64", "linux-64", "linux-aarch64"]
-requires-pixi = ">=0.74.0,<0.80"
+requires-pixi = ">=0.74.0,<1.0"
 
 [tool.pixi.dependencies]
 python = "3.12.*"

@@ -1,0 +1,25 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "https://raw.githubusercontent.com/dholab/baits/main/assets/schema_taxonomic_screening_taxids.json",
+    "title": "dholab/baits taxonomic exact-match screening scope",
+    "description": "Authoritative finite taxid set accepted as on-target during taxonomic exact-match screening.",
+    "type": "array",
+    "minItems": 1,
+    "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+            "taxid": {
+                "oneOf": [
+                    {"type": "integer", "minimum": 1},
+                    {"type": "string", "pattern": "^[1-9][0-9]*$"}
+                ],
+                "errorMessage": "taxid must be a canonical positive NCBI Taxonomy identifier"
+            }
+        },
+        "required": ["taxid"]
+    },
+    "allOf": [
+        {"uniqueEntries": ["taxid"]}
+    ]
+}

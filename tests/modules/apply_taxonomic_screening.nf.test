@@ -9,7 +9,7 @@ nextflow_process {
         }
         when {
             process {
-                """input[0] = [[id: 'design'], file("$outputDir/selected_candidates.fasta"), file(\"\$baseDir/tests/data/taxonomic_blast_hits.tsv\"), file(\"\$baseDir/tests/data/taxonomic_candidate_kmers.tsv\"), '88456', 31]"""
+                """input[0] = [[id: 'design'], file("$outputDir/selected_candidates.fasta"), file(\"\$baseDir/tests/data/taxonomic_blast_hits.tsv\"), file(\"\$baseDir/tests/data/taxonomic_candidate_kmers.tsv\"), '88456', [], 31]"""
             }
         }
 
@@ -32,7 +32,7 @@ nextflow_process {
         }
         when {
             process {
-                """input[0] = [[id: 'design'], file("$outputDir/selected_candidates.fasta"), file(\"\$baseDir/tests/data/taxonomic_all_rejected_blast_hits.tsv\"), file(\"\$baseDir/tests/data/taxonomic_candidate_kmers.tsv\"), '88456', 31]"""
+                """input[0] = [[id: 'design'], file("$outputDir/selected_candidates.fasta"), file(\"\$baseDir/tests/data/taxonomic_all_rejected_blast_hits.tsv\"), file(\"\$baseDir/tests/data/taxonomic_candidate_kmers.tsv\"), '88456', [], 31]"""
             }
         }
 
@@ -42,6 +42,28 @@ nextflow_process {
             assert file(process.out.candidates[0][1]).text == ''
             assert file("$outputDir/selected_candidates.fasta").text == file("$baseDir/tests/data/taxonomic_input_candidates.fasta").text
             assert file(process.out.manifest[0][1]).text.count('off_target_match') == 2
+        }
+    }
+
+    test("treats an explicit screening taxid scope as authoritative") {
+        setup {
+            new File("$outputDir/selected_candidates.fasta").text = file("$baseDir/tests/data/taxonomic_input_candidates.fasta").text
+            new File("$outputDir/candidate_kmers.tsv").text = 'taxid\n99999\n'
+        }
+        when {
+            process {
+                """input[0] = [[id: 'design'], file("$outputDir/selected_candidates.fasta"), file(\"\$baseDir/tests/data/taxonomic_blast_hits.tsv\"), file(\"\$baseDir/tests/data/taxonomic_candidate_kmers.tsv\"), '88456', file("$outputDir/candidate_kmers.tsv"), 31]"""
+            }
+        }
+
+        then {
+            assert process.success
+            assert file("$outputDir/candidate_kmers.tsv").text == 'taxid\n99999\n'
+            assert process.out.candidates.size() == 1
+            assert file(process.out.manifest[0][1]).text.count('selected') == 1
+            assert file(process.out.candidates[0][1]).text == '''>candidate_kmer_000002
+CGTACGTACGTACGTACGTACGTACGTACGA
+'''
         }
     }
 }

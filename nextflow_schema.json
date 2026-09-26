@@ -18,7 +18,7 @@
                     "mimetype": "text/csv",
                     "pattern": "^\\S+\\.csv$",
                     "description": "Path to the main samplesheet; selects design-CSV mode.",
-                    "help_text": "When --input is supplied, put id, source-sequence inputs, target_taxid, background, calibration_reads, and calibration_target_taxids in each applicable CSV row. Do not also supply their direct-run CLI parameters."
+                    "help_text": "When --input is supplied, put id, source-sequence inputs, target_taxid, background, taxonomic_screening_taxids, calibration_reads, and calibration_target_taxids in each applicable CSV row. Do not also supply their direct-run CLI parameters."
                 },
                 "results": {
                     "type": "string",
@@ -48,6 +48,14 @@
                     "exists": true,
                     "pattern": "^\\S+\\.(fa|fasta|fna)(\\.gz)?$",
                     "description": "Direct-run background FASTA; with --input, set background in each CSV row."
+                },
+                "taxonomic_screening_taxids": {
+                    "type": "string",
+                    "format": "file-path",
+                    "exists": true,
+                    "schema": "assets/schema_taxonomic_screening_taxids.json",
+                    "pattern": "^\\S+\\.tsv$",
+                    "description": "Direct-run authoritative taxonomic exact-match screening scope TSV; with --input, set taxonomic_screening_taxids in each applicable CSV row. Defaults to target_taxid when omitted."
                 },
                 "calibration_reads": {
                     "type": "string",
@@ -105,6 +113,7 @@
                             {"required": ["source_sequences"]},
                             {"required": ["target_taxid"]},
                             {"required": ["background"]},
+                            {"required": ["taxonomic_screening_taxids"]},
                             {"required": ["calibration_reads"]},
                             {"required": ["calibration_target_taxids"]}
                         ]

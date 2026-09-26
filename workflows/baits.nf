@@ -17,6 +17,7 @@ workflow BAITS_MAIN {
     ch_entropy_threshold
     ch_taxonomic_reference_db
     ch_taxonomic_screening_not_run
+    ch_taxonomic_screening_scopes
     ch_calibration_reads
     ch_calibration_target_scopes
 
@@ -45,8 +46,9 @@ workflow BAITS_MAIN {
     // Screen selected candidates when a taxonomic reference database is supplied
     ch_screening_inputs = FILTER_CANDIDATE_KMERS.out.candidates
         .join(ch_design_context)
-        .map { meta, candidates, candidate_kmer_manifest, target_taxid, background ->
-            tuple(meta, candidates, candidate_kmer_manifest, target_taxid)
+        .combine(ch_taxonomic_screening_scopes, by: 0)
+        .map { meta, candidates, candidate_kmer_manifest, target_taxid, background, taxonomic_screening_taxids ->
+            tuple(meta, candidates, candidate_kmer_manifest, target_taxid, taxonomic_screening_taxids)
         }
     TAXONOMIC_EXACT_MATCH_SCREENING(ch_screening_inputs, ch_taxonomic_reference_db, ch_kmer_size)
 

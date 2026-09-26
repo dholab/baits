@@ -1,0 +1,38 @@
+nextflow_pipeline {
+    name "Taxonomic screening scopes"
+    script "../main.nf"
+    tag "taxonomic_screening"
+
+    test("keeps default and authoritative screening scopes isolated by design") {
+        setup {
+            def sequence = 'ACGTTGCATGTCAGTACGATCGTAG' * 4
+            new File("$outputDir/source.fasta").text = ">target\n${sequence}\n"
+            new File("$outputDir/screening_scope.tsv").text = 'taxid\n44417\n'
+            new File("$outputDir/designs.csv").text = """\
+id,target_taxid,curated_source_sequences,representative_queries,query_rules,target_assembly,background,taxonomic_screening_taxids
+default_scope,88456,$outputDir/source.fasta,,,,$baseDir/tests/data/background.fasta,
+authoritative_scope,88456,$outputDir/source.fasta,,,,$baseDir/tests/data/background.fasta,$outputDir/screening_scope.tsv
+"""
+            new File("$outputDir/taxonomic_reference_db").mkdirs()
+            assert ["pixi", "run", "--environment", "dev", "makeblastdb", "-dbtype", "nucl", "-parse_seqids", "-taxid", "44417", "-in", "$outputDir/source.fasta", "-out", "$outputDir/taxonomic_reference_db/taxonomic"].execute().waitFor() == 0
+        }
+
+        when {
+            params {
+                input = "$outputDir/designs.csv"
+                taxon_ref_db = "$outputDir/taxonomic_reference_db"
+            }
+        }
+
+        then {
+            assert workflow.success
+            def runDir = new File(outputDir).parent
+            def defaultArtifacts = new File("$runDir/results/artifacts/default_scope")
+            def authoritativeArtifacts = new File("$runDir/results/artifacts/authoritative_scope")
+            assert new File(defaultArtifacts, 'baits.fasta').text == ''
+            assert !new File(defaultArtifacts, 'deacon.idx').exists()
+            assert new File(authoritativeArtifacts, 'baits.fasta').text
+            assert new File(authoritativeArtifacts, 'deacon.idx').exists()
+        }
+    }
+}

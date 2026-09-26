@@ -227,29 +227,37 @@ def test_blast_ingestion_rejects_invalid_exact_matches(
 
 @pytest.mark.parametrize("alias_kind", ["same_path", "symlink", "hardlink"])
 @pytest.mark.parametrize("output_flag", ["--manifest-out", "--selected-candidates-out"])
-@pytest.mark.parametrize("input_index", [0, 1, 2], ids=["candidates", "manifest", "hits"])
+@pytest.mark.parametrize(
+    "input_index",
+    [0, 1, 2, 3],
+    ids=["candidates", "manifest", "hits", "screening_scope"],
+)
 def test_command_rejects_output_aliasing_an_input_before_writing(
     tmp_path: Path,
     alias_kind: str,
     output_flag: str,
     input_index: int,
 ) -> None:
-    inputs = write_inputs(tmp_path)
-    originals = [path.read_bytes() for path in inputs]
-    args = command_args(tmp_path, *inputs)
-    destination = inputs[input_index]
+    command_inputs = write_inputs(tmp_path)
+    scope = tmp_path / "taxonomic_screening_taxids.tsv"
+    scope.write_text("taxid\n88456\n")
+    protected_inputs = (*command_inputs, scope)
+    originals = [path.read_bytes() for path in protected_inputs]
+    args = command_args(tmp_path, *command_inputs)
+    args.extend(["--taxonomic-screening-taxids", str(scope)])
+    destination = protected_inputs[input_index]
     if alias_kind != "same_path":
         destination = tmp_path / "aliased_output"
         if alias_kind == "symlink":
-            destination.symlink_to(inputs[input_index])
+            destination.symlink_to(protected_inputs[input_index])
         else:
-            destination.hardlink_to(inputs[input_index])
+            destination.hardlink_to(protected_inputs[input_index])
     args[args.index(output_flag) + 1] = str(destination)
 
     with pytest.raises(screening.TaxonomicScreeningError, match="alias"):
         screening.main(args)
 
-    assert [path.read_bytes() for path in inputs] == originals
+    assert [path.read_bytes() for path in protected_inputs] == originals
     assert not (tmp_path / "screened_candidate_kmers.tsv").exists()
     assert not (tmp_path / "screened_candidates.fasta").exists()
 
@@ -306,6 +314,50 @@ def test_command_writes_candidate_outcomes_and_selected_baits(tmp_path: Path) ->
     assert terminal_manifest.filter(pl.col("outcome") == "off_target_match").height == len(
         KMERS,
     )
+
+
+def test_command_treats_supplied_screening_scope_as_authoritative(tmp_path: Path) -> None:
+    candidates, manifest, hits = write_inputs(tmp_path)
+    scope = tmp_path / "taxonomic_screening_taxids.tsv"
+    scope.write_text("taxid\n44417\n")
+    hits.write_text(hits.read_text().replace("88456", "44417"))
+
+    args = command_args(tmp_path, candidates, manifest, hits)
+    args.extend(["--taxonomic-screening-taxids", str(scope)])
+    screening.main(args)
+
+    assert pl.read_csv(tmp_path / "screened_candidate_kmers.tsv", separator="\t").select(
+        "kmer",
+        "outcome",
+    ).rows() == [
+        (KMER_REJECTED, "low_complexity"),
+        ("AACGT", "selected"),
+        ("ACGTA", "selected"),
+        ("AGTCC", "off_target_match"),
+        ("CCGTA", "off_target_match"),
+        ("CGTAC", "off_target_match"),
+    ]
+
+
+@pytest.mark.parametrize(
+    ("content", "message"),
+    [
+        ("target_taxid\n88456\n", "exactly one header"),
+        ("taxid\n", "canonical positive taxids"),
+        ("taxid\n0\n", "canonical positive taxids"),
+        ("taxid\n88456\n88456\n", "unique taxids"),
+    ],
+)
+def test_taxonomic_screening_scope_rejects_invalid_rows(
+    tmp_path: Path,
+    content: str,
+    message: str,
+) -> None:
+    scope = tmp_path / "taxonomic_screening_taxids.tsv"
+    scope.write_text(content)
+
+    with pytest.raises(screening.TaxonomicScreeningError, match=message):
+        screening.load_taxonomic_screening_taxids(scope, 88456)
 
 
 def test_blast_ingestion_accepts_reverse_strand_exact_subject_span(tmp_path: Path) -> None:

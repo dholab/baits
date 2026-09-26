@@ -59,7 +59,9 @@ The designs CSV schema enforces one source-sequence path per row. A curated-sequ
 | Curated sequences | `curated_source_sequences` |
 | Designs | `representative_queries`, `query_rules`, and `target_assembly` |
 
-`calibration_reads` is optional with either input system. When calibration uses a target-compatible scope broader than `target_taxid`, `calibration_target_taxids` names a one-column TSV with the exact header `taxid`. Its positive unique taxids must include `target_taxid`. The scope changes which calibration alignments contribute to the best target and other scores; bait design and taxonomic exact-match screening continue to use `target_taxid`. `background` is required because background cancellation is part of every run.
+`taxonomic_screening_taxids` is optional with either input system. It names a nonempty one-column TSV with the exact header `taxid` and positive unique taxids. When supplied, this finite set is authoritative: it may broaden the accepted assignments beyond `target_taxid` or narrow an enclosing `target_taxid` to an operational subset. During taxonomic exact-match screening, a database hit is on-target only when all usable hit taxids belong to that finite set. When the column is blank, screening accepts only `target_taxid`.
+
+`calibration_reads` is optional with either input system. When calibration uses a target-compatible scope broader than `target_taxid`, `calibration_target_taxids` names a one-column TSV with the exact header `taxid`. Its positive unique taxids must include `target_taxid`. The calibration scope changes which calibration alignments contribute to the best target and other scores; it does not change bait design or taxonomic exact-match screening. `background` is required because background cancellation is part of every run.
 
 ## What each input contributes
 
@@ -71,6 +73,7 @@ The designs CSV schema enforces one source-sequence path per row. A curated-sequ
 | `target_assembly` | Provides the assembly intervals found by the representative sequences | Yes, after discovery |
 | `background` | Declares the sequence collection whose exact k-mers must be cancelled | No; it is subtractive |
 | `target_taxid` | Identifies the target taxon for later taxonomic interpretation | No |
+| `taxonomic_screening_taxids` | Optionally declares taxids accepted during taxonomic exact-match screening | No |
 | `calibration_target_taxids` | Optionally declares taxids treated as target-compatible only during calibration | No |
 
 These inputs describe roles, not necessarily disjoint collections of organisms. The important distinction is whether an input generates candidate sequence or rejects it.
@@ -86,8 +89,8 @@ Use curated sequence input when you can answer this question directly:
 For example:
 
 ```csv
-id,target_taxid,curated_source_sequences,representative_queries,query_rules,target_assembly,background,calibration_reads,calibration_target_taxids
-curated_rrna,88456,data/source_sequences.fasta,,,,data/background.fasta,,
+id,target_taxid,curated_source_sequences,representative_queries,query_rules,target_assembly,background,taxonomic_screening_taxids,calibration_reads,calibration_target_taxids
+curated_rrna,88456,data/source_sequences.fasta,,,,data/background.fasta,,,
 ```
 
 Supplying a curated source sequence is a scientific assertion. A record is curated because a curator accepted it, not because `dholab/baits` proved that it belongs to the target taxon.

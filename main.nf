@@ -10,6 +10,7 @@ def validateInputMode(pipelineParams) {
         'source_sequences',
         'target_taxid',
         'background',
+        'taxonomic_screening_taxids',
         'calibration_reads',
         'calibration_target_taxids',
     ]
@@ -26,26 +27,26 @@ Put design-specific values in each applicable CSV row; --taxon_ref_db remains a 
     }
 }
 
-def resolveCalibrationTargetScope(row) {
+def resolveTaxidScope(row, fieldName, mustIncludeTargetTaxid) {
     def targetTaxid = row.target_taxid as String
-    if (!row.calibration_target_taxids) {
+    if (!row[fieldName]) {
         return [[], [targetTaxid]]
     }
 
-    def scopeFile = file(row.calibration_target_taxids)
+    def scopeFile = file(row[fieldName])
     def lines = scopeFile.readLines()
     if (!lines || lines.first() != 'taxid') {
-        error "calibration_target_taxids must have exactly one header: taxid"
+        error "${fieldName} must have exactly one header: taxid"
     }
     def taxids = lines.drop(1)
     if (!taxids || taxids.any { taxid -> !(taxid ==~ /[1-9][0-9]*/) }) {
-        error "calibration_target_taxids must contain canonical positive taxids"
+        error "${fieldName} must contain canonical positive taxids"
     }
     if (taxids.toSet().size() != taxids.size()) {
-        error "calibration_target_taxids must contain unique taxids"
+        error "${fieldName} must contain unique taxids"
     }
-    if (!(targetTaxid in taxids)) {
-        error "calibration_target_taxids must include target_taxid ${targetTaxid}"
+    if (mustIncludeTargetTaxid && !(targetTaxid in taxids)) {
+        error "${fieldName} must include target_taxid ${targetTaxid}"
     }
     def canonicalTaxids = taxids.sort { left, right ->
         left.size() <=> right.size() ?: left <=> right
@@ -94,6 +95,7 @@ workflow {
             query_rules: '',
             target_assembly: '',
             background: params.background,
+            taxonomic_screening_taxids: params.taxonomic_screening_taxids,
             calibration_reads: params.calibration_reads,
             calibration_target_taxids: params.calibration_target_taxids,
         ])
@@ -122,12 +124,18 @@ workflow {
     ch_calibration_scope_context = ch_normalized_rows
         .filter { meta, row -> row.calibration_reads != null && row.calibration_reads != '' }
         .map { meta, row ->
-            def scope = resolveCalibrationTargetScope(row)
+            def scope = resolveTaxidScope(row, 'calibration_target_taxids', true)
             tuple(meta, scope[0], scope[1])
         }
     ch_calibration_target_scopes = ch_calibration_scope_context
         .map { meta, calibration_target_taxids, canonical_taxids ->
             tuple(meta, calibration_target_taxids)
+        }
+
+    ch_taxonomic_screening_scopes = ch_normalized_rows
+        .map { meta, row ->
+            def scope = resolveTaxidScope(row, 'taxonomic_screening_taxids', false)
+            tuple(meta, scope[0])
         }
 
     // Expand each calibration directory into its direct-child FASTQs. Keeping
@@ -244,6 +252,7 @@ workflow {
         ch_entropy_threshold,
         ch_taxonomic_reference_db,
         ch_taxonomic_screening_not_run,
+        ch_taxonomic_screening_scopes,
         ch_calibration_reads,
         ch_calibration_target_scopes,
     )

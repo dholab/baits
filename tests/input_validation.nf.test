@@ -31,6 +31,25 @@ nextflow_pipeline {
         }
     }
 
+    test("accepts a direct screening scope that narrows an enclosing target taxid") {
+        setup {
+            new File("$outputDir/screening_scope.tsv").text = 'taxid\n138948\n'
+        }
+        when {
+            params {
+                id = "enterovirus"
+                source_sequences = "$baseDir/tests/data/curated_source_sequences.fasta"
+                target_taxid = "12059"
+                background = "$baseDir/tests/data/background.fasta"
+                taxonomic_screening_taxids = "$outputDir/screening_scope.tsv"
+            }
+        }
+
+        then {
+            assert workflow.success
+        }
+    }
+
     test("accepts curated and query-guided samplesheet rows") {
         setup {
             new File("$outputDir/valid_input.csv").text = """\
@@ -43,6 +62,26 @@ discovery,88456,,$baseDir/tests/data/representative_queries.fasta,$baseDir/tests
         when {
             params {
                 input = "$outputDir/valid_input.csv"
+            }
+        }
+
+        then {
+            assert workflow.success
+        }
+    }
+
+    test("accepts a samplesheet screening scope that narrows an enclosing target taxid") {
+        setup {
+            new File("$outputDir/screening_scope.tsv").text = 'taxid\n138948\n'
+            new File("$outputDir/scoped_input.csv").text = """\
+id,target_taxid,curated_source_sequences,representative_queries,query_rules,target_assembly,background,taxonomic_screening_taxids
+enterovirus,12059,$baseDir/tests/data/curated_source_sequences.fasta,,,,$baseDir/tests/data/background.fasta,$outputDir/screening_scope.tsv
+"""
+        }
+
+        when {
+            params {
+                input = "$outputDir/scoped_input.csv"
             }
         }
 

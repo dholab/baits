@@ -59,6 +59,14 @@
                 "pattern": "^\\S+\\.(fa|fasta|fna)(\\.gz)?$",
                 "errorMessage": "background must be an existing FASTA or compressed FASTA file"
             },
+            "taxonomic_screening_taxids": {
+                "type": ["string", "null"],
+                "format": "file-path",
+                "exists": true,
+                "schema": "assets/schema_taxonomic_screening_taxids.json",
+                "pattern": "^\\S+\\.tsv$",
+                "errorMessage": "taxonomic_screening_taxids must be an existing TSV file"
+            },
             "calibration_reads": {
                 "type": ["string", "null"],
                 "format": "directory-path",

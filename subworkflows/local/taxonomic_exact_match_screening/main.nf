@@ -13,7 +13,7 @@ workflow TAXONOMIC_EXACT_MATCH_SCREENING {
     ch_blast_inputs = ch_screening_inputs
         .combine(ch_taxonomic_reference_db)
         .combine(ch_kmer_size)
-        .map { meta, candidates, candidate_kmer_manifest, target_taxid, taxonomic_reference_db, kmer_size ->
+        .map { meta, candidates, candidate_kmer_manifest, target_taxid, taxonomic_screening_taxids, taxonomic_reference_db, kmer_size ->
             tuple(meta, candidates, taxonomic_reference_db, kmer_size)
         }
     BLASTN_TAXONOMIC_SCREENING(ch_blast_inputs)
@@ -22,8 +22,8 @@ workflow TAXONOMIC_EXACT_MATCH_SCREENING {
     ch_screening_interpreter_inputs = BLASTN_TAXONOMIC_SCREENING.out.hits
         .join(ch_screening_inputs)
         .combine(ch_kmer_size)
-        .map { meta, blast_hits, candidates, candidate_kmer_manifest, target_taxid, kmer_size ->
-            tuple(meta, candidates, blast_hits, candidate_kmer_manifest, target_taxid, kmer_size)
+        .map { meta, blast_hits, candidates, candidate_kmer_manifest, target_taxid, taxonomic_screening_taxids, kmer_size ->
+            tuple(meta, candidates, blast_hits, candidate_kmer_manifest, target_taxid, taxonomic_screening_taxids, kmer_size)
         }
     APPLY_TAXONOMIC_SCREENING(ch_screening_interpreter_inputs)
 

@@ -8,7 +8,7 @@
 
 `dholab/baits` offers three major operations for each target taxon. First, all k-mer subsequences from the provided source sequences are checked against a "background", which can be any reference in FASTA format. For the aforementioned *Cyclospora* study, the ribosomal rRNA databases SILVA and Rfam together with NCBI GenBank *Cyclospora* sequences comprised the background. Any k-mers from the source sequences that are present in the background are rejected. Give `dholab/baits` source sequences and a background, and it will find the source k-mers that distinguish it from the background.
 
-K-mers that are absent from the background are filtered for low complexity. The survivors can then go through the second operation: an exact, taxonomically informed screening against NCBI Core NT. Core NT can be swapped for another taxonomic BLAST database, and this step can also be skipped. If a database is provided, k-mers matching sequences from any taxon other than the target are rejected.
+K-mers that are absent from the background are filtered for low complexity. The survivors can then go through the second operation: an exact, taxonomically informed screening against NCBI Core NT. Core NT can be swapped for another taxonomic BLAST database, and this step can also be skipped. If a database is provided, k-mers with any usable assignment outside the declared taxonomic screening scope are rejected; by default, that scope contains only `target_taxid`.
 
 Third, `dholab/baits` can use provided sequencing reads to estimate how many bait matches are required before off-target hits go to zero. For many sequencing reads, a single bait match may still allow off-target hits. In the *Cyclospora* study, we found that requiring 24 bait matches reduced off-target hits to zero in the tested reads. `dholab/baits` can help you calibrate your own threshold for your own baits and your own data.
 
@@ -64,6 +64,7 @@ A basic run needs source sequences, an NCBI taxonomy ID, and a background FASTA.
 | `--background` | — | Direct-run FASTA containing sequences that the baits must not match. |
 | `--id` | FASTA basename | Direct-run name used for the design and its results directory. |
 | `--taxon_ref_db` | not run | Directory containing an optional taxonomic BLAST database. |
+| `--taxonomic_screening_taxids` | `target_taxid` only | Direct-run `taxid` TSV declaring assignments accepted during taxonomic exact-match screening. |
 | `--calibration_reads` | not run | Directory whose direct-child FASTQ files are used to calibrate a threshold. Requires `--taxon_ref_db`. |
 | `--calibration_target_taxids` | `target_taxid` only | Direct-run `taxid` TSV declaring target-compatible calibration assignments. Requires `--calibration_reads` and must include `target_taxid`. |
 | `--max_blast_targets` | `100` | Maximum subject sequences retained per calibration-read BLAST query. |
@@ -71,7 +72,7 @@ A basic run needs source sequences, an NCBI taxonomy ID, and a background FASTA.
 | `--deacon_window` | `1` | Deacon minimizer window length. |
 | `--entropy_threshold` | `0.6` | Minimum scaled entropy used for low-complexity filtering. |
 
-`--input` selects design-CSV mode and cannot be combined with `--id`, `--source_sequences`, `--target_taxid`, `--background`, `--calibration_reads`, or `--calibration_target_taxids`. Put those values in each applicable CSV row instead. Run-level parameters such as `--taxon_ref_db`, `--kmer_size`, `--deacon_window`, and `--entropy_threshold` still apply to every design in the run.
+`--input` selects design-CSV mode and cannot be combined with `--id`, `--source_sequences`, `--target_taxid`, `--background`, `--taxonomic_screening_taxids`, `--calibration_reads`, or `--calibration_target_taxids`. Put those values in each applicable CSV row instead. Run-level parameters such as `--taxon_ref_db`, `--kmer_size`, `--deacon_window`, and `--entropy_threshold` still apply to every design in the run.
 
 Every process has an HPC-oriented production baseline. CI and local fixture tests select the separate `test` profile, so runner capacity does not constrain production requests:
 
@@ -112,11 +113,12 @@ nextflow run dholab/baits \
     --target_taxid 88456 \
     --background background.fasta \
     --taxon_ref_db /path/to/blast/database \
+    --taxonomic_screening_taxids taxonomic_screening_taxids.tsv \
     --calibration_reads reads/ \
     --calibration_target_taxids calibration_target_taxids.tsv
 ```
 
-The scope file has exactly one column. Taxids must be canonical positive decimal identifiers and unique:
+Both taxid scope files have exactly one column, and taxids must be canonical positive decimal identifiers and unique. A calibration scope must include `target_taxid`. A taxonomic screening scope is authoritative when supplied and may omit an enclosing `target_taxid` when the intended target is an operational subset:
 
 ```tsv
 taxid

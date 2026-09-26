@@ -65,6 +65,7 @@ def positive_integer(value: str) -> int:
 def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--target-taxid", type=positive_integer, required=True)
+    parser.add_argument("--taxonomic-screening-taxids", type=Path)
     parser.add_argument("--kmer-size", type=positive_integer, required=True)
     parser.add_argument("--candidates", type=Path, required=True)
     parser.add_argument("--blast-hits", type=Path, required=True)
@@ -72,6 +73,28 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--manifest-out", type=Path, required=True)
     parser.add_argument("--selected-candidates-out", type=Path, required=True)
     return parser.parse_args(argv)
+
+
+def load_taxonomic_screening_taxids(path: Path | None, target_taxid: int) -> frozenset[str]:
+    """Load the finite taxid set accepted during taxonomic exact-match screening."""
+    if path is None:
+        return frozenset({str(target_taxid)})
+    try:
+        lines = path.read_text().splitlines()
+    except OSError as error:
+        message = f"Could not read taxonomic screening taxids: {error}"
+        raise TaxonomicScreeningError(message) from error
+    if not lines or lines[0] != "taxid":
+        message = "taxonomic_screening_taxids must have exactly one header: taxid"
+        raise TaxonomicScreeningError(message)
+    taxids = lines[1:]
+    if not taxids or any(re.fullmatch(r"[1-9][0-9]*", taxid) is None for taxid in taxids):
+        message = "taxonomic_screening_taxids must contain canonical positive taxids"
+        raise TaxonomicScreeningError(message)
+    if len(set(taxids)) != len(taxids):
+        message = "taxonomic_screening_taxids must contain unique taxids"
+        raise TaxonomicScreeningError(message)
+    return frozenset(taxids)
 
 
 def canonical_kmer(kmer: str) -> str:
@@ -283,7 +306,12 @@ def scan_manifest(path: Path, kmer_size: int) -> pl.LazyFrame:
     return parsed.drop("_invalid_row")
 
 
-def scan_blast_hits(path: Path, kmer_size: int, target_taxid: int) -> pl.LazyFrame:
+def scan_blast_hits(
+    path: Path,
+    kmer_size: int,
+    target_taxid: int,
+    taxonomic_screening_taxids: frozenset[str] | None = None,
+) -> pl.LazyFrame:
     """Scan and construct valid exact-hit rows with their scope classification."""
     if _header(path, "BLAST TSV") != BLAST_FIELDS:
         message = "BLAST TSV has an unexpected schema"
@@ -324,11 +352,11 @@ def scan_blast_hits(path: Path, kmer_size: int, target_taxid: int) -> pl.LazyFra
     valid_taxids = (pl.col("staxids") == "N/A") | pl.col("staxids").str.contains(
         r"^[1-9][0-9]*(;[1-9][0-9]*)*$",
     )
+    screening_scope = sorted(taxonomic_screening_taxids or {str(target_taxid)})
     taxids = pl.col("staxids").str.split(";").list.unique().list.sort()
     on_target = (
         (pl.col("staxids") != "N/A")
-        & (taxids.list.len() == 1)
-        & taxids.list.contains(str(target_taxid))
+        & taxids.list.eval(pl.element().is_in(screening_scope)).list.all()
     )
     invalid_row = pl.coalesce(
         pl.when(pl.col("qseqid").is_null() | (pl.col("qseqid") == "")).then(
@@ -458,13 +486,25 @@ def reject_path_aliases(outputs: Sequence[Path], inputs: Sequence[Path]) -> None
 
 def main(argv: Sequence[str] | None = None) -> None:
     args = parse_args(argv)
+    protected_inputs = [args.candidates, args.manifest_in, args.blast_hits]
+    if args.taxonomic_screening_taxids is not None:
+        protected_inputs.append(args.taxonomic_screening_taxids)
     reject_path_aliases(
         [args.manifest_out, args.selected_candidates_out],
-        [args.candidates, args.manifest_in, args.blast_hits],
+        protected_inputs,
     )
     candidates = read_candidates(args.candidates, args.kmer_size)
     manifest = scan_manifest(args.manifest_in, args.kmer_size)
-    hits = scan_blast_hits(args.blast_hits, args.kmer_size, args.target_taxid)
+    taxonomic_screening_taxids = load_taxonomic_screening_taxids(
+        args.taxonomic_screening_taxids,
+        args.target_taxid,
+    )
+    hits = scan_blast_hits(
+        args.blast_hits,
+        args.kmer_size,
+        args.target_taxid,
+        taxonomic_screening_taxids,
+    )
     result = construct_screening_result(candidates, manifest, hits)
     manifest_output, survivors = pl.collect_all(
         [result.manifest, result.survivors],

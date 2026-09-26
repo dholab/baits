@@ -6,7 +6,7 @@ process APPLY_TAXONOMIC_SCREENING {
     container 'community.wave.seqera.io/library/biopython_polars_python:5f22dbb8160be6fa@sha256:20d95779744ec0d8a943473966c3403a9d4b09f3d53722ffd67169972ab1b2da'
 
     input:
-    tuple val(meta), path(candidates), path(blast_hits), path(candidate_kmer_manifest, stageAs: 'screening_input/candidate_kmers.tsv'), val(target_taxid), val(kmer_size)
+    tuple val(meta), path(candidates), path(blast_hits), path(candidate_kmer_manifest, stageAs: 'screening_input/candidate_kmers.tsv'), val(target_taxid), path(taxonomic_screening_taxids, stageAs: 'scope_input/taxonomic_screening_taxids.tsv'), val(kmer_size)
 
     output:
     tuple val(meta), path('candidate_kmers.tsv'), emit: manifest
@@ -18,9 +18,13 @@ process APPLY_TAXONOMIC_SCREENING {
     task.ext.when == null || task.ext.when
 
     script:
+    def taxonomicScreeningTaxidsArg = taxonomic_screening_taxids
+        ? "--taxonomic-screening-taxids ${taxonomic_screening_taxids}"
+        : ''
     """
     apply_taxonomic_screening.py \
         --target-taxid ${target_taxid} \
+        ${taxonomicScreeningTaxidsArg} \
         --kmer-size ${kmer_size} \
         --candidates ${candidates} \
         --blast-hits ${blast_hits} \

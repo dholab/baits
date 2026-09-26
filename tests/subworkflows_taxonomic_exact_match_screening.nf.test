@@ -9,8 +9,8 @@ nextflow_workflow {
             workflow {
                 """
                 input[0] = Channel.of(
-                    [[id: 'design_a'], file(\"\$baseDir/tests/data/taxonomic_input_candidates.fasta\"), file(\"\$baseDir/tests/data/taxonomic_candidate_kmers.tsv\"), '88456'],
-                    [[id: 'design_b'], file(\"\$baseDir/tests/data/taxonomic_input_candidates.fasta\"), file(\"\$baseDir/tests/data/taxonomic_candidate_kmers.tsv\"), '88456']
+                    [[id: 'design_a'], file(\"\$baseDir/tests/data/taxonomic_input_candidates.fasta\"), file(\"\$baseDir/tests/data/taxonomic_candidate_kmers.tsv\"), '88456', []],
+                    [[id: 'design_b'], file(\"\$baseDir/tests/data/taxonomic_input_candidates.fasta\"), file(\"\$baseDir/tests/data/taxonomic_candidate_kmers.tsv\"), '88456', []]
                 )
                 input[1] = Channel.value(file(\"\$baseDir/tests/data/taxonomic_reference_db\"))
                 input[2] = Channel.value(31)
@@ -35,7 +35,7 @@ nextflow_workflow {
         when {
             workflow {
                 """
-                input[0] = Channel.of([[id: 'design'], file(\"\$baseDir/tests/data/taxonomic_input_candidates.fasta\"), file(\"\$baseDir/tests/data/taxonomic_candidate_kmers.tsv\"), '88456'])
+                input[0] = Channel.of([[id: 'design'], file(\"\$baseDir/tests/data/taxonomic_input_candidates.fasta\"), file(\"\$baseDir/tests/data/taxonomic_candidate_kmers.tsv\"), '88456', []])
                 input[1] = Channel.value(file("$outputDir/database"))
                 input[2] = Channel.value(31)
                 """
