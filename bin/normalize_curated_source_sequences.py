@@ -30,7 +30,11 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
 
 
 def normalize_curated_source_sequences(path: Path) -> tuple[SeqRecord, ...]:
-    records = tuple(SeqIO.parse(path, "fasta"))
+    import gzip
+
+    opener = gzip.open if path.suffix == ".gz" else open
+    with opener(path, "rt") as handle:
+        records = tuple(SeqIO.parse(handle, "fasta"))
     if not records:
         message = "Curated source sequence FASTA must contain at least one record"
         raise CuratedSourceSequenceError(message)
